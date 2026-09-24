@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/*
+ * The four theme variables are set inline on <html> from the user's Primary
+ * Beer (see src/lib/theme.ts). These are the fallbacks for the first paint and
+ * for anyone who has not chosen yet.
+ */
+:root {
+  --base: #17130b;
+  --surface: #231d12;
+  --accent: #e0a52b;
+  --ink: #faf6ee;
+}
+
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-ink: var(--ink);
+  --font-sans: var(--font-heebo), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  background: var(--base);
+  color: var(--ink);
+  /* The theme changes when the user changes their Primary Beer. Easing it
+     stops that from reading as a page error. */
+  transition: background-color 400ms ease;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  /* Respect the notch and the home indicator: this runs full-screen once it is
+     installed on an iPhone, where there is no browser chrome to hide behind. */
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior-y: none;
+}
+
+/* Hebrew numerals stay LTR inside an RTL line; without this, "24.90 ₪" can
+   render as "90.24". */
+.num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+/* Every tappable thing clears the 44px iOS minimum. This is a phone app held
+   one-handed, often in a supermarket aisle. */
+button,
+a[role="button"],
+input,
+select {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  /* 16px or larger, or iOS Safari zooms the whole page on focus. */
+  font-size: max(16px, 1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--base);
+}
