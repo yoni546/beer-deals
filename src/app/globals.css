@@ -12,11 +12,17 @@
   --ink: #faf6ee;
 }
 
+/*
+ * No --color-* aliases for the four theme variables here, deliberately.
+ *
+ * Registering one as `base` makes Tailwind generate a `text-base` COLOUR
+ * utility, which shadows the built-in `text-base` FONT-SIZE utility of the
+ * same name — every heading using it silently renders in the page background
+ * colour, dark on dark. Nothing needs the aliases: colours are written as
+ * `bg-[color:var(--surface)]`, which reads the variable directly and cannot
+ * collide with anything.
+ */
 @theme inline {
-  --color-base: var(--base);
-  --color-surface: var(--surface);
-  --color-accent: var(--accent);
-  --color-ink: var(--ink);
   --font-sans: var(--font-heebo), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 

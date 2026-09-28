@@ -172,13 +172,23 @@ export async function getWeeklyDeal(): Promise<PublicDeal | null> {
   return (data as PublicDeal | null) ?? null;
 }
 
-/** The newest approved deals, for the "what's on right now" list at the bottom of home. */
-export async function getLatestDeals(limit = 8): Promise<PublicDeal[]> {
+/**
+ * The newest approved deals, for the "what is on right now" list on home.
+ *
+ * `excludeId` is how the Weekly Deal stays out of it. Showing the same deal
+ * twice on one screen — once with a trophy, once without — reads as a bug and
+ * costs the trophy its meaning.
+ */
+export async function getLatestDeals(limit = 8, excludeId?: string | null): Promise<PublicDeal[]> {
   const supabase = await supabaseServer();
-  const { data } = await supabase
+  let query = supabase
     .from("deals_public")
     .select("*")
     .order("approved_at", { ascending: false, nullsFirst: false })
     .limit(limit);
+
+  if (excludeId) query = query.neq("id", excludeId);
+
+  const { data } = await query;
   return (data ?? []) as PublicDeal[];
 }

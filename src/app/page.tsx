@@ -19,7 +19,10 @@ export default async function HomePage() {
   const viewer = await getViewer();
   if (!viewer.isOnboarded) redirect("/welcome");
 
-  const [weekly, latest] = await Promise.all([getWeeklyDeal(), getLatestDeals(6)]);
+  // Sequential rather than parallel: the list has to know which deal already
+  // has the trophy so it can leave that one out.
+  const weekly = await getWeeklyDeal();
+  const latest = await getLatestDeals(6, weekly?.id);
 
   return (
     <Screen>
