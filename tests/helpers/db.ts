@@ -22,14 +22,9 @@ export async function freshDatabase(): Promise<PGlite> {
     await db.exec(readFileSync(join(dir, file), "utf8"));
   }
 
-  // PostgREST grants these after every migration; without them a SET ROLE to
-  // `authenticated` cannot see a table at all and every test would pass for the
-  // wrong reason.
-  await db.exec(`
-    grant select, insert, update, delete on all tables in schema public to authenticated;
-    grant select on all tables in schema public to anon;
-  `);
-
+  // Deliberately no blanket grant here. The migrations grant each table exactly
+  // the verbs it needs, and the tests run against those — so a grant that is
+  // missing in production is missing here too, and the suite says so.
   return db;
 }
 

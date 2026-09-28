@@ -309,12 +309,14 @@ describe("only a super admin manages admins", () => {
     ]);
     const target = await createUser(db, "target@example.com");
 
-    // There is no INSERT policy on public.admins at all: the table is writable
+    // Refused twice over: no INSERT privilege is granted on public.admins, and
+    // there is no INSERT policy either. Postgres stops at the first of those,
+    // so the message names the privilege rather than RLS. The table is writable
     // only through the SECURITY DEFINER functions.
     await asUser(db, superId, async () => {
       await expect(
         db.query("insert into public.admins (user_id, level) values ($1, 'admin')", [target]),
-      ).rejects.toThrow(/row-level security/i);
+      ).rejects.toThrow(/permission denied|row-level security/i);
     });
   });
 

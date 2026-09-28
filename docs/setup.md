@@ -5,9 +5,23 @@ and `npx vercel deploy --prod` gives you the link you can send on WhatsApp.
 
 ## 1. Create the Supabase project
 
-<https://supabase.com/dashboard> → **New project**. Any region close to Israel
-(Frankfurt is the usual choice). Keep the database password somewhere safe —
-you will not need it for this app, but you cannot see it again.
+<https://supabase.com/dashboard> → **New project**.
+
+- **Region:** pick one in **Europe (Frankfurt / eu-central-1)**. It is the
+  closest Supabase region to Israel — roughly 60ms away, against 200ms+ for
+  Asia-Pacific. Every page in this app is server-rendered against the database,
+  so that gap is felt on every screen. The region cannot be changed later
+  without moving the project.
+- **Database password:** press *Generate a password* and save it in your
+  password manager. This app never uses it — the schema is applied by pasting
+  SQL in the dashboard — but you cannot see it again afterwards.
+- **Enable Data API:** leave it **on**. It is the API `supabase-js` talks to.
+- **Automatically expose new tables:** turn it **off**. `0003_rls.sql` grants
+  each table exactly the verbs it needs; with this on, any table added later is
+  handed to the API before anyone has decided it should be.
+- **Enable automatic RLS:** turn it **on**. Every table in the migrations
+  already enables RLS explicitly, so this changes nothing today — it is a net
+  under any table added later, which arrives locked instead of open.
 
 ## 2. Turn on anonymous sign-ins
 

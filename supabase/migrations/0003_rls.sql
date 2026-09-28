@@ -7,6 +7,48 @@
 -- If every line of the frontend were deleted, these rules would still hold.
 -- ---------------------------------------------------------------------------
 
+-- --------------------------------------------------------------------------
+-- Table privileges.
+--
+-- Two different questions, and both have to be answered. A GRANT decides
+-- whether a role may touch the table at all; a POLICY decides which rows it
+-- then sees. RLS on a table with no grant is unreachable, and a grant with no
+-- policy is wide open — so each table below gets exactly the verbs it needs.
+--
+-- These are written out rather than left to Supabase's "automatically expose
+-- new tables" setting, which hands every new table to the API by default. That
+-- setting is off for this project on purpose: a table added later should be
+-- invisible until somebody deliberately opens it, not the other way round. The
+-- tests run against these same grants, so a missing one fails the suite instead
+-- of production.
+-- --------------------------------------------------------------------------
+
+grant select on public.beers        to anon, authenticated;
+grant select on public.stores       to anon, authenticated;
+grant select on public.app_settings to anon, authenticated;
+grant select on public.deals        to anon, authenticated;
+
+-- Catalogue edits are an admin job, gated by the policies below.
+grant insert, update, delete on public.beers  to authenticated;
+grant insert, update, delete on public.stores to authenticated;
+
+grant select, update on public.profiles to authenticated;
+grant select, insert, update, delete on public.user_favorite_beers to authenticated;
+
+-- Reading the roster answers "am I an admin?". Writing it is possible only
+-- through grant_admin()/revoke_admin(), which run as the owner — so no INSERT,
+-- UPDATE or DELETE is granted here at all.
+grant select on public.admins to authenticated;
+
+-- INSERT is a submission; UPDATE and DELETE are admin-only by policy.
+grant insert, update, delete on public.deals to authenticated;
+
+grant select, insert, update on public.deal_reports to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
+
+-- Written only by the notification sender, which uses the service role.
+grant select on public.push_log to authenticated;
+
 alter table public.beers               enable row level security;
 alter table public.stores              enable row level security;
 alter table public.profiles            enable row level security;
