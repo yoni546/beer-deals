@@ -10,3 +10,10 @@ build
 next-env.d.ts
 .DS_Store
 public/sw.js.map
+
+.vercel
+.env*
+
+# The Vercel CLI appends a broad ".env*" above. Keep the template visible —
+# it is the documentation for what has to be filled in.
+!.env.example
