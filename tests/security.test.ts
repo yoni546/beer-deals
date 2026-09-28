@@ -17,6 +17,8 @@ import { asUser, createUser, freshDatabase } from "./helpers/db";
 let db: PGlite;
 let beerId: string;
 let storeId: string;
+let storeIds: string[] = [];
+let shelf = 0;
 
 beforeAll(async () => {
   db = await freshDatabase();
@@ -26,13 +28,25 @@ beforeAll(async () => {
   storeId = (
     await db.query<{ id: string }>("select id from public.stores where slug = 'rami-levy'")
   ).rows[0].id;
+  storeIds = (await db.query<{ id: string }>("select id from public.stores order by slug")).rows.map(
+    (row) => row.id,
+  );
 });
 
 afterAll(async () => {
   await db?.close();
 });
 
-async function insertDeal(status = "pending", createdBy: string | null = null) {
+/**
+ * Each call lands on a different shop, because only one approved deal may exist
+ * per beer + shop + pack size (0005). Tests that need a specific shelf pass the
+ * store explicitly.
+ */
+async function insertDeal(
+  status = "pending",
+  createdBy: string | null = null,
+  store: string | null = null,
+) {
   const result = await db.query<{ id: string }>(
     `insert into public.deals
        (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status,
@@ -41,7 +55,7 @@ async function insertDeal(status = "pending", createdBy: string | null = null) {
      returning id`,
     [
       beerId,
-      storeId,
+      store ?? storeIds[shelf++ % storeIds.length],
       status,
       createdBy,
       status === "approved" ? createdBy : null,
@@ -438,5 +452,54 @@ describe("the weekly deal", () => {
       "select weekly_deal_id from public.app_settings where id",
     );
     expect(rows[0].weekly_deal_id).toBeNull();
+  });
+});
+
+describe("one approved deal per shelf", () => {
+  it("refuses to approve a second deal for the same beer, shop and pack", async () => {
+    const adminId = await createUser(db, "admin8@example.com");
+    await db.query("insert into public.admins (user_id, level) values ($1, 'admin')", [adminId]);
+
+    const shopId = (
+      await db.query<{ id: string }>("select id from public.stores where slug = 'carrefour'")
+    ).rows[0].id;
+
+    const first = await insertDeal("pending", await createUser(db), shopId);
+    const second = await insertDeal("pending", await createUser(db), shopId);
+
+    await asUser(db, adminId, async () => {
+      await db.query("select public.approve_deal($1)", [first]);
+
+      // The same beer at the same shop in the same size is one deal. Two of
+      // them on the shelf means the user sees the line twice, possibly at two
+      // different prices, with no way to tell which is true.
+      await expect(db.query("select public.approve_deal($1)", [second])).rejects.toThrow(
+        /כבר יש מבצע מאושר/,
+      );
+    });
+  });
+
+  it("lets the replacement through once the old one is taken down", async () => {
+    const adminId = await createUser(db, "admin9@example.com");
+    await db.query("insert into public.admins (user_id, level) values ($1, 'admin')", [adminId]);
+
+    const shopId = (
+      await db.query<{ id: string }>("select id from public.stores where slug = 'king-store'")
+    ).rows[0].id;
+
+    const oldDeal = await insertDeal("pending", await createUser(db), shopId);
+    const newDeal = await insertDeal("pending", await createUser(db), shopId);
+
+    await asUser(db, adminId, async () => {
+      await db.query("select public.approve_deal($1)", [oldDeal]);
+      await db.query("select public.set_deal_status($1, 'inactive')", [oldDeal]);
+      await db.query("select public.approve_deal($1)", [newDeal]);
+    });
+
+    const { rows } = await db.query<{ n: number }>(
+      "select count(*)::int as n from public.deals where store_id = $1 and status = 'approved'",
+      [shopId],
+    );
+    expect(rows[0].n).toBe(1);
   });
 });

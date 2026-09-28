@@ -88,7 +88,10 @@ select
 from demo
 join public.beers  b on b.slug = demo.beer
 join public.stores s on s.slug = demo.store
-cross join me;
+cross join me
+-- Safe to run twice. Only one approved deal may exist per beer + shop + pack,
+-- so a second run adds nothing instead of doubling the shelf.
+on conflict (beer_id, store_id, category) where status = 'approved' do nothing;
 
 
 -- --------------------------------------------------------------------------
