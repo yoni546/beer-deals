@@ -64,7 +64,7 @@ Copy `.env.example` to `.env.local` and fill in:
 | `NEXT_PUBLIC_SUPABASE_URL` | Project Settings → Data API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project Settings → API Keys → anon / publishable |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API Keys → service_role |
-| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally, the real origin in production |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3100` locally, the real origin in production |
 
 The service role key bypasses Row Level Security completely. It is used for
 exactly one job — reading other people's push subscriptions in order to send a
@@ -105,7 +105,7 @@ being hidden.
 npm run dev
 ```
 
-Open <http://localhost:3000>. You should get the onboarding: name, four beers,
+Open <http://localhost:3100>. You should get the onboarding: name, four beers,
 then the home screen themed after whichever beer you ranked first.
 
 ## 8. Deploy
