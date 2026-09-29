@@ -161,7 +161,7 @@ describe("regular price and promotion coexist", () => {
     expect((await w.offers())[0]).toMatchObject({ reference_trust: "feed", value_pct: 34 });
   });
 
-  it("allows several different promotions on one SKU at one chain (club price and a general cut)", async () => {
+  it("records several promotions on one SKU at one chain, but publishes only the one everyone can use", async () => {
     const w = await world();
     const s = await w.sku(w.ids.goldstar, "can", 330, 6);
     await w.record({ sku: s, store: w.ids.rami, kind: "promotion", promoType: "price_cut", price: 2900, naturalKey: "P-100" });
@@ -169,9 +169,12 @@ describe("regular price and promotion coexist", () => {
       sku: s, store: w.ids.rami, kind: "promotion", promoType: "club_price", price: 2500, naturalKey: "P-200",
       conditions: { club: "רמי לוי מועדון" },
     });
+    // Both are in the ledger (provenance)…
+    const { rows: ledger } = await w.db.query<{ n: number }>("select count(*)::int as n from public.price_observations where kind = 'promotion' and status = 'live'");
+    expect(ledger[0].n).toBe(2);
+    // …but a club price is not for everyone, so the app never sees it.
     const rows = await w.offers();
-    expect(rows.map((r) => r.effective_agorot)).toEqual([2500, 2900]);
-    expect(rows[0].conditions).toMatchObject({ club: "רמי לוי מועדון" });
+    expect(rows.map((r) => r.effective_agorot)).toEqual([2900]);
   });
 });
 

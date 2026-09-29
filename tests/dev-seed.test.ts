@@ -25,7 +25,7 @@ describe("supabase/seed/dev-catalog.sql", () => {
     expect(goldstar.rows[0].n).toBe(4); // 6×330 can, 6×500 can, 6×330 bottle, 24×330 can
 
     const feed = await asUser(db, null, () => db.query<Record<string, unknown>>("select * from public.offers_feed order by origin, effective_agorot"), "anon");
-    expect(feed.rows).toHaveLength(10);
+    expect(feed.rows).toHaveLength(9); // 10 promotions in the seed; the club price is not published
     expect(feed.rows.every((r) => r.is_sample === true)).toBe(true);
   });
 
@@ -48,8 +48,8 @@ describe("supabase/seed/dev-catalog.sql", () => {
     expect(await offer("goldstar", "rami-levy", 330, 6)).toMatchObject({ effective_agorot: 2500, reference_agorot: 3790, value_pct: 34 });
     // Multi-buy: "2 for ₪80.00" is ₪40.00 a pack, against 49.90.
     expect(await offer("goldstar", "rami-levy", 500, 6)).toMatchObject({ promo_type: "multi_buy", effective_agorot: 4000, value_pct: 20 });
-    // Club price keeps its condition.
-    expect((await offer("goldstar", "shufersal", 330, 6)).conditions).toMatchObject({ club: "שופרסל פלוס" });
+    // A club price is recorded but never published: it is not available to everyone.
+    expect(await offer("goldstar", "shufersal", 330, 6)).toBeUndefined();
     // Two packs of one beer on offer at the same chain, at different unit prices.
     const small = await offer("goldstar", "rami-levy", 330, 6);
     const dozens = await offer("goldstar", "rami-levy", 330, 24);

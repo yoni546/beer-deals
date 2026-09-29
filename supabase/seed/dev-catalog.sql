@@ -45,7 +45,7 @@ select b.id, v.container::public.container_type, v.ml, v.pack, v.label
     ('carlsberg', 'can',    500, 4,  'קרלסברג 4×500 מ״ל פחית')
   ) as v(slug, container, ml, pack, label)
   join public.beers b on b.slug = v.slug
-on conflict (beer_id, container, volume_ml, pack_quantity) do nothing;
+on conflict (beer_id, variant, container, volume_ml, pack_quantity) do nothing;
 
 -- --------------------------------------------------------------------------
 -- Regular prices (agorot for the whole pack), seen an hour ago.
