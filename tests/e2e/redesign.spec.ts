@@ -48,6 +48,43 @@ test("Home: a promotion with no trusted regular price is shown without a percent
   await expect(line.getByText(/−\d+%/)).toHaveCount(0);
 });
 
+test("Home: the search box, the number-one beer and the bottom bar are all on the first screen", async ({ page }) => {
+  await onboard(page);
+  const height = page.viewportSize()!.height;
+  const searchbox = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
+  const numberOne = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem").first();
+  const bar = page.getByRole("navigation", { name: "ניווט ראשי" });
+  for (const [name, locator] of [["search", searchbox], ["number one", numberOne], ["bottom bar", bar]] as const) {
+    const box = (await locator.boundingBox())!;
+    expect(box.y, name).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height, `${name} fits above the fold`).toBeLessThanOrEqual(height + 1);
+  }
+});
+
+test("Home search: a beer or a chain, typos forgiven, Enter opens the best match", async ({ page }) => {
+  await onboard(page);
+  await page.waitForLoadState("networkidle"); // hydrated, so typing reaches React
+  const box = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
+  const results = page.getByRole("search");
+
+  await box.fill("גולדסטר"); // a letter short
+  await expect(results.getByRole("link", { name: /גולדסטאר/ })).toBeVisible();
+  await expect(results.getByRole("link", { name: /קורונה/ })).toHaveCount(0);
+  await box.press("Enter");
+  await expect(page).toHaveURL(/\/beer\/goldstar$/);
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await box.fill("רמי");
+  await results.getByRole("link", { name: /רמי לוי/ }).click();
+  await expect(page).toHaveURL(/\/store\/rami-levy$/);
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await box.fill("zzzz");
+  await expect(page.getByText("לא מצאנו בירה או סופר בשם הזה")).toBeVisible();
+});
+
 test("Home: sorting lives in the URL, reorders the lines, and survives a reload", async ({ page }) => {
   await onboard(page);
   await page.getByRole("link", { name: /מחיר.*מהזול ליקר/ }).click();

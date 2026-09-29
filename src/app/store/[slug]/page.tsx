@@ -86,6 +86,42 @@ export default async function StorePage({ params, searchParams }: { params: Prom
   const dealItems = mineOnly ? viewer.favorites.map((beer) => dealGroups.find((group) => group.beerId === beer.id) ?? beer) : dealGroups;
   const regularItems = mineOnly ? viewer.favorites.map((beer) => regularGroups.find((group) => group.beerId === beer.id) ?? beer) : regularGroups;
 
+  const dealNodes = dealItems.map((item, index) =>
+    "offers" in item ? (
+      <Strip
+        key={item.beerId}
+        title={item.name}
+        href={`/beer/${item.slug}`}
+        aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
+        offers={item.offers}
+        lead="pack"
+        showStore={false}
+        printIn={index === 0}
+      />
+    ) : (
+      <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} />
+    ),
+  );
+  const regularNodes = regularItems.map((item) =>
+    "prices" in item ? (
+      <RegularStrip
+        key={item.beerId}
+        title={item.name}
+        href={`/beer/${item.slug}`}
+        aside={`${item.prices.length} ${item.prices.length === 1 ? "אריזה" : "אריזות"}`}
+        prices={item.prices}
+        lead="pack"
+      />
+    ) : (
+      <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} price />
+    ),
+  );
+  // A busy chain must not become an endless page: the first few beers, the rest one tap away.
+  // ("My beers" is at most four, so it is never folded.)
+  const FIRST = 6;
+  const head = (nodes: React.ReactNode[]) => (mineOnly ? nodes : nodes.slice(0, FIRST));
+  const tail = (nodes: React.ReactNode[]) => (mineOnly ? [] : nodes.slice(FIRST));
+
   return (
     <Screen>
       <TopBar
@@ -143,22 +179,8 @@ export default async function StorePage({ params, searchParams }: { params: Prom
           </EmptyState>
         ) : (
           <div className="space-y-7">
-            {dealItems.map((item, index) =>
-              "offers" in item ? (
-                <Strip
-                  key={item.beerId}
-                  title={item.name}
-                  href={`/beer/${item.slug}`}
-                  aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
-                  offers={item.offers}
-                  lead="pack"
-                  showStore={false}
-                  printIn={index === 0}
-                />
-              ) : (
-                <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} />
-              ),
-            )}
+            {head(dealNodes)}
+            <Fold hidden={tail(dealNodes).length}>{tail(dealNodes)}</Fold>
             {dealItems.length === 0 && (
               <EmptyState title="אין מבצע באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
             )}
@@ -170,20 +192,8 @@ export default async function StorePage({ params, searchParams }: { params: Prom
           <EmptyState title="עוד אין מחירים רגילים לרשת הזו">מחירים רגילים נכנסים מפרסומי הרשתות.</EmptyState>
         ) : (
           <div className="space-y-7">
-            {regularItems.map((item) =>
-              "prices" in item ? (
-                <RegularStrip
-                  key={item.beerId}
-                  title={item.name}
-                  href={`/beer/${item.slug}`}
-                  aside={`${item.prices.length} ${item.prices.length === 1 ? "אריזה" : "אריזות"}`}
-                  prices={item.prices}
-                  lead="pack"
-                />
-              ) : (
-                <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} price />
-              ),
-            )}
+            {head(regularNodes)}
+            <Fold hidden={tail(regularNodes).length}>{tail(regularNodes)}</Fold>
             {regularItems.length === 0 && (
               <EmptyState title="אין מחיר באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
             )}
@@ -211,5 +221,21 @@ function NoOffer({ name, slug, where, price = false }: { name: string; slug: str
         {price ? `לא ראינו מחיר רגיל של ${name} ב${where}.` : `אין כרגע מבצע על ${name} ב${where}.`}
       </p>
     </Tape>
+  );
+}
+
+/** "Show N more beers": the rest of a long list, folded (native <details>, no script). */
+function Fold({ hidden, children }: { hidden: number; children: React.ReactNode }) {
+  if (hidden === 0) return null;
+  return (
+    <details className="group">
+      <summary className="btn btn-ghost w-full cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <span className="group-open:hidden">
+          הציגו עוד {hidden} {hidden === 1 ? "בירה" : "בירות"}
+        </span>
+        <span className="hidden group-open:inline">הסתירו</span>
+      </summary>
+      <div className="mt-7 space-y-7">{children}</div>
+    </details>
   );
 }

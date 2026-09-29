@@ -4,6 +4,7 @@ import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
 import { FavouriteKeys } from "@/components/FavouriteKeys";
 import { Freshness } from "@/components/Freshness";
 import { Hero } from "@/components/Hero";
+import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { SortBar } from "@/components/SortBar";
 import { Strip } from "@/components/BeerStrip";
@@ -24,7 +25,7 @@ import {
   type BeerSummary,
   type PackFilter,
 } from "@/lib/offer-logic";
-import { getSettings } from "@/lib/queries";
+import { getBeers, getSettings, getStores } from "@/lib/queries";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const favouriteIds = viewer.favorites.map((beer) => beer.id);
   const settings = await getSettings();
-  const [mine, more, featured, updatedAt] = await Promise.all([
+  const [allBeers, allStores, mine, more, featured, updatedAt] = await Promise.all([
+    getBeers(),
+    getStores(),
     getOffers({ beerIds: favouriteIds }),
     getOffers({ excludeBeerIds: favouriteIds, topByValue: 24 }),
     settings?.weekly_deal_id ? getOfferByKey(`deal:${settings.weekly_deal_id}`) : Promise.resolve(null),
@@ -82,6 +85,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <Freshness at={freshest} />
         </div>
       </header>
+
+      <div className="mb-6">
+        <HomeSearch
+          beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
+          stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
+        />
+      </div>
 
       <section aria-labelledby="mine" className="mb-6">
         <h2 id="mine" className="mb-2 text-sm font-semibold text-on-ground-2">

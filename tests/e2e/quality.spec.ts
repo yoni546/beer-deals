@@ -85,6 +85,20 @@ test("no screen scrolls sideways, every control is a real touch target, no text 
   }
 });
 
+// The two other widths the audit named: a small Android phone and a tablet held upright.
+for (const width of [360, 768]) {
+  test(`no screen scrolls sideways at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await onboard(page);
+    for (const route of SCREENS) {
+      await page.goto(route);
+      await page.waitForLoadState("networkidle");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, `${route} at ${width}px`).toBeLessThanOrEqual(1);
+    }
+  });
+}
+
 test("the unread dot and the details toggles are still touch targets when they are open", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
