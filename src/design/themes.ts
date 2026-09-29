@@ -78,8 +78,9 @@ export const BEER_IDENTITIES: BeerIdentity[] = [
     { shape: "longneck", glass: "#1f5d2d", cap: "#1b5e32", neck: "#13502a", label: { form: "oval", base: "#eef0ea", band: "#13692f", detail: "#c8102e" } }),
   beer("carlsberg",   [140, 0.045, 0.22, 0.88],       [95, 0.07, 0.9],     "right",
     { shape: "longneck", glass: "#2d6a31", cap: "#256b35", neck: "#1e6a37", label: { form: "band", base: "#1f6b36", band: "#f1efe2", detail: "#c7a456" } }),
-  beer("maccabee",    [28, 0.07, 0.17, 0.87],         [80, 0.08, 0.88],    "left",
-    { shape: "classic", glass: amber, cap: "#b3211f", neck: "#b3211f", label: { form: "shield", base: "#b01e23", band: "#efe4c8", detail: "#c9a04a" } }),
+  // The current Israeli bottle (0.7.0 photo): royal-blue label and neck, gold lettering, amber glass.
+  beer("maccabee",    [262, 0.085, 0.17, 0.88],       [84, 0.12, 0.82],    "left",
+    { shape: "classic", glass: amber, cap: "#b08a3e", neck: "#1f4aa0", label: { form: "shield", base: "#1f4aa0", band: "#c9a24a", detail: "#f4f1e8" } }),
   beer("tuborg",      [150, 0.07, 0.2, 0.86],         [125, 0.15, 0.85],   "right",
     { shape: "classic", glass: "#2e6a2b", cap: "#1f8a3d", neck: "#1f8a3d", label: { form: "band", base: "#1f8a3d", band: "#ffffff", detail: "#d1b04b" } }),
   beer("tuborg-red",  [22, 0.09, 0.18, 0.86],         [60, 0.04, 0.93],    "top",

@@ -42,7 +42,14 @@ export function FavouriteKeys({
                 {lead && <span>ראשית</span>}
                 <BeerMark slug={beer.slug} height={30} className="ms-auto -mt-1" />
               </span>
-              <span className="line-clamp-2 text-[0.95rem] leading-tight font-bold text-ink">{beer.name_he}</span>
+              {/* A long single-word name ("גולדסטאר") cannot wrap; it gets a slightly smaller size instead of being clipped. */}
+              <span
+                className={`line-clamp-2 leading-tight font-bold text-ink ${
+                  Math.max(...beer.name_he.split(/\s+/).map((w) => w.length)) > 7 ? "text-[0.8rem]" : "text-[0.95rem]"
+                }`}
+              >
+                {beer.name_he}
+              </span>
               <span className={`text-xs ${has ? "font-semibold text-price" : "text-ink-2"}`}>
                 {has ? (
                   summary.bestValuePct !== null ? (
