@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { Screen, TopBar } from "@/components/Chrome";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -36,27 +38,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <div className="mx-auto w-full max-w-md px-5 pt-6 pb-12">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-black">🛠️ ניהול</h1>
-        <Link href="/" className="text-sm opacity-60 underline">
-          לאפליקציה
-        </Link>
-      </header>
-
-      <nav className="mb-5 flex flex-wrap gap-1.5">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className="rounded-xl bg-[color:var(--surface)] px-3 py-2 text-xs font-bold ring-1 ring-white/10"
-          >
-            {tab.label}
+    <Screen bare>
+      <TopBar
+        title="ניהול"
+        action={
+          <Link href="/" className="btn btn-ghost shrink-0">
+            לאפליקציה
           </Link>
-        ))}
-      </nav>
+        }
+      />
+
+      <AdminNav tabs={tabs} />
 
       {children}
-    </div>
+    </Screen>
   );
 }

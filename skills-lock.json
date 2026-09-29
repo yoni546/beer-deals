@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "israeli-grocery-price-intelligence": {
+      "source": "skills-il/food-and-dining",
+      "sourceType": "github",
+      "computedHash": "c5ea411779e8224af21e6193bd3953ee8e1939bcd39757a3f81fce221af7caf1"
+    }
+  }
+}

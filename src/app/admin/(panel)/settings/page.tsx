@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { AdminSection } from "@/components/admin/AdminUi";
 import { NotificationSettings } from "@/components/admin/NotificationSettings";
+import { RecentDeliveries } from "@/components/admin/RecentDeliveries";
 import { EmptyState } from "@/components/Chrome";
 import { getSettings } from "@/lib/queries";
 import { getViewer } from "@/lib/session";
@@ -13,13 +15,14 @@ export default async function AdminSettingsPage() {
   const settings = await getSettings();
 
   return (
-    <section>
-      <h2 className="mb-3 text-sm font-black opacity-70">מתי שולחים התראה</h2>
-      {settings ? (
-        <NotificationSettings settings={settings} />
-      ) : (
-        <EmptyState>לא נמצאו הגדרות.</EmptyState>
-      )}
-    </section>
+    <div className="space-y-10">
+      <AdminSection title="מתי שולחים התראה">
+        {settings ? <NotificationSettings settings={settings} /> : <EmptyState>לא נמצאו הגדרות.</EmptyState>}
+      </AdminSection>
+
+      <AdminSection title="התראות אחרונות" note="מה נשלח, למי (מזהה מקוצר) ולמה לא.">
+        <RecentDeliveries />
+      </AdminSection>
+    </div>
   );
 }

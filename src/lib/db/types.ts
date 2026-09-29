@@ -15,6 +15,8 @@ export type Beer = {
   theme_ink: string;
   sort_order: number;
   is_active: boolean;
+  /** product_categories.slug (migration 0014): beer | non_alcoholic | radler | malt | cider */
+  category?: string;
 };
 
 export type Store = {
@@ -30,6 +32,7 @@ export type Profile = {
   primary_beer_id: string | null;
   notifications_enabled: boolean;
   onboarded_at: string | null;
+  /** A theme slug the person chose in Settings; null = follow favourite #1. */
 };
 
 /** A row of public.deals_public — an approved deal with its beer and store. */
@@ -84,5 +87,153 @@ export type AppSettings = {
   notify_min_discount_percent: number;
   notify_max_price_agorot: number;
   notify_cooldown_hours: number;
+  notify_daily_cap: number;
+  notify_quiet_start: number;
+  notify_quiet_end: number;
   weekly_deal_preferred_beer_slug: string | null;
+};
+
+// --- Catalogue model (migrations 0007–0009) ----------------------------------
+
+export type ContainerType = "bottle" | "can" | "keg" | "draft" | "other";
+export type PromoType = "price_cut" | "multi_buy" | "club_price" | "coupon" | "gift" | "other";
+export type ReferenceTrust = "feed" | "moderated" | "unverified";
+
+export type Brand = { id: string; slug: string; name_he: string; name_en: string };
+
+/** A sellable unit: identified by container, volume and pack size — never by brand name. */
+export type Sku = {
+  id: string;
+  beer_id: string;
+  container: ContainerType;
+  volume_ml: number;
+  pack_quantity: number;
+  total_volume_ml: number;
+  display_he: string;
+  is_active: boolean;
+};
+
+/** Structured promotion terms (price_observations.conditions). */
+export type OfferConditions = {
+  min_qty?: number;
+  max_qty?: number;
+  /** Only with a basket over this amount ("מעל 75"): anyone can get it, but not on its own. */
+  min_basket_agorot?: number;
+  /** "2 for ₪45": qty packs for total_agorot. The per-pack price is ceil(total / qty). */
+  multi_buy?: { qty: number; total_agorot: number };
+  club?: string;
+  coupon?: boolean;
+  note_he?: string;
+  /** Who can redeem it (0014). The read views only ever return "everyone". */
+  audience?: "everyone" | "club" | "payment" | "coupon" | "personal" | "restricted";
+  /** The bottle deposit: {agorot per pack, included in the price?, why we think so}. */
+  deposit?: { agorot: number | null; included: boolean; basis?: string };
+};
+
+/** Where a price was seen, and how it relates to the deposit (migrations 0014–0015). */
+export type PriceProvenance = {
+  variant: string;
+  category: string;
+  /** ₪0.30 × containers, per pack; null when unknown or not applicable. */
+  deposit_agorot: number | null;
+  deposit_included: boolean | null;
+  /** How many of the chain's branches this price (or promotion) was seen at. */
+  branch_count: number;
+  branch_id: string | null;
+  branch_name: string | null;
+  branch_city: string | null;
+};
+
+/**
+ * One row of `offers_feed`: the single thing the app reads for "what is on offer".
+ *
+ * `value_pct` and `reference_agorot` are only set when the reference price can be
+ * trusted (same SKU, same chain, seen in the last 14 days, from a chain feed or
+ * an administrator, and the saving is at most 70 %). A null means "do not claim a
+ * saving" — show the price alone. Never derive a percentage in the UI.
+ */
+export type Offer = {
+  offer_key: string;
+  origin: "catalog" | "legacy";
+  sku_id: string | null;
+  beer_id: string;
+  beer_slug: string;
+  beer_name: string;
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  /** "גולדסטאר 6×330 מ״ל פחית" for catalogue offers; "שישייה/ארגז/בודד" for legacy deals. */
+  pack_label: string;
+  container: ContainerType | null;
+  volume_ml: number | null;
+  pack_quantity: number | null;
+  /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
+  effective_agorot: number;
+  unit_price_per_liter_agorot: number | null;
+  reference_agorot: number | null;
+  reference_trust: ReferenceTrust | null;
+  value_pct: number | null;
+  needs_review: boolean;
+  market_reference_agorot: number | null;
+  market_value_pct: number | null;
+  promo_type: PromoType | null;
+  conditions: OfferConditions;
+  valid_from: string | null;
+  valid_to: string | null;
+  observed_at: string | null;
+  is_sample: boolean;
+  notes: string | null;
+} & Partial<PriceProvenance>;
+
+/** One row of `regular_prices_feed`: the latest regular (non-promotional) price of a pack at a chain. */
+export type RegularPrice = {
+  observation_id: number;
+  sku_id: string;
+  beer_id: string;
+  beer_slug: string;
+  beer_name: string;
+  container: ContainerType;
+  volume_ml: number;
+  pack_quantity: number;
+  pack_label: string;
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  price_agorot: number;
+  unit_price_per_liter_agorot: number;
+  observed_at: string;
+  is_sample: boolean;
+  trust: ReferenceTrust;
+  is_stale: boolean;
+  /** The highest current price among the branches seen; above price_agorot → "החל מ־". */
+  max_price_agorot?: number;
+} & Partial<PriceProvenance>;
+
+/**
+ * One row of `group_offers_feed` (0014): "any N of these packs for ₪X" at a chain — ONE offer across
+ * several packs. Never shown as a per-pack price of any one of them.
+ */
+export type GroupOffer = {
+  offer_key: string;
+  group_id: number;
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  description_he: string;
+  required_qty: number;
+  total_agorot: number;
+  per_unit_agorot: number;
+  deposit_agorot: number | null;
+  deposit_included: boolean | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  observed_at: string;
+  is_sample: boolean;
+  beer_ids: string[];
+  beer_slugs: string[];
+  packs: Array<{ sku_id: string; beer_slug: string; beer_name: string; label: string; container: ContainerType; volume_ml: number; pack_quantity: number }>;
+  branch_count: number;
+  branch_id: string | null;
+  branch_name: string | null;
+  branch_city: string | null;
 };

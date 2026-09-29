@@ -15,7 +15,7 @@ export default async function AdminLoginPage() {
   if (viewer.isAdmin) redirect("/admin");
 
   return (
-    <Screen>
+    <Screen bare>
       <TopBar title="כניסת מנהלים" backHref="/settings" />
       <AdminLogin />
     </Screen>

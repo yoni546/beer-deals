@@ -1,29 +1,25 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { deletePushSubscription, savePushSubscription } from "@/lib/actions/push";
+import { Notice } from "@/components/Chrome";
+import { Tape } from "@/components/ui/Tape";
+import { deletePushSubscription, savePushSubscription, sendTestPush } from "@/lib/actions/push";
 import { setNotificationsEnabled } from "@/lib/actions/profile";
-
-/** VAPID keys travel as base64url; PushManager wants an ArrayBuffer. */
-function urlBase64ToBuffer(base64: string): ArrayBuffer {
-  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4))
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
-  const raw = atob(padded);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-  return bytes.buffer;
-}
+import { derivePushState, disablePush, enablePush, withTimeout, type PushState } from "@/lib/push/client";
 
 /**
  * The one notification switch.
  *
- * It does two things that must stay together: it asks the browser for
- * permission and stores the resulting endpoint, and it sets the user's
- * preference in the database. Only the second can be undone from here — a
- * browser permission, once denied, can only be changed in browser settings, so
- * that case is named explicitly instead of leaving a switch that silently does
- * nothing.
+ * What it shows is derived from what is actually true on this device — browser
+ * permission, a real push subscription, and the user's stored preference (see
+ * derivePushState). It used to trust the stored preference alone, which
+ * defaulted to "on", so people who had never been asked saw "active" and their
+ * first tap switched notifications OFF.
+ *
+ * A browser permission, once denied, can only be changed in the browser's own
+ * settings, so that state is named instead of leaving a switch that silently
+ * does nothing. And nothing the browser refuses is allowed to crash the page:
+ * failures come back from enablePush() as a message and are shown inline.
  */
 export function PushToggle({
   vapidPublicKey,
@@ -34,114 +30,155 @@ export function PushToggle({
   enabled: boolean;
   primaryBeerName: string | null;
 }) {
-  const [supported, setSupported] = useState<boolean | null>(null);
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [on, setOn] = useState(enabled);
+  const [state, setState] = useState<PushState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [testing, startTest] = useTransition();
 
   useEffect(() => {
-    const ok =
-      "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-    setSupported(ok);
-    if (ok) setPermission(Notification.permission);
-  }, []);
+    let cancelled = false;
 
-  if (supported === null) return null;
+    async function detect() {
+      const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+      if (!supported) {
+        if (!cancelled) setState({ kind: "unsupported" });
+        return;
+      }
 
-  if (!supported) {
+      let hasSubscription = false;
+      try {
+        // `ready` never resolves if the worker failed to register, hence the timeout.
+        const registration = await withTimeout(navigator.serviceWorker.ready, 4000);
+        hasSubscription = Boolean(await registration.pushManager.getSubscription());
+      } catch {
+        hasSubscription = false;
+      }
+
+      if (!cancelled) {
+        setState(
+          derivePushState({
+            supported: true,
+            permission: Notification.permission,
+            hasSubscription,
+            profileEnabled: enabled,
+          }),
+        );
+      }
+    }
+
+    void detect();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (state === null) return null;
+
+  if (state.kind === "unsupported") {
     return (
-      <p className="text-sm opacity-60">
-        הדפדפן הזה לא תומך בהתראות. באייפון צריך קודם להוסיף את האפליקציה למסך הבית.
-      </p>
+      <Tape className="px-4 py-4">
+        <p className="text-base font-bold text-ink">אי אפשר לקבל התראות בדפדפן הזה</p>
+        <p className="mt-1 text-sm leading-relaxed text-ink-2">באייפון צריך קודם להוסיף את האפליקציה למסך הבית, ואז להפעיל התראות משם.</p>
+      </Tape>
     );
   }
 
-  async function turnOn() {
-    setError(null);
+  const on = state.kind === "on";
+  const blocked = state.kind === "blocked";
 
-    const result = await Notification.requestPermission();
-    setPermission(result);
-    if (result !== "granted") {
-      setError("ההתראות חסומות בדפדפן. אפשר לאשר אותן בהגדרות האתר.");
-      return;
-    }
-
-    if (!vapidPublicKey) {
-      setError("ההתראות עדיין לא מוגדרות בשרת.");
-      return;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      // Required by every browser that implements Web Push: a silent push is
-      // not allowed, and asking for one fails the subscribe outright.
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToBuffer(vapidPublicKey),
+  function sendTest() {
+    setTestResult(null);
+    startTest(async () => {
+      const result = await sendTestPush();
+      setTestResult(result.ok ? { ok: true, text: result.message ?? "נשלחה." } : { ok: false, text: result.error });
     });
-
-    const json = subscription.toJSON();
-    const saved = await savePushSubscription({
-      endpoint: subscription.endpoint,
-      p256dh: json.keys?.p256dh ?? "",
-      auth: json.keys?.auth ?? "",
-      userAgent: navigator.userAgent,
-    });
-
-    if (!saved.ok) {
-      setError(saved.error);
-      return;
-    }
-
-    await setNotificationsEnabled(true);
-    setOn(true);
   }
 
-  async function turnOff() {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      await deletePushSubscription(subscription.endpoint);
-      await subscription.unsubscribe();
-    }
-    await setNotificationsEnabled(false);
-    setOn(false);
+  function toggle() {
+    setError(null);
+    setTestResult(null);
+    startTransition(async () => {
+      if (on) {
+        const outcome = await disablePush({
+          getSubscription: async () => {
+            const registration = await navigator.serviceWorker.ready;
+            return registration.pushManager.getSubscription();
+          },
+          deleteSubscription: deletePushSubscription,
+          setEnabled: setNotificationsEnabled,
+        });
+        if (outcome.ok) setState({ kind: "off" });
+        else setError(outcome.message);
+        return;
+      }
+
+      const outcome = await enablePush({
+        vapidPublicKey,
+        userAgent: navigator.userAgent,
+        requestPermission: () => Notification.requestPermission(),
+        subscribe: async (applicationServerKey) => {
+          const registration = await navigator.serviceWorker.ready;
+          return registration.pushManager.subscribe({
+            // Required by every browser that implements Web Push: a silent push
+            // is not allowed, and asking for one fails the subscribe outright.
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        },
+        saveSubscription: savePushSubscription,
+        setEnabled: setNotificationsEnabled,
+      });
+
+      if (outcome.ok) setState({ kind: "on" });
+      else {
+        setError(outcome.message);
+        if (Notification.permission === "denied") setState({ kind: "blocked" });
+      }
+    });
   }
 
   return (
-    <div className="space-y-2">
+    <Tape className="px-4 py-3">
       <button
         type="button"
-        disabled={pending}
-        onClick={() => startTransition(async () => (on ? turnOff() : turnOn()))}
-        className={[
-          "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-right transition",
-          on
-            ? "bg-[color:var(--accent)] text-[color:var(--base)]"
-            : "bg-[color:var(--surface)] ring-1 ring-white/10",
-        ].join(" ")}
+        disabled={pending || blocked}
+        onClick={toggle}
+        aria-pressed={on}
+        className="flex min-h-14 w-full items-center gap-4 text-start disabled:opacity-60"
       >
-        <span>
-          <span className="block text-sm font-bold">
-            {on ? "התראות פעילות" : "קבלו התראה על מבצע חזק"}
-          </span>
-          <span className="block text-xs opacity-70">
-            {primaryBeerName
-              ? `רק על ${primaryBeerName} — הבירה הראשית שלכם`
-              : "רק על הבירה הראשית שלכם"}
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold text-ink">{on ? "התראות פעילות" : "קבלו התראה על מבצע חזק"}</span>
+          <span className="mt-0.5 block text-sm text-ink-2">
+            {primaryBeerName ? `רק על ${primaryBeerName}, הבירה הראשית שלכם` : "רק על הבירה הראשית שלכם"}
           </span>
         </span>
-        <span aria-hidden className="text-xl">
-          {on ? "🔔" : "🔕"}
+        {/* A drawn switch. It says nothing the words don't: the position and the label agree. */}
+        <span
+          aria-hidden
+          className={`relative h-8 w-14 shrink-0 rounded-full border-2 transition-colors ${on ? "border-deal bg-deal" : "border-ink-2 bg-transparent"}`}
+        >
+          <span
+            className={`absolute top-0.5 h-6 w-6 rounded-full transition-all ${on ? "end-0.5 bg-on-deal" : "start-0.5 bg-ink-2"}`}
+          />
         </span>
       </button>
 
-      {permission === "denied" && (
-        <p className="text-xs opacity-60">
-          ההתראות חסומות ברמת הדפדפן. צריך לאשר אותן בהגדרות האתר ואז לנסות שוב.
-        </p>
+      {on && (
+        <div className="space-y-2 border-t border-dashed border-paper-line pt-3 pb-1">
+          <button type="button" onClick={sendTest} disabled={testing} className="btn btn-quiet w-full">
+            {testing ? "שולחים…" : "שלחו לי התראת בדיקה"}
+          </button>
+          {testResult && <Notice tone={testResult.ok ? "info" : "error"}>{testResult.text}</Notice>}
+        </div>
       )}
-      {error && <p className="text-xs text-red-300">{error}</p>}
-    </div>
+
+      {(blocked || error) && (
+        <div className="space-y-2 pt-2 pb-1">
+          {blocked && <Notice tone="info">ההתראות חסומות ברמת הדפדפן. צריך לאשר אותן בהגדרות האתר ואז לנסות שוב.</Notice>}
+          {error && <Notice>{error}</Notice>}
+        </div>
+      )}
+    </Tape>
   );
 }

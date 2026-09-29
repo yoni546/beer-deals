@@ -1,112 +1,202 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getViewer } from "@/lib/session";
-import { getLatestDeals, getWeeklyDeal } from "@/lib/queries";
-import { DealCard } from "@/components/DealCard";
-import { Screen } from "@/components/Chrome";
+import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
+import { FavouriteKeys } from "@/components/FavouriteKeys";
+import { Freshness } from "@/components/Freshness";
+import { Hero } from "@/components/Hero";
+import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { ShareApp } from "@/components/ShareApp";
+import { SortBar } from "@/components/SortBar";
+import { Strip } from "@/components/BeerStrip";
+import { GroupStrip } from "@/components/GroupOffers";
+import { Gap } from "@/components/ui/Tape";
+import { WhatsNewLink } from "@/components/WhatsNewLink";
+import { latestVisibleVersion } from "@/lib/releases";
+import { getFreshness, getGroupOffers, getOfferByKey, getOffers } from "@/lib/offers";
+import {
+  filterByPack,
+  groupByBeer,
+  groupPackClass,
+  newestObservation,
+  orderForHome,
+  packClass,
+  parsePack,
+  parseSort,
+  pickHero,
+  summarize,
+  type BeerSummary,
+  type PackFilter,
+} from "@/lib/offer-logic";
+import { getBeers, getSettings, getStores } from "@/lib/queries";
+import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+type Search = { sort?: string; unit?: string; pack?: string; c?: string };
+
 /**
- * Home.
+ * Home: the drinker's four beers first, in their own order, then the one deal worth
+ * knowing about, then everything else. Sorting and pack filters are chips that change
+ * the URL, so the page is the same for anyone who follows the link.
  *
- * The whole screen answers one question — "what am I looking for?" — with two
- * targets big enough to hit without looking. Everything else on the page is
- * below them.
+ * Beer for home (PRODUCT.md): Home shows packs and cases only — never a single can. Six-packs first,
+ * then cases, then eights and fours, then any other pack; the person's own beers before all of them.
+ * Singles are one tap away on each beer's and chain's page.
  */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<Search> }) {
   const viewer = await getViewer();
   if (!viewer.isOnboarded) redirect("/welcome");
 
-  // Sequential rather than parallel: the list has to know which deal already
-  // has the trophy so it can leave that one out.
-  const weekly = await getWeeklyDeal();
-  const latest = await getLatestDeals(6, weekly?.id);
+  const query = await searchParams;
+  const sort = parseSort(query.sort);
+  const perLiter = query.unit === "1";
+  // Home has no singles, so a "singles" link (an old notification) opens everything Home has.
+  const requested = parsePack(query.pack, query.c);
+  const pack: PackFilter = requested === "single" ? "all" : requested;
+
+  const favouriteIds = viewer.favorites.map((beer) => beer.id);
+  // One round trip for everything; the editor's pick (rare) is a second one only when there is one.
+  const [allBeers, allStores, mineAll, moreAll, myGroupsAll, settings, updatedAt] = await Promise.all([
+    getBeers(),
+    getStores(),
+    getOffers({ beerIds: favouriteIds, packsOnly: true }),
+    getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true }),
+    getGroupOffers({ beerIds: favouriteIds }),
+    getSettings(),
+    getFreshness(),
+  ]);
+  const pick = settings?.weekly_deal_id ? await getOfferByKey(`deal:${settings.weekly_deal_id}`) : null;
+  const featured = pick && packClass(pick) !== "single" ? pick : null;
+  // The database leaves out single units by count; a user-submitted deal has no count, only a kind ("בודד").
+  const packsOnly = (offer: (typeof mineAll)[number]) => packClass(offer) !== "single";
+  const mine = mineAll.filter(packsOnly);
+  const more = moreAll.filter(packsOnly);
+  const myGroups = myGroupsAll.filter((group) => groupPackClass(group) !== "single");
+
+  const everything = [...mine, ...more];
+  const freshest = updatedAt ?? newestObservation(everything);
+
+  const summaries: Record<string, BeerSummary> = {};
+  for (const beer of viewer.favorites) summaries[beer.id] = summarize(mine.filter((offer) => offer.beer_id === beer.id));
+
+  const availablePacks = [...new Set(everything.map(packClass))] as PackFilter[];
+  const strips = groupByBeer(filterByPack(mine, pack), favouriteIds).map((group) => ({
+    ...group,
+    offers: orderForHome(group.offers, favouriteIds, sort, perLiter),
+  }));
+  const others = orderForHome(filterByPack(more, pack), [], sort, perLiter);
+
+  // An editor's pick wins; otherwise the best verified saving, favourites first.
+  const hero = pack === "all" ? (featured ? { offer: featured, reason: "value" as const } : pickHero(everything, favouriteIds)) : null;
+  const name = viewer.profile?.first_name;
 
   return (
     <Screen>
-      <header className="mb-6 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-black">אהלן {viewer.profile?.first_name} 🍺</h1>
-          <p className="mt-1 text-sm opacity-65">איזה מבצע מחפשים היום?</p>
+      <header className="mb-5">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-[1.75rem] leading-tight font-bold text-on-ground">{name ? `אהלן, ${name}` : "אהלן"}</h1>
+          {/* Release notes are for the people who run the app (the page itself checks too). */}
+          {viewer.isAdmin && <WhatsNewLink latestVersion={latestVisibleVersion} className="-me-2.5 text-on-ground-2" />}
         </div>
-        <div className="flex shrink-0 gap-1.5">
-          {viewer.isAdmin && (
-            <Link
-              href="/admin"
-              aria-label="ניהול"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--surface)] ring-1 ring-white/10"
-            >
-              🛠️
-            </Link>
-          )}
-          <Link
-            href="/settings"
-            aria-label="הגדרות"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--surface)] ring-1 ring-white/10"
-          >
-            ⚙️
-          </Link>
+        <div className="mt-1">
+          <Freshness at={freshest} />
         </div>
       </header>
 
-      <nav className="grid gap-3">
-        <Link
-          href="/beer"
-          className="flex items-center gap-4 rounded-3xl bg-[color:var(--accent)] px-5 py-6 text-[color:var(--base)]"
-        >
-          <span aria-hidden className="text-3xl">🍺</span>
-          <span className="text-lg font-black">חיפוש לפי בירה</span>
-        </Link>
-        <Link
-          href="/store"
-          className="flex items-center gap-4 rounded-3xl bg-[color:var(--surface)] px-5 py-6 ring-1 ring-white/10"
-        >
-          <span aria-hidden className="text-3xl">🛒</span>
-          <span className="text-lg font-black">חיפוש לפי סופר / מכולת</span>
-        </Link>
-      </nav>
-
-      <Link
-        href="/submit"
-        className="mt-3 block rounded-2xl px-4 py-3 text-center text-sm font-medium opacity-65 ring-1 ring-white/10"
-      >
-        + מצאת מבצע? שלח לנו
-      </Link>
-
-      {weekly && (
-        <section className="mt-8">
-          <h2 className="mb-2.5 text-base font-black">🏆 מבצע השבוע</h2>
-          <DealCard deal={weekly} highlight />
-        </section>
+      {/* The stage: an open stretch of counter where favourite #1's bottle is seen, not covered —
+          the one place on the screen that says, at a glance, whose app this is. */}
+      {viewer.primaryBeer && (
+        <div className="stage-window flex items-end justify-center">
+          <Link
+            href={`/beer/${viewer.primaryBeer.slug}`}
+            className="stage-caption inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold"
+          >
+            <span className="text-on-ground-2">הבירה שלכם</span>
+            <span className="text-on-ground">{viewer.primaryBeer.name_he}</span>
+          </Link>
+        </div>
       )}
 
-      {latest.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-2.5 text-base font-black">מבצעים עכשיו</h2>
-          <div className="space-y-2.5">
-            {latest.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
-            ))}
+      <div className="mb-6">
+        <HomeSearch
+          beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
+          stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
+        />
+      </div>
+
+      <section aria-labelledby="mine" className="mb-6">
+        <h2 id="mine" className="mb-2 text-sm font-semibold text-on-ground-2">
+          הבירות שלי
+        </h2>
+        <FavouriteKeys beers={viewer.favorites} summaries={summaries} />
+      </section>
+
+      {hero && (
+        <>
+          <Hero pick={hero} editorial={Boolean(featured)} />
+          <Gap />
+        </>
+      )}
+
+      {everything.length === 0 && myGroups.length === 0 ? (
+        <EmptyState
+          title="עוד אין מבצעים מאומתים"
+          action={<ButtonLink href="/submit">ראיתם מבצע? שלחו לנו</ButtonLink>}
+        >
+          מחירים אמיתיים נכנסים לפי עדכוני הרשתות ודיווחים שנבדקו. עד אז אנחנו לא מציגים מבצעים שאי אפשר לסמוך עליהם.
+        </EmptyState>
+      ) : (
+        <>
+          <div className="mb-5">
+            <SortBar path="/" state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
           </div>
-        </section>
+
+          <div className="space-y-7">
+            {strips.map((group) => (
+              <Strip
+                key={group.beerId}
+                title={group.name}
+                beerSlug={group.slug}
+                href={`/beer/${group.slug}`}
+                aside={`${group.offers.length} ${group.offers.length === 1 ? "מבצע" : "מבצעים"}`}
+                offers={group.offers}
+                lead="pack"
+                perLiter={perLiter}
+                limit={3}
+                moreHref={`/beer/${group.slug}`}
+              />
+            ))}
+
+            <GroupStrip title="מבצעי שילוב על הבירות שלי" offers={myGroups} />
+
+            {mine.length === 0 && myGroups.length === 0 && (
+              <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">
+                כשיופיע מבצע על שישייה או ארגז של אחת מהארבע, הוא יעלה לכאן ראשון.
+              </EmptyState>
+            )}
+
+            {others.length > 0 && (
+              <Strip
+                title="עוד מבצעים"
+                offers={others}
+                lead="beer"
+                perLiter={perLiter}
+                limit={6}
+                moreHref="/beer"
+              />
+            )}
+          </div>
+        </>
       )}
 
-      {!weekly && latest.length === 0 && (
-        <section className="mt-8 rounded-2xl bg-[color:var(--surface)]/60 px-4 py-8 text-center text-sm opacity-60 ring-1 ring-white/5">
-          <p>עדיין אין מבצעים מאושרים.</p>
-          <p className="mt-1">
-            <Link href="/submit" className="underline">
-              ראיתם מבצע? שלחו לנו
-            </Link>{" "}
-            ונפרסם אותו אחרי בדיקה.
-          </p>
-        </section>
-      )}
-
-      <div className="mt-8">
+      <Gap size="lg" />
+      <div className="space-y-4 text-center">
+        <ShareApp />
         <InstallPrompt compact />
+        <Link href="/submit" className="inline-flex min-h-11 items-center px-4 text-sm font-semibold text-on-ground-2 underline underline-offset-4">
+          מצאתם מבצע שאנחנו לא מציגים? שלחו לנו
+        </Link>
       </div>
     </Screen>
   );

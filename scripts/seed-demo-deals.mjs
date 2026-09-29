@@ -1,12 +1,15 @@
 /**
- * Seeds a handful of approved deals so the app has something to show before any
- * real ones arrive.
+ * DEV / STAGING ONLY. Seeds invented "sample" deals so an empty local or
+ * staging database has something on screen.
  *
- * Uses the service role key, which bypasses RLS — which is exactly why this is
- * a script you run deliberately and not something the app can do. The deals it
- * writes are marked in their notes so they are easy to find and delete later.
+ * These are not real prices. An earlier version of the demo seed was run
+ * against production and showed fake deals to real users, so this script now
+ * refuses to run unless you repeat the target host on the command line:
  *
- * Run: node scripts/seed-demo-deals.mjs
+ *   node scripts/seed-demo-deals.mjs --confirm-host=<host of NEXT_PUBLIC_SUPABASE_URL>
+ *
+ * Uses the service role key, which bypasses RLS. The rows are marked in their
+ * notes (src/lib/demo.ts), and a production server will not display them.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -22,6 +25,20 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !key) {
   console.error("Need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local");
+  process.exit(1);
+}
+
+const host = new URL(url).host;
+if (!process.argv.includes(`--confirm-host=${host}`)) {
+  console.error(
+    `Refusing to seed sample deals into ${host}.
+` +
+      `Sample deals are invented prices and must never reach production.
+` +
+      `If ${host} is definitely a local or staging database, re-run with:
+` +
+      `  node scripts/seed-demo-deals.mjs --confirm-host=${host}`,
+  );
   process.exit(1);
 }
 

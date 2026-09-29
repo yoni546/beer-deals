@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { Screen } from "@/components/Chrome";
 import { Onboarding } from "@/components/Onboarding";
+import { Tape } from "@/components/ui/Tape";
 import { getViewer } from "@/lib/session";
 import { getBeers } from "@/lib/queries";
 
@@ -15,13 +17,15 @@ export default async function WelcomePage() {
     // here means Supabase refused — almost always because anonymous sign-ins
     // are still switched off in the dashboard.
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-3 px-6 text-center">
-        <p className="text-4xl">🍺</p>
-        <h1 className="text-xl font-black">לא הצלחנו להתחבר</h1>
-        <p className="text-sm opacity-65">
-          נסו לרענן את הדף. אם זה נמשך, השרת לא זמין כרגע.
-        </p>
-      </main>
+      <Screen bare>
+        <div className="pt-16">
+          <Tape className="px-5 py-8 text-center" role="alert">
+            <h1 className="text-xl font-bold text-ink">לא הצלחנו להתחבר</h1>
+            <div aria-hidden className="mx-auto my-3 w-16 border-t-2 border-dotted border-paper-line" />
+            <p className="text-sm leading-relaxed text-ink-2">נסו לרענן את הדף. אם זה נמשך, השרת לא זמין כרגע.</p>
+          </Tape>
+        </div>
+      </Screen>
     );
   }
 

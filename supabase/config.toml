@@ -1,0 +1,27 @@
+# Supabase CLI configuration (https://supabase.com/docs/guides/cli/config).
+#
+# The hosted projects (staging, production) are NOT configured by this file — the
+# dashboard is — but the CLI needs it to push migrations (`supabase link` +
+# `supabase db push`), to generate types, and to run a local stack if you have
+# Docker. Anything not listed keeps the CLI's default. Runbook: docs/STAGING.md.
+
+project_id = "beer-deals"
+
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+
+[db]
+port = 54322
+major_version = 17
+
+# Sample data is NEVER loaded automatically. supabase/seed/*.sql are run by hand
+# on non-production databases and refuse to run without an explicit confirmation.
+[db.seed]
+enabled = false
+
+[auth]
+site_url = "http://127.0.0.1:3100"
+additional_redirect_urls = ["http://localhost:3100"]
+# Every visitor is an anonymous user (src/middleware.ts) — this must be on.
+enable_anonymous_sign_ins = true

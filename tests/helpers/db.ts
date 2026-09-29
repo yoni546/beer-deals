@@ -3,6 +3,20 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
 const ROOT = join(import.meta.dirname, "..", "..");
+const MIGRATIONS = join(ROOT, "supabase", "migrations");
+
+export function migrationFiles(): string[] {
+  return readdirSync(MIGRATIONS)
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+}
+
+/** Applies one migration file by (prefix of) its name, e.g. "0006". */
+export async function applyMigration(db: PGlite, prefix: string): Promise<void> {
+  const file = migrationFiles().find((name) => name.startsWith(prefix));
+  if (!file) throw new Error(`no migration starting with ${prefix}`);
+  await db.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+}
 
 /**
  * A throwaway Postgres with the real migrations applied.
@@ -11,15 +25,19 @@ const ROOT = join(import.meta.dirname, "..", "..");
  * hand-written test schema is that the thing under test IS the schema —
  * the constraints and the RLS policies are the security model, and a copy of
  * them would only prove the copy right.
+ *
+ * `through` stops after the migration whose name starts with that prefix, so a
+ * test can build the state production was in, add data, and then apply the next
+ * migration to see what it does to real rows.
  */
-export async function freshDatabase(): Promise<PGlite> {
+export async function freshDatabase(options: { through?: string } = {}): Promise<PGlite> {
   const db = new PGlite();
 
   await db.exec(readFileSync(join(ROOT, "tests", "sql", "bootstrap.sql"), "utf8"));
 
-  const dir = join(ROOT, "supabase", "migrations");
-  for (const file of readdirSync(dir).filter((name) => name.endsWith(".sql")).sort()) {
-    await db.exec(readFileSync(join(dir, file), "utf8"));
+  for (const file of migrationFiles()) {
+    await db.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+    if (options.through && file.startsWith(options.through)) break;
   }
 
   // Deliberately no blanket grant here. The migrations grant each table exactly
@@ -46,7 +64,7 @@ export async function asUser<T>(
   db: PGlite,
   userId: string | null,
   work: () => Promise<T>,
-  role: "authenticated" | "anon" = "authenticated",
+  role: "authenticated" | "anon" | "service_role" = "authenticated",
 ): Promise<T> {
   await db.exec(`set role ${role};`);
   await db.query("select set_config('request.jwt.claim.sub', $1, false)", [userId ?? ""]);

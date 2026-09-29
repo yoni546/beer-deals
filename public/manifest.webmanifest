@@ -8,8 +8,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#17130b",
-  "theme_color": "#17130b",
+  "background_color": "#1c150c",
+  "theme_color": "#1c150c",
   "categories": ["shopping", "food"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
@@ -17,8 +17,8 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "חיפוש לפי בירה", "url": "/beer" },
-    { "name": "חיפוש לפי סופר", "url": "/store" },
+    { "name": "בירות", "url": "/beer" },
+    { "name": "סופרים", "url": "/store" },
     { "name": "שליחת מבצע", "url": "/submit" }
   ]
 }

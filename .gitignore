@@ -17,3 +17,18 @@ public/sw.js.map
 # The Vercel CLI appends a broad ".env*" above. Keep the template visible —
 # it is the documentation for what has to be filled in.
 !.env.example
+.next-e2e
+test-results
+playwright-report
+supabase/.temp
+supabase/.branches
+
+# Impeccable: the native engine is platform-specific and downloaded by `npx impeccable install`.
+.claude/skills/impeccable/scripts/bin/
+
+# Supermarket feed files fetched for ingestion dry runs (public data, large, re-fetchable)
+.ingest-cache/
+
+# A production build pointed at the staging project (scripts: see docs/STAGING.md)
+/.next-staging/
+/.next-staging-dev/
