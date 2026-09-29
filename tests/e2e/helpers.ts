@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
 const FAKE = `http://127.0.0.1:${process.env.E2E_FAKE_PORT ?? 54321}`;
@@ -16,6 +17,19 @@ async function post(path: string, body: unknown) {
 
 /** Fresh database: real migrations + seed, no users, no deals. */
 export const resetDb = () => post("/__test/reset", {});
+
+/** Runs several statements at once (seed files). */
+export const exec = (query: string) => post("/__test/exec", { sql: query });
+
+/**
+ * The invented dev/staging catalogue (supabase/seed/dev-catalog.sql): several
+ * packs per beer, regular prices at four chains, plain cuts, a club price and two
+ * multi-buys. The same file a developer runs on a staging database.
+ */
+export async function seedCatalog() {
+  const file = new URL("../../supabase/seed/dev-catalog.sql", import.meta.url);
+  await exec(["set app.allow_demo_seed = 'yes';", readFileSync(file, "utf8")].join(String.fromCharCode(10)));
+}
 
 export const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>
   ((await post("/__test/sql", { sql: query, params })) as { rows: T[] }).rows;

@@ -124,3 +124,62 @@ describe("fake supabase: PostgREST subset", () => {
     expect(error?.code).toBe("42501");
   });
 });
+
+describe("fake supabase: the catalogue model as the app's client sees it", () => {
+  it("serves offers_feed through supabase-js with unit prices, references and sample flags", async () => {
+    const supabase = client();
+    // (the dev seed is what a staging database gets; here it exercises the views over HTTP)
+    const seed = (await import("node:fs")).readFileSync(new URL("../supabase/seed/dev-catalog.sql", import.meta.url), "utf8");
+    await fetch(`${fake.url}/__test/exec`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sql: "set app.allow_demo_seed = 'yes';\n" + seed }),
+    });
+
+    const { data, error } = await supabase
+      .from("offers_feed")
+      .select("beer_slug, store_slug, pack_label, volume_ml, pack_quantity, effective_agorot, reference_agorot, value_pct, unit_price_per_liter_agorot, is_sample")
+      .eq("beer_slug", "goldstar")
+      .eq("store_slug", "rami-levy")
+      .order("effective_agorot", { ascending: true });
+
+    expect(error).toBeNull();
+    // Three Goldstar packs are on offer at Rami Levy — three different rows, not one "shelf".
+    expect(data?.map((r) => [r.volume_ml, r.pack_quantity, r.effective_agorot])).toEqual([
+      [330, 6, 2500],
+      [500, 6, 4000],
+      [330, 24, 8900],
+    ]);
+    expect(data?.[0]).toMatchObject({ reference_agorot: 3790, value_pct: 34, is_sample: true });
+  });
+
+  it("does not let the public write prices, and lets an administrator do it through record_price", async () => {
+    const anon = client();
+    await anon.auth.signInAnonymously();
+    const [sku] = (await anon.from("skus").select("id").limit(1)).data!;
+    const [store] = (await anon.from("stores").select("id").limit(1)).data!;
+
+    const denied = await anon.rpc("record_price", {
+      p_sku_id: sku.id, p_store_id: store.id, p_kind: "regular", p_price_agorot: 100,
+      p_observed_at: new Date().toISOString(), p_source_slug: "admin",
+    });
+    expect(denied.error?.code).toBe("42501");
+    const direct = await anon.from("price_observations").insert({ sku_id: sku.id, store_id: store.id, kind: "regular", price_agorot: 1, observed_at: new Date().toISOString(), identity_key: "regular", source_id: "00000000-0000-0000-0000-000000000000" });
+    expect(direct.error?.code).toBe("42501");
+
+    await fetch(`${fake.url}/__test/create-user`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "boss@example.test", password: "pw-123456", admin: "super_admin" }),
+    });
+    const admin = client();
+    expect((await admin.auth.signInWithPassword({ email: "boss@example.test", password: "pw-123456" })).error).toBeNull();
+    const ok = await admin.rpc("record_price", {
+      p_sku_id: sku.id, p_store_id: store.id, p_kind: "regular", p_price_agorot: 4321,
+      p_observed_at: new Date().toISOString(), p_source_slug: "admin",
+      p_conditions: { note_he: "בדיקה" },
+    });
+    expect(ok.error).toBeNull();
+    expect(ok.data).toMatchObject({ price_agorot: 4321, status: "live", kind: "regular" });
+  });
+});

@@ -151,6 +151,12 @@ export async function startFakeSupabase({ port = 54321, host = "127.0.0.1", extr
         if (/\b(create|alter|drop)\b/i.test(body.sql)) schema = await runExclusive(() => loadSchema(db));
         return send(200, { rows: result.rows });
       }
+      if (path === "/__test/exec") {
+        // Several statements at once (seed files). No parameters, no result rows.
+        await runExclusive(() => db.exec(body.sql));
+        schema = await runExclusive(() => loadSchema(db));
+        return send(200, { ok: true });
+      }
       if (path === "/__test/create-user") {
         const { email, password, admin } = body;
         const { rows } = await runExclusive(() => db.query("insert into auth.users (email) values ($1) returning id", [email]));

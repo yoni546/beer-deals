@@ -1306,3 +1306,918 @@ to service_role;
 grant select, delete on public.push_subscriptions to service_role;
 grant select, insert on public.push_log to service_role;
 grant update (notified_at) on public.deals to service_role;
+
+-- ======================== 0007_catalog_tables.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0007 — catalogue model, part 1 of 3: tables   (0008 = write path, 0009 = read model).
+--
+-- WHY. Until now a "beer" was a brand name and a "deal" was a row with a
+-- three-value pack category (sixpack | case | single). That cannot say that
+-- Goldstar 6×330ml and Goldstar 6×500ml are different products, cannot hold a
+-- regular (non-promotional) price, has no dates, no source and no history.
+--
+-- WHAT. Purely additive. Nothing existing is dropped, renamed or rewritten:
+--   brand    → brands                       (new)
+--   variant  → beers.variant                (new column; `beers` keeps meaning
+--                                            "brand + variant", so favourites,
+--                                            themes and every FK are untouched)
+--   product  → skus                         (container · volume_ml · pack_quantity)
+--   chain    → stores (+ kind)              (existing)
+--   branch   → branches                     (new, optional)
+--   price    → price_observations           (new, append-only ledger of regular
+--                                            prices AND promotions, with source,
+--                                            observed_at, validity window and
+--                                            structured conditions)
+-- The old `deals` table keeps working unchanged (user submissions + moderation);
+-- 0009 exposes both worlds to the app through one read view.
+--
+-- Rollback: everything in 0007–0009 can be dropped without touching existing
+-- data (the exact statements are at the end of 0009).
+-- ---------------------------------------------------------------------------
+
+create type public.container_type as enum ('bottle', 'can', 'keg', 'draft', 'other');
+create type public.price_kind     as enum ('regular', 'promotion');
+create type public.promo_type     as enum ('price_cut', 'multi_buy', 'club_price', 'coupon', 'gift', 'other');
+create type public.source_kind    as enum ('chain_feed', 'admin', 'user_submission', 'scraper', 'import');
+
+-- --------------------------------------------------------------------------
+-- Brands, and beers as brand + variant.
+-- --------------------------------------------------------------------------
+
+create table public.brands (
+  id         uuid primary key default gen_random_uuid(),
+  slug       text not null unique check (slug ~ '^[a-z0-9-]+$'),
+  name_he    text not null,
+  name_en    text not null,
+  created_at timestamptz not null default now()
+);
+
+-- One brand per existing beer, except the one variant we already know of:
+-- "Tuborg Red" is a variant of the Tuborg brand, not a brand of its own.
+insert into public.brands (slug, name_he, name_en)
+select b.slug, b.name_he, b.name_en
+  from public.beers b
+ where b.slug <> 'tuborg-red'
+on conflict (slug) do nothing;
+
+alter table public.beers
+  add column brand_id uuid references public.brands (id) on delete restrict,
+  add column variant  text check (variant is null or char_length(trim(variant)) between 1 and 40);
+
+update public.beers b
+   set brand_id = br.id
+  from public.brands br
+ where b.brand_id is null
+   and br.slug = case when b.slug = 'tuborg-red' then 'tuborg' else b.slug end;
+
+update public.beers set variant = 'red' where slug = 'tuborg-red' and variant is null;
+
+alter table public.beers alter column brand_id set not null;
+
+-- A brand has at most one beer per variant (and one "plain" beer).
+create unique index beers_brand_variant_key on public.beers (brand_id, coalesce(variant, ''));
+
+-- --------------------------------------------------------------------------
+-- SKUs: the sellable unit, identified by physical facts — never by brand name.
+--
+-- Goldstar 6×330ml can and Goldstar 6×500ml bottle share a brand and nothing
+-- else, so they are two rows. `unique (…)` is what makes "the same product" mean
+-- the same container, the same volume and the same pack size.
+-- --------------------------------------------------------------------------
+
+create table public.skus (
+  id              uuid primary key default gen_random_uuid(),
+  beer_id         uuid not null references public.beers (id) on delete restrict,
+  container       public.container_type not null,
+  volume_ml       integer not null check (volume_ml between 50 and 100000),
+  pack_quantity   integer not null default 1 check (pack_quantity between 1 and 96),
+  total_volume_ml integer generated always as (volume_ml * pack_quantity) stored,
+  display_he      text not null check (char_length(trim(display_he)) between 1 and 120),
+  is_active       boolean not null default true,
+  created_at      timestamptz not null default now(),
+  unique (beer_id, container, volume_ml, pack_quantity)
+);
+
+create index skus_beer_idx on public.skus (beer_id) where is_active;
+
+-- Many barcodes (GTINs, or a chain's internal code) can point at one SKU. A chain
+-- code is only meaningful inside its chain, hence the optional store scope.
+create table public.sku_barcodes (
+  id         uuid primary key default gen_random_uuid(),
+  sku_id     uuid not null references public.skus (id) on delete cascade,
+  barcode    text not null check (barcode ~ '^[0-9A-Za-z._-]{3,40}$'),
+  store_id   uuid references public.stores (id) on delete cascade,
+  is_gtin    boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create unique index sku_barcodes_key
+  on public.sku_barcodes (barcode, coalesce(store_id, '00000000-0000-0000-0000-000000000000'::uuid));
+create index sku_barcodes_sku_idx on public.sku_barcodes (sku_id);
+
+-- --------------------------------------------------------------------------
+-- Chains and branches.
+--
+-- `stores` stays "chains, not branches". It only gains a kind, because two seeded
+-- rows were never chains at all: "liquor store" and "neighbourhood shop" are
+-- categories of shop, and a price feed can never come from them.
+-- --------------------------------------------------------------------------
+
+alter table public.stores
+  add column kind text not null default 'chain' check (kind in ('chain', 'independent', 'category'));
+
+update public.stores set kind = 'category' where slug in ('liquor-store', 'makolet') and kind = 'chain';
+
+create table public.branches (
+  id           uuid primary key default gen_random_uuid(),
+  store_id     uuid not null references public.stores (id) on delete cascade,
+  external_ref text,                       -- the chain's own id for the branch
+  name_he      text,
+  city         text,
+  is_active    boolean not null default true,
+  created_at   timestamptz not null default now(),
+  unique (store_id, external_ref)
+);
+
+create index branches_store_idx on public.branches (store_id) where is_active;
+
+-- --------------------------------------------------------------------------
+-- Where a price came from.
+-- --------------------------------------------------------------------------
+
+create table public.sources (
+  id         uuid primary key default gen_random_uuid(),
+  slug       text not null unique check (slug ~ '^[a-z0-9-]+$'),
+  name       text not null,
+  kind       public.source_kind not null,
+  -- 0..100. Only kinds 'chain_feed' and 'admin' may serve as the reference for a
+  -- discount percentage; this number is for ranking conflicting sources later.
+  trust      smallint not null default 50 check (trust between 0 and 100),
+  created_at timestamptz not null default now()
+);
+
+insert into public.sources (slug, name, kind, trust) values
+  ('admin',           'Entered by an administrator', 'admin',           90),
+  ('user-submission', 'Submitted by a user',         'user_submission', 40),
+  -- Invented prices for development and staging (supabase/seed/dev-catalog.sql).
+  -- Everything recorded under this source is flagged is_sample in the read views,
+  -- and a production server never shows it (src/lib/demo.ts).
+  ('sample-data',     'Sample data (dev/staging only)', 'admin',        10)
+on conflict (slug) do nothing;
+
+-- One row per import, so a bad run can be found and undone as a unit.
+create table public.ingestion_runs (
+  id          uuid primary key default gen_random_uuid(),
+  source_id   uuid not null references public.sources (id) on delete restrict,
+  started_at  timestamptz not null default now(),
+  finished_at timestamptz,
+  status      text not null default 'running' check (status in ('running', 'succeeded', 'failed', 'rolled_back')),
+  stats       jsonb not null default '{}'::jsonb
+);
+
+create index ingestion_runs_source_idx on public.ingestion_runs (source_id, started_at desc);
+
+-- --------------------------------------------------------------------------
+-- The price ledger. APPEND-ONLY.
+--
+-- Regular prices and promotions are the same kind of fact — "at this time, at
+-- this place, from this source, this SKU cost this much" — distinguished by
+-- `kind`. A price change is a NEW row; the old one becomes `superseded`. Rows
+-- are never updated (except their status) and never deleted, so history, audit
+-- and rollback come for free.
+--
+--   price_agorot   the price of ONE pack (whole agorot, like everywhere else).
+--                  For a multi-buy ("2 for ₪45") it is the effective per-pack
+--                  price, ceil(45.00/2); `conditions.multi_buy` keeps the truth.
+--   observed_at    when the source said so. Not when we stored it.
+--   valid_from/to  a promotion's window. NULL valid_to = end unknown (such a
+--                  promotion stops being shown a week after it was last seen).
+--   conditions     {min_qty, max_qty, multi_buy:{qty,total_agorot}, club, coupon,
+--                   note_he} — structured, not free text.
+--   identity_key   what makes two rows "the same offer, updated": 'regular' for
+--                  regular prices; the chain's promotion id, or a hash of the
+--                  promotion's terms.
+--   content_hash   idempotency: replaying the same source record adds nothing.
+-- --------------------------------------------------------------------------
+
+create table public.price_observations (
+  id           bigint generated always as identity primary key,
+  sku_id       uuid not null references public.skus (id) on delete restrict,
+  store_id     uuid not null references public.stores (id) on delete restrict,
+  branch_id    uuid references public.branches (id) on delete restrict,
+  kind         public.price_kind not null,
+  price_agorot integer not null check (price_agorot > 0),
+  observed_at  timestamptz not null,
+  valid_from   timestamptz,
+  valid_to     timestamptz,
+  promo_type   public.promo_type,
+  conditions   jsonb not null default '{}'::jsonb check (jsonb_typeof(conditions) = 'object'),
+  identity_key text not null,
+  source_id    uuid not null references public.sources (id) on delete restrict,
+  run_id       uuid references public.ingestion_runs (id) on delete restrict,
+  natural_key  text,
+  content_hash text,
+  raw          jsonb,
+  status       text not null default 'live' check (status in ('live', 'held', 'superseded', 'rejected')),
+  superseded_by bigint references public.price_observations (id),
+  created_by   uuid references auth.users (id) on delete set null,
+  created_at   timestamptz not null default now(),
+
+  -- A promotion says what kind it is; a regular price is not a promotion and has
+  -- no end date of its own.
+  constraint price_obs_kind_shape check (
+    (kind = 'promotion' and promo_type is not null)
+    or (kind = 'regular' and promo_type is null and valid_to is null)
+  ),
+  constraint price_obs_window check (valid_to is null or valid_from is null or valid_to > valid_from),
+
+  -- A multi-buy must carry its terms, and the stored per-pack price must be
+  -- exactly what those terms imply — so the two can never disagree.
+  constraint price_obs_multi_buy check (
+    promo_type is distinct from 'multi_buy'
+    or (
+      coalesce((conditions #>> '{multi_buy,qty}')::int >= 2, false)
+      and coalesce((conditions #>> '{multi_buy,total_agorot}')::int > 0, false)
+      and price_agorot = ceil((conditions #>> '{multi_buy,total_agorot}')::numeric / (conditions #>> '{multi_buy,qty}')::int)
+    )
+  )
+);
+
+-- Replaying a source record is a no-op.
+create unique index price_obs_idempotent on public.price_observations (source_id, content_hash)
+  where content_hash is not null;
+
+-- "What is the current regular price / promotion for this SKU at this chain?"
+create index price_obs_lookup on public.price_observations (sku_id, store_id, kind, observed_at desc)
+  where status = 'live';
+
+create index price_obs_identity on public.price_observations (sku_id, store_id, kind, identity_key);
+create index price_obs_run on public.price_observations (run_id) where run_id is not null;
+
+-- ======================== 0008_price_write_path.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0008 — catalogue model, part 2 of 3: how prices get in, and who may.
+--
+--   * the ledger is append-only (a trigger enforces it, not a convention)
+--   * record_price() / record_prices() are the ONLY write path: one place that
+--     validates, computes multi-buy prices, ignores replays and supersedes
+--     the previous price — used by admins today and by ingestion later
+--   * RLS + explicit grants for every new table, in the style of 0003
+-- ---------------------------------------------------------------------------
+
+-- --------------------------------------------------------------------------
+-- Append-only.
+--
+-- An observation says what a source claimed at a moment in time. Editing it
+-- would rewrite history, so the only things that may ever change are its
+-- lifecycle (`status`, `superseded_by`) and who created it (`created_by`, which
+-- Postgres nulls when that account is deleted). Deleting is refused outright;
+-- to undo a bad import, mark its rows `rejected` by run id.
+-- --------------------------------------------------------------------------
+
+create or replace function public.price_observations_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'price observations are append-only; mark a bad row rejected instead'
+      using errcode = '42501';
+  end if;
+
+  if (to_jsonb(new) - 'status' - 'superseded_by' - 'created_by')
+     is distinct from
+     (to_jsonb(old) - 'status' - 'superseded_by' - 'created_by') then
+    raise exception 'price observations are append-only; record a new observation instead of editing one'
+      using errcode = '42501';
+  end if;
+
+  -- History does not come back to life.
+  if old.status in ('superseded', 'rejected') and new.status is distinct from old.status then
+    raise exception 'a % observation cannot change status again', old.status
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger price_observations_append_only
+  before update or delete on public.price_observations
+  for each row execute function public.price_observations_guard();
+
+-- --------------------------------------------------------------------------
+-- Who may write prices: an admin, or the service role (ingestion). Raises rather
+-- than returning false, like require_admin().
+-- --------------------------------------------------------------------------
+
+create or replace function public.require_price_writer()
+returns void
+language plpgsql
+stable
+as $$
+begin
+  if not (public.is_admin() or current_setting('role', true) = 'service_role') then
+    raise exception 'admin or service privileges required' using errcode = '42501';
+  end if;
+end;
+$$;
+
+revoke execute on function public.require_price_writer() from public, anon, authenticated;
+
+-- --------------------------------------------------------------------------
+-- record_price — validate, then insert one observation.
+--
+-- Supersession (a price change is a new row, the old one is kept):
+--   * a new LIVE observation supersedes the previous live one for the same
+--     (sku, store, branch, kind, identity)…
+--   * …unless a NEWER live observation already exists, in which case the new
+--     one is history and is stored as `superseded`. So back-filling old data in
+--     any order can never replace what is currently true.
+-- Replaying a record (same source + content_hash) returns the stored row.
+-- --------------------------------------------------------------------------
+
+create or replace function public.record_price(
+  p_sku_id       uuid,
+  p_store_id     uuid,
+  p_kind         public.price_kind,
+  p_price_agorot integer,
+  p_observed_at  timestamptz,
+  p_source_slug  text,
+  p_branch_id    uuid                 default null,
+  p_valid_from   timestamptz          default null,
+  p_valid_to     timestamptz          default null,
+  p_promo_type   public.promo_type    default null,
+  p_conditions   jsonb                default '{}'::jsonb,
+  p_natural_key  text                 default null,
+  p_content_hash text                 default null,
+  p_raw          jsonb                default null,
+  p_run_id       uuid                 default null,
+  p_status       text                 default 'live'
+)
+returns public.price_observations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source   public.sources;
+  v_existing public.price_observations;
+  v_row      public.price_observations;
+  v_price    integer := p_price_agorot;
+  v_identity text;
+  v_qty      integer;
+  v_total    integer;
+  v_newer    bigint;
+begin
+  perform public.require_price_writer();
+
+  select * into v_source from public.sources where slug = p_source_slug;
+  if not found then
+    raise exception 'unknown source %', p_source_slug using errcode = 'P0002';
+  end if;
+
+  if p_status not in ('live', 'held') then
+    raise exception 'status must be live or held' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.skus where id = p_sku_id and is_active) then
+    raise exception 'unknown or inactive sku' using errcode = 'P0002';
+  end if;
+  if not exists (select 1 from public.stores where id = p_store_id) then
+    raise exception 'unknown store' using errcode = 'P0002';
+  end if;
+  if p_branch_id is not null and not exists (
+    select 1 from public.branches where id = p_branch_id and store_id = p_store_id
+  ) then
+    raise exception 'the branch does not belong to that store' using errcode = '22023';
+  end if;
+
+  -- Replay: nothing to do.
+  if p_content_hash is not null then
+    select * into v_existing
+      from public.price_observations
+     where source_id = v_source.id and content_hash = p_content_hash;
+    if found then
+      return v_existing;
+    end if;
+  end if;
+
+  if p_kind = 'promotion' then
+    if p_promo_type is null then
+      raise exception 'a promotion needs a promo_type' using errcode = '22023';
+    end if;
+
+    if p_promo_type = 'multi_buy' then
+      v_qty   := (p_conditions #>> '{multi_buy,qty}')::integer;
+      v_total := (p_conditions #>> '{multi_buy,total_agorot}')::integer;
+      if v_qty is null or v_qty < 2 or v_total is null or v_total <= 0 then
+        raise exception 'a multi_buy needs conditions.multi_buy = {qty >= 2, total_agorot > 0}'
+          using errcode = '22023';
+      end if;
+      if v_price is not null and v_price <> ceil(v_total::numeric / v_qty)::integer then
+        raise exception 'price_agorot must equal ceil(total_agorot / qty) for a multi_buy'
+          using errcode = '22023';
+      end if;
+      v_price := ceil(v_total::numeric / v_qty)::integer;
+    end if;
+
+    v_identity := coalesce(
+      p_natural_key,
+      md5(concat_ws('|', p_promo_type::text, p_valid_from::text, p_valid_to::text, p_conditions::text))
+    );
+  else
+    if p_promo_type is not null or p_valid_to is not null then
+      raise exception 'a regular price has no promo_type and no end date' using errcode = '22023';
+    end if;
+    v_identity := 'regular';
+  end if;
+
+  if v_price is null then
+    raise exception 'a price is required' using errcode = '22023';
+  end if;
+
+  -- One writer at a time per SKU × chain, so two imports cannot both decide they
+  -- are "the newest".
+  perform pg_advisory_xact_lock(hashtext(p_sku_id::text || p_store_id::text));
+
+  insert into public.price_observations (
+    sku_id, store_id, branch_id, kind, price_agorot, observed_at, valid_from, valid_to,
+    promo_type, conditions, identity_key, source_id, run_id, natural_key, content_hash,
+    raw, status, created_by
+  ) values (
+    p_sku_id, p_store_id, p_branch_id, p_kind, v_price, p_observed_at, p_valid_from, p_valid_to,
+    p_promo_type, coalesce(p_conditions, '{}'::jsonb), v_identity, v_source.id, p_run_id, p_natural_key, p_content_hash,
+    p_raw, p_status, auth.uid()
+  )
+  returning * into v_row;
+
+  if p_status = 'live' then
+    select o.id into v_newer
+      from public.price_observations o
+     where o.sku_id = v_row.sku_id
+       and o.store_id = v_row.store_id
+       and o.branch_id is not distinct from v_row.branch_id
+       and o.kind = v_row.kind
+       and o.identity_key = v_row.identity_key
+       and o.status = 'live'
+       and o.id <> v_row.id
+       and (o.observed_at > v_row.observed_at or (o.observed_at = v_row.observed_at and o.id > v_row.id))
+     order by o.observed_at desc, o.id desc
+     limit 1;
+
+    if v_newer is not null then
+      update public.price_observations set status = 'superseded', superseded_by = v_newer where id = v_row.id;
+    else
+      update public.price_observations o
+         set status = 'superseded', superseded_by = v_row.id
+       where o.sku_id = v_row.sku_id
+         and o.store_id = v_row.store_id
+         and o.branch_id is not distinct from v_row.branch_id
+         and o.kind = v_row.kind
+         and o.identity_key = v_row.identity_key
+         and o.status = 'live'
+         and o.id <> v_row.id;
+    end if;
+
+    select * into v_row from public.price_observations where id = v_row.id;
+  end if;
+
+  return v_row;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
+-- record_prices — the batch entry point for ingestion.
+--
+-- Takes an array of the same fields (jsonb) and applies each one on its own, so
+-- a single malformed record is reported instead of sinking the whole import.
+-- Returns {accepted, rejected, errors:[{index, code, message}]}.
+-- --------------------------------------------------------------------------
+
+create or replace function public.record_prices(
+  p_source_slug text,
+  p_items       jsonb,
+  p_run_id      uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item     jsonb;
+  idx      integer := 0;
+  accepted integer := 0;
+  errors   jsonb   := '[]'::jsonb;
+begin
+  perform public.require_price_writer();
+
+  if jsonb_typeof(p_items) is distinct from 'array' then
+    raise exception 'p_items must be a json array' using errcode = '22023';
+  end if;
+
+  for item in select * from jsonb_array_elements(p_items) loop
+    idx := idx + 1;
+    begin
+      perform public.record_price(
+        p_sku_id       := (item ->> 'sku_id')::uuid,
+        p_store_id     := (item ->> 'store_id')::uuid,
+        p_kind         := (item ->> 'kind')::public.price_kind,
+        p_price_agorot := (item ->> 'price_agorot')::integer,
+        p_observed_at  := (item ->> 'observed_at')::timestamptz,
+        p_source_slug  := p_source_slug,
+        p_branch_id    := (item ->> 'branch_id')::uuid,
+        p_valid_from   := (item ->> 'valid_from')::timestamptz,
+        p_valid_to     := (item ->> 'valid_to')::timestamptz,
+        p_promo_type   := (item ->> 'promo_type')::public.promo_type,
+        p_conditions   := coalesce(item -> 'conditions', '{}'::jsonb),
+        p_natural_key  := item ->> 'natural_key',
+        p_content_hash := item ->> 'content_hash',
+        p_raw          := item -> 'raw',
+        p_run_id       := p_run_id,
+        p_status       := coalesce(item ->> 'status', 'live')
+      );
+      accepted := accepted + 1;
+    exception when others then
+      errors := errors || jsonb_build_object('index', idx, 'code', sqlstate, 'message', sqlerrm);
+    end;
+  end loop;
+
+  return jsonb_build_object('accepted', accepted, 'rejected', jsonb_array_length(errors), 'errors', errors);
+end;
+$$;
+
+revoke execute on function public.record_price(uuid, uuid, public.price_kind, integer, timestamptz, text, uuid, timestamptz, timestamptz, public.promo_type, jsonb, text, text, jsonb, uuid, text) from public, anon;
+revoke execute on function public.record_prices(text, jsonb, uuid) from public, anon;
+grant execute on function public.record_price(uuid, uuid, public.price_kind, integer, timestamptz, text, uuid, timestamptz, timestamptz, public.promo_type, jsonb, text, text, jsonb, uuid, text) to authenticated, service_role;
+grant execute on function public.record_prices(text, jsonb, uuid) to authenticated, service_role;
+
+-- --------------------------------------------------------------------------
+-- Row level security and grants for the new tables (same rules as 0003:
+-- grant exactly the verbs needed, then open rows one policy at a time).
+-- --------------------------------------------------------------------------
+
+alter table public.brands              enable row level security;
+alter table public.skus                enable row level security;
+alter table public.sku_barcodes        enable row level security;
+alter table public.branches            enable row level security;
+alter table public.sources             enable row level security;
+alter table public.ingestion_runs      enable row level security;
+alter table public.price_observations  enable row level security;
+
+-- Catalogue: world-readable, admin-writable (like beers and stores).
+grant select on public.brands, public.skus, public.sku_barcodes, public.branches, public.sources to anon, authenticated;
+grant insert, update, delete on public.brands, public.skus, public.sku_barcodes, public.branches to authenticated;
+
+create policy brands_read on public.brands for select to anon, authenticated using (true);
+create policy brands_admin_write on public.brands for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create policy skus_read on public.skus for select to anon, authenticated using (true);
+create policy skus_admin_write on public.skus for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create policy sku_barcodes_read on public.sku_barcodes for select to anon, authenticated using (true);
+create policy sku_barcodes_admin_write on public.sku_barcodes for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create policy branches_read on public.branches for select to anon, authenticated using (true);
+create policy branches_admin_write on public.branches for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Sources: readable (a slug and a kind), never writable through the API.
+create policy sources_read on public.sources for select to anon, authenticated using (true);
+
+-- Import bookkeeping: admins can look, only the service role (and the definer
+-- functions above) writes.
+grant select on public.ingestion_runs to authenticated;
+create policy ingestion_runs_admin_read on public.ingestion_runs for select to authenticated using (public.is_admin());
+
+-- The ledger: the public sees LIVE rows, admins see everything, and nobody can
+-- insert, update or delete through the API at all — record_price() is the door.
+grant select on public.price_observations to anon, authenticated;
+create policy price_obs_read_live on public.price_observations for select to anon, authenticated using (status = 'live');
+create policy price_obs_read_admin on public.price_observations for select to authenticated using (public.is_admin());
+
+-- The service role bypasses RLS but not privileges. Reads, plus the bookkeeping
+-- tables it owns; price writes go through record_price().
+grant select on public.brands, public.skus, public.sku_barcodes, public.branches, public.sources, public.price_observations to service_role;
+grant select, insert, update on public.ingestion_runs to service_role;
+grant insert, update on public.skus, public.sku_barcodes, public.branches to service_role;
+
+-- ======================== 0009_offers_read_model.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0009 — catalogue model, part 3 of 3: what the app reads.
+--
+-- Views only (security_invoker: they run with the caller's permissions, so the
+-- RLS on the ledger is what keeps unpublished rows out, not the WHERE clauses).
+--
+--   regular_prices_current   the latest live regular price per SKU × chain × branch
+--   promotions_current       live promotions that are in force RIGHT NOW
+--   offers_ranked            those promotions, with unit price, a verified
+--                            discount % and a market comparison
+--   offers_feed              offers_ranked + the legacy `deals`, in one shape,
+--                            so the app has a single thing to read while the old
+--                            submission/moderation flow is still in use
+--
+-- HOW A DISCOUNT % IS DERIVED — and when it is deliberately NOT.
+-- The old model stored a percentage computed from whatever "regular price" a
+-- person typed. A percentage is a claim about savings, so it is only produced
+-- when the reference price can be trusted:
+--   * the reference is the current regular price of the SAME SKU at the SAME
+--     chain, seen within the last 14 days (older = unknown, not "still true");
+--   * it came from a chain feed or an administrator (never a raw user report);
+--   * the promotion is actually cheaper than it;
+--   * the result is at most 70 % — beyond that it is far more likely a bad
+--     barcode or unit mismatch than a real bargain, so it is held for review
+--     (`needs_review`) instead of being shown.
+-- Everything else gets NULL, and the UI shows the price without a "you save".
+--
+-- A second, independent number compares against the MEDIAN regular price of the
+-- same SKU at other chains (`market_value_pct`, needs at least two other chains).
+-- A chain cannot inflate its own "before" price to fake that one.
+-- ---------------------------------------------------------------------------
+
+create view public.regular_prices_current
+with (security_invoker = on)
+as
+select distinct on (o.sku_id, o.store_id, o.branch_id)
+       o.id, o.sku_id, o.store_id, o.branch_id, o.price_agorot, o.observed_at, o.source_id,
+       (src.slug = 'sample-data') as is_sample
+  from public.price_observations o
+  join public.sources src on src.id = o.source_id
+ where o.kind = 'regular' and o.status = 'live'
+ order by o.sku_id, o.store_id, o.branch_id, o.observed_at desc, o.id desc;
+
+-- A promotion is in force when its window has started and not ended. One with no
+-- end date is only trusted for a week after it was last seen: "unknown" must not
+-- turn into "forever".
+create view public.promotions_current
+with (security_invoker = on)
+as
+select o.*
+  from public.price_observations o
+ where o.kind = 'promotion'
+   and o.status = 'live'
+   and (o.valid_from is null or o.valid_from <= now())
+   and (
+     (o.valid_to is not null and o.valid_to > now())
+     or (o.valid_to is null and o.observed_at > now() - interval '7 days')
+   );
+
+create view public.offers_ranked
+with (security_invoker = on)
+as
+select
+  o.id                                   as observation_id,
+  o.sku_id,
+  s.beer_id,
+  be.slug                                as beer_slug,
+  be.name_he                             as beer_name,
+  be.name_en                             as beer_name_en,
+  be.variant,
+  br.slug                                as brand_slug,
+  s.container,
+  s.volume_ml,
+  s.pack_quantity,
+  s.total_volume_ml,
+  s.display_he                           as sku_name,
+  o.store_id,
+  st.slug                                as store_slug,
+  st.name_he                             as store_name,
+  o.branch_id,
+  o.promo_type,
+  o.conditions,
+  o.valid_from,
+  o.valid_to,
+  o.observed_at,
+  (psrc.slug = 'sample-data')            as is_sample,
+  o.price_agorot                         as effective_agorot,
+  round(o.price_agorot::numeric * 1000 / s.total_volume_ml)::integer as unit_price_per_liter_agorot,
+  ref.price_agorot                       as reference_agorot,
+  ref.observed_at                        as reference_observed_at,
+  ref.trust                              as reference_trust,
+  case when pct.raw between 1 and 70 then pct.raw end as value_pct,
+  coalesce(pct.raw > 70, false)          as needs_review,
+  mk.median_agorot                       as market_reference_agorot,
+  mk.chains                              as market_chains,
+  case when mk.median_agorot > o.price_agorot
+       then round((mk.median_agorot - o.price_agorot) * 100.0 / mk.median_agorot)::integer
+  end                                    as market_value_pct
+from public.promotions_current o
+join public.skus   s  on s.id  = o.sku_id
+join public.beers  be on be.id = s.beer_id
+join public.brands br on br.id = be.brand_id
+join public.stores st on st.id = o.store_id
+join public.sources psrc on psrc.id = o.source_id
+left join lateral (
+  select r.price_agorot, r.observed_at,
+         case src.kind when 'chain_feed' then 'feed' when 'admin' then 'moderated' else 'unverified' end as trust
+    from public.regular_prices_current r
+    join public.sources src on src.id = r.source_id
+   where r.sku_id = o.sku_id
+     and r.store_id = o.store_id
+     and (r.branch_id is null or r.branch_id is not distinct from o.branch_id)
+     and r.observed_at >= now() - interval '14 days'
+   order by (r.branch_id is not distinct from o.branch_id) desc, r.observed_at desc
+   limit 1
+) ref on true
+left join lateral (
+  select round((ref.price_agorot - o.price_agorot) * 100.0 / ref.price_agorot)::integer as raw
+   where ref.trust in ('feed', 'moderated') and ref.price_agorot > o.price_agorot
+) pct on true
+left join lateral (
+  select (percentile_cont(0.5) within group (order by r.price_agorot))::integer as median_agorot,
+         count(distinct r.store_id)::integer as chains
+    from public.regular_prices_current r
+    join public.sources src on src.id = r.source_id and src.kind in ('chain_feed', 'admin')
+   where r.sku_id = o.sku_id
+     and r.store_id <> o.store_id
+     and r.observed_at >= now() - interval '14 days'
+  having count(distinct r.store_id) >= 2
+) mk on true;
+
+-- --------------------------------------------------------------------------
+-- The single feed the app reads. Catalogue offers first-class; legacy approved
+-- deals (a pack *category*, an admin-vouched regular price, no SKU) alongside,
+-- until the old submission flow is retired. `is_sample` marks invented data (the
+-- 'sample-data' source, or a legacy deal carrying the sample note) so a production
+-- server can refuse it (src/lib/demo.ts).
+-- --------------------------------------------------------------------------
+
+create view public.offers_feed
+with (security_invoker = on)
+as
+select
+  'obs:' || o.observation_id::text          as offer_key,
+  'catalog'::text                           as origin,
+  o.sku_id,
+  o.beer_id, o.beer_slug, o.beer_name,
+  o.store_id, o.store_slug, o.store_name,
+  o.sku_name                                as pack_label,
+  o.container, o.volume_ml, o.pack_quantity,
+  o.effective_agorot,
+  o.unit_price_per_liter_agorot,
+  o.reference_agorot,
+  o.reference_trust,
+  o.value_pct,
+  o.needs_review,
+  o.market_reference_agorot,
+  o.market_value_pct,
+  o.promo_type,
+  o.conditions,
+  o.valid_from, o.valid_to,
+  o.observed_at,
+  o.is_sample,
+  o.conditions ->> 'note_he'                as notes
+from public.offers_ranked o
+
+union all
+
+select
+  'deal:' || d.id::text,
+  'legacy',
+  null::uuid,
+  d.beer_id, d.beer_slug, d.beer_name,
+  d.store_id, d.store_slug, d.store_name,
+  case d.category when 'sixpack' then 'שישייה' when 'case' then 'ארגז' else 'בודד' end,
+  null::public.container_type, null::integer, null::integer,
+  d.deal_price_agorot,
+  null::integer,
+  d.regular_price_agorot,
+  'moderated',                               -- an administrator approved this deal, price and all
+  case when d.discount_percent between 1 and 70 then d.discount_percent end,
+  d.discount_percent > 70,
+  null::integer, null::integer,
+  null::public.promo_type,
+  '{}'::jsonb,
+  null::timestamptz, null::timestamptz,
+  d.approved_at,
+  coalesce(d.notes = 'מבצע לדוגמה', false),   -- the legacy sample-deal marker (see 0006)
+  d.notes
+from public.deals_public d;
+
+grant select on public.regular_prices_current, public.promotions_current, public.offers_ranked, public.offers_feed
+  to anon, authenticated, service_role;
+-- offers_feed reads the legacy view too, and views run with the caller's privileges.
+grant select on public.deals_public to service_role;
+
+-- --------------------------------------------------------------------------
+-- Rollback for 0007–0009 (nothing that existed before is touched):
+--
+--   drop view if exists public.offers_feed, public.offers_ranked,
+--        public.promotions_current, public.regular_prices_current;
+--   drop function if exists public.record_prices(text, jsonb, uuid);
+--   drop function if exists public.record_price(uuid, uuid, public.price_kind, integer,
+--        timestamptz, text, uuid, timestamptz, timestamptz, public.promo_type, jsonb,
+--        text, text, jsonb, uuid, text);
+--   drop function if exists public.require_price_writer();
+--   drop table if exists public.price_observations, public.ingestion_runs, public.sources,
+--        public.branches, public.sku_barcodes, public.skus;
+--   drop function if exists public.price_observations_guard();
+--   alter table public.stores drop column if exists kind;
+--   alter table public.beers drop column if exists variant, drop column if exists brand_id;
+--   drop table if exists public.brands;
+--   drop type if exists public.source_kind, public.promo_type, public.price_kind, public.container_type;
+-- --------------------------------------------------------------------------
+
+-- ======================== 0010_profile_and_push_hardening.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0010 — two holes found in the 2026-09-29 audit (docs/PRODUCT-AUDIT §3.3).
+--
+--  S-9   A signed-in user could rewrite ANY column of their own profile, including
+--        `primary_beer_id` (which decides the theme and who is notified) and
+--        `onboarded_at`, by calling the API directly. Column-level privileges
+--        now allow only the two columns a person legitimately edits.
+--
+--  S-10  Subscribing a browser that was already subscribed under a *different*
+--        anonymous identity (site data cleared, new anonymous user, same push
+--        endpoint) failed with an RLS error, so the device could never be
+--        registered again. An endpoint belongs to whoever holds the device now.
+-- ---------------------------------------------------------------------------
+
+-- --------------------------------------------------------------------------
+-- S-9. A profile owner may change their name and notification preference — and
+-- nothing else. Everything else on a profile is set by the database: the primary
+-- beer by the trigger, the onboarding timestamp by save_preferences().
+-- --------------------------------------------------------------------------
+
+revoke update on public.profiles from authenticated;
+grant update (first_name, notifications_enabled) on public.profiles to authenticated;
+
+-- save_preferences() writes `onboarded_at`, which the caller can no longer set
+-- directly, so it now runs with its owner's privileges. It only ever touches the
+-- rows of auth.uid(), exactly as before — the checks are unchanged.
+create or replace function public.save_preferences(
+  p_first_name text,
+  p_beer_ids   uuid[]
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  i   integer;
+begin
+  if uid is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+
+  if p_beer_ids is null or array_length(p_beer_ids, 1) <> 4 then
+    raise exception 'choose exactly four beers' using errcode = '22023';
+  end if;
+
+  if (select count(distinct b) from unnest(p_beer_ids) b) <> 4 then
+    raise exception 'the four beers must be different' using errcode = '22023';
+  end if;
+
+  update public.profiles
+     set first_name   = trim(p_first_name),
+         onboarded_at = coalesce(onboarded_at, now())
+   where id = uid;
+
+  -- Replace the list wholesale. Ranks are a unique key, so shuffling an
+  -- existing list in place would collide partway through.
+  delete from public.user_favorite_beers where profile_id = uid;
+
+  for i in 1 .. 4 loop
+    insert into public.user_favorite_beers (profile_id, beer_id, rank)
+    values (uid, p_beer_ids[i], i::smallint);
+  end loop;
+end;
+$$;
+
+-- --------------------------------------------------------------------------
+-- S-10. Register a push endpoint for the caller, taking it over if it belonged to
+-- another identity. The endpoint is an unguessable capability URL that only the
+-- device holds, so presenting it is the proof that the device is the caller's.
+-- --------------------------------------------------------------------------
+
+create or replace function public.save_push_subscription(
+  p_endpoint   text,
+  p_p256dh     text,
+  p_auth       text,
+  p_user_agent text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not signed in' using errcode = '42501';
+  end if;
+
+  insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth, p_user_agent)
+  on conflict (endpoint) do update
+    set user_id    = excluded.user_id,
+        p256dh     = excluded.p256dh,
+        auth       = excluded.auth,
+        user_agent = excluded.user_agent,
+        last_seen  = now();
+end;
+$$;

@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.3.0 — 2026-09-29
+
+**בסיס חדש למחירים ולאריזות** · Data, Fix
+
+- אפשר להפעיל התראות שוב גם אחרי שניקיתם את נתוני האתר בדפדפן.
+- מאחורי הקלעים: המערכת מבדילה עכשיו בין גדלים ואריזות (למשל גולדסטאר 6×330 מ״ל לעומת 6×500 מ״ל), ומכינה מקום למחירים רגילים לצד מבצעים. המסכים החדשים יגיעו בהמשך.
+
+Internal:
+
+- Migrations 0007–0009: brands, beers.variant, skus (container · volume_ml · pack_quantity), sku_barcodes, branches, sources, ingestion_runs and the append-only price_observations ledger (regular prices + promotions, conditions, validity window, source, observed_at, history).
+- record_price()/record_prices() are the only write path; read views regular_prices_current, promotions_current, offers_ranked, offers_feed (safe discount: same SKU + chain, <=14 days, feed/admin source, <=70%).
+- Migration 0010: profiles column-level update grant (S-9); save_push_subscription re-parents endpoints (S-10).
+- Dev/staging seeds: supabase/seed/dev-catalog.sql; sample-data source flagged is_sample.
+- See docs/DATA-MODEL.md.
+
 ## 0.2.0 — 2026-09-29
 
 **תיקוני יסוד: החיפוש חזר, ורק מבצעים אמיתיים** · Fix, Feature
