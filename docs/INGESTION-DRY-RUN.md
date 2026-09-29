@@ -8,25 +8,25 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 
 | | |
 | --- | ---: |
-| Publishers fetched · blocked | 14 · 4 |
+| Publishers fetched · blocked | 12 · 6 |
 | Retailers (chains) covered | 15 |
-| Branches covered | 15 |
-| Raw shelf rows | 164,579 |
-| Beer candidates (beer, non-alcoholic, radler) | 1768 |
-| … of our beers | 1081 |
-| … beers the app does not carry | 687 |
-| Out of scope (malt drinks, cider) | 156 |
+| Branches covered | 16 |
+| Raw shelf rows | 175,784 |
+| Beer candidates (beer, non-alcoholic, radler) | 1852 |
+| … of our beers | 1150 |
+| … beers the app does not carry | 702 |
+| Out of scope (malt drinks, cider) | 158 |
 | Canonical SKUs | 178 |
-| Resolved products (feed items matched to a SKU) | 926 |
-| Unresolved products (review queue) | 121 |
-| Regular-price observations | 954 |
-| Active universal promotions (single pack) | 294 |
-| Mix-and-match (group) promotions published | 69 |
+| Resolved products (feed items matched to a SKU) | 948 |
+| Unresolved products (review queue) | 112 |
+| Regular-price observations | 1027 |
+| Active universal promotions (single pack) | 307 |
+| Mix-and-match (group) promotions published | 70 |
 | Restricted promotions filtered (club, card, coupon, employees…) | 78 |
-| Promotions held for review (everyone could use them, but a statement was missing or disagreed) | 171 |
-| Invalid prices | 10 |
+| Promotions held for review (everyone could use them, but a statement was missing or disagreed) | 169 |
+| Invalid prices | 1 |
 | Duplicate source rows | 2 |
-| Barcodes seen at 2+ chains · read differently (held) | 159 · 9 |
+| Barcodes seen at 2+ chains · read differently (held) | 160 · 9 |
 
 ## Chains and branches
 
@@ -34,20 +34,23 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | carrefour | carrefour (7290055700007) | 2 קרפור מרקט אשקלון חאן | 2026-09-29 02:10 | 6148 | 56 | 45 | 11 | 4 | 2 | 0 | 3 |
 | yeinot-bitan | carrefour (7290055700007) | 80 יינות ביתן טבעון | 2026-09-29 02:10 | 6823 | 53 | 44 | 14 | 6 | 3 | 0 | 3 |
-| ampm | dor-alon (7290492000005) | 401 AM-PMדרך השלום | 2026-09-28 21:05 | 5049 | 106 | 87 | 33 | 16 | 9 | 0 | 8 |
-| fresh-market | freshmarket (7290876100000) | 2 פרשמרקט הנדיב | 2026-09-28 21:10 | 10690 | 74 | 57 | 20 | 9 | 7 | 0 | 4 |
-| hatzi-hinam | hatzi-hinam (7290700100008) | 103  | 2026-09-29 13:51 | 9768 | 69 | 48 | 13 | 4 | 4 | 0 | 5 |
-| keshet-taamim | keshet (7290785400000) | 14 פולג | 2026-09-28 21:10 | 17643 | 379 | 127 | 140 | 45 | 12 | 17 | 83 |
-| mahsanei | mahsanei (7290661400001) | 97 97 אינטרנט | 2026-09-29 03:04 | 12456 | 103 | 78 | 81 | 52 | 0 | 0 | 28 |
+| carrefour | carrefour (7290055700007) | 416 בעיר שדרות B (1340) | 2026-09-29 21:00 | 11213 | 84 | 69 | 15 | 6 | 4 | 0 | 3 |
+| ampm | dor-alon (7290492000005) | 401 AM-PMדרך השלום | 2026-09-29 21:05 | 5045 | 106 | 87 | 33 | 17 | 9 | 0 | 7 |
+| fresh-market | freshmarket (7290876100000) | 2 פרשמרקט הנדיב | 2026-09-29 21:10 | 10697 | 74 | 57 | 20 | 9 | 7 | 0 | 4 |
+| hatzi-hinam | hatzi-hinam (7290700100008) | 103  | 2026-09-29 19:53 | 9768 | 69 | 48 | 13 | 4 | 4 | 0 | 5 |
+| keshet-taamim | keshet (7290785400000) | 14 פולג | 2026-09-29 21:10 | 17649 | 379 | 127 | 140 | 45 | 12 | 17 | 83 |
+| mahsanei | mahsanei (7290661400001) | 97 97 אינטרנט | 2026-09-29 03:04 | 12456 | 103 | 78 | 81 | 54 | 0 | 0 | 26 |
 | osher-ad | osher-ad (7290103152017) | 3 גבעת שאול | 2026-09-29 11:05 | 7064 | 42 | 40 | 16 | 6 | 7 | 0 | 3 |
-| politzer | politzer (7291059100008) | 2 ויתקין | 2026-09-28 21:10 | 13409 | 99 | 83 | 30 | 17 | 4 | 0 | 9 |
-| rami-levy | rami-levy (7290058140886) | 2 בזק מחסני מזון | 2026-09-29 09:15 | 11797 | 88 | 68 | 36 | 19 | 6 | 0 | 9 |
+| politzer | politzer (7291059100008) | 2 ויתקין | 2026-09-28 21:10 | 13409 | 99 | 83 | 30 | 16 | 4 | 0 | 8 |
+| rami-levy | rami-levy (7290058140886) | 2 בזק מחסני מזון | 2026-09-29 21:10 | 11780 | 88 | 68 | 36 | 20 | 6 | 0 | 8 |
 | shufersal | shufersal (7290027600007) | 2 שלי ירושלים- אגרון | 2026-09-29 01:31 | 7577 | 69 | 59 | 24 | 17 | 1 | 0 | 6 |
 | stop-market | stop-market (7290639000004) | 2 ארנה | 2026-09-28 22:00 | 15328 | 225 | 108 | 25 | 3 | 5 | 0 | 16 |
 | tiv-taam | tiv-taam (7290873255550) | 2 נתניה | 2026-09-28 21:40 | 21566 | 285 | 132 | 87 | 13 | 5 | 61 | 48 |
 | victory | victory (7290696200003) | 93 חריש | 2026-09-29 02:11 | 8020 | 56 | 49 | 35 | 28 | 0 | 0 | 7 |
 | yochananof | yochananof (7290803800003) | 4 בילו | 2026-09-28 21:40 | 11241 | 64 | 56 | 24 | 17 | 4 | 0 | 3 |
-| king-store | — | — | **FAILED**: listed 79 files but none for a branch of ours | | | | | | | | |
+| victory | — | — | **FAILED**: laibcatalog.co.il lists no files for chain 7290696200003 | | | | | | | | |
+| mahsanei | — | — | **FAILED**: laibcatalog.co.il lists no files for chain 7290661400001 | | | | | | | | |
+| king-store | — | — | **FAILED**: listed 0 files; none of the branches tried (up to 4) lists any beer | | | | | | | | |
 | super-yuda | — | — | **BLOCKED**: Super Yuda's Cerberus account (yuda_ho) requires a password; the public empty-password login is refused. Needs the chain's published credentials. | | | | | | | | |
 | salach-dabach | — | — | **BLOCKED**: Salach Dabach's Cerberus account (SalachD) requires a password; the public empty-password login is refused. | | | | | | | | |
 | yellow | — | — | **BLOCKED**: Paz Yellow's Cerberus account (Paz_bo) requires a password; the public empty-password login is refused. | | | | | | | | |
@@ -56,108 +59,112 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 
 | Beer | Variant | Category | Container | ml | Pack | Retailers | Regular prices seen |
 | --- | --- | --- | --- | ---: | ---: | --- | --- |
+| tuborg-red | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪29.90–₪52.90 |
+| carlsberg | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪34.80–₪52.90 |
 | carlsberg | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪8.90–₪14.90 |
+| carlsberg | לומה | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, tiv-taam, victory, yeinot-bitan, yochananof | ₪34.90–₪55.50 |
+| corona | — | beer | bottle | 355 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪37.90–₪49.90 |
 | goldstar | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.90–₪10.90 |
+| goldstar | לא מסונן | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪29.90–₪48.90 |
 | heineken | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪34.90–₪48.90 |
 | heineken | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪9.90–₪14.90 |
 | krombacher | חיטה | beer | can | 500 | 1 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪9.90–₪14.90 |
-| tuborg-red | — | beer | bottle | 330 | 6 | ampm, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪29.90–₪52.90 |
-| carlsberg | — | beer | bottle | 330 | 6 | ampm, fresh-market, hatzi-hinam, keshet-taamim, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪34.80–₪52.90 |
-| carlsberg | לומה | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, shufersal, tiv-taam, victory, yeinot-bitan, yochananof | ₪34.90–₪55.50 |
-| corona | — | beer | bottle | 355 | 6 | carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪37.90–₪47.90 |
 | goldstar | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, tiv-taam, victory, yeinot-bitan, yochananof | ₪31.90–₪44.90 |
-| goldstar | לא מסונן | beer | bottle | 330 | 6 | ampm, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪29.90–₪48.90 |
 | goldstar | לא מסונן | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪8.90–₪11.90 |
+| krombacher | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪9.90–₪14.90 |
+| maccabee | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.50–₪10.50 |
+| maccabee | 7.9% | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.90–₪10.90 |
 | stella | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪29.90–₪49.90 |
 | weihen | — | beer | bottle | 500 | 1 | ampm, carrefour, fresh-market, hatzi-hinam, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yochananof | ₪11.80–₪16.90 |
 | goldstar | — | beer | bottle | 250 | 4 | ampm, carrefour, fresh-market, hatzi-hinam, mahsanei, osher-ad, politzer, rami-levy, tiv-taam, victory, yeinot-bitan, yochananof | ₪24.90–₪28.90 |
 | goldstar | — | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.50–₪10.00 |
+| goldstar | סלואו ברו | beer | can | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪8.90–₪11.90 |
 | heineken | — | beer | bottle | 250 | 4 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, tiv-taam, victory, yeinot-bitan, yochananof | ₪23.90–₪28.90 |
 | heineken | — | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, tiv-taam, victory, yeinot-bitan, yochananof | ₪8.90–₪11.00 |
 | heineken | 0.0 | non_alcoholic | bottle | 330 | 6 | carrefour, fresh-market, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪32.00–₪38.70 |
-| krombacher | — | beer | can | 500 | 1 | ampm, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪9.90–₪14.90 |
-| maccabee | — | beer | can | 500 | 1 | ampm, fresh-market, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.50–₪10.50 |
-| maccabee | 7.9% | beer | can | 500 | 1 | ampm, fresh-market, keshet-taamim, mahsanei, osher-ad, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪7.90–₪10.90 |
+| paulaner | חיטה | beer | bottle | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪11.70–₪15.90 |
 | carlsberg | — | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, victory, yeinot-bitan, yochananof | ₪7.90–₪13.90 |
-| goldstar | סלואו ברו | beer | can | 500 | 1 | ampm, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪8.90–₪11.90 |
+| goldstar | סלואו ברו | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, tiv-taam, victory, yeinot-bitan | ₪34.90–₪49.90 |
 | maccabee | 7.9% | beer | bottle | 330 | 6 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, rami-levy, shufersal, stop-market, tiv-taam, victory, yeinot-bitan | ₪29.90–₪41.90 |
-| paulaner | חיטה | beer | bottle | 500 | 1 | ampm, fresh-market, keshet-taamim, mahsanei, osher-ad, shufersal, stop-market, tiv-taam, victory, yeinot-bitan, yochananof | ₪11.70–₪15.90 |
 | tuborg-red | — | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, victory, yeinot-bitan, yochananof | ₪7.80–₪13.90 |
+| becks | — | beer | other | 275 | 6 | ampm, fresh-market, keshet-taamim, mahsanei, politzer, shufersal, stop-market, tiv-taam, victory, yochananof | ₪29.90–₪40.90 |
 | budweiser | — | beer | bottle | 330 | 6 | ampm, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, tiv-taam, yochananof | ₪34.90–₪42.90 |
+| carlsberg | — | beer | bottle | 330 | 1 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, rami-levy, stop-market, tiv-taam, victory, yochananof | ₪6.90–₪11.90 |
 | carlsberg | 0.0 | non_alcoholic | bottle | 330 | 6 | carrefour, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, stop-market, tiv-taam, victory, yeinot-bitan | ₪28.90–₪38.70 |
 | chouffe | צ'רי | beer | bottle | 330 | 1 | ampm, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, stop-market, tiv-taam | ₪13.90–₪17.90 |
 | corona | — | beer | can | 500 | 1 | ampm, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, stop-market, tiv-taam, victory | ₪10.90–₪16.90 |
-| goldstar | סלואו ברו | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, tiv-taam, victory, yeinot-bitan | ₪34.90–₪49.90 |
 | hoegaarden | — | beer | can | 500 | 1 | ampm, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, stop-market, yochananof | ₪11.90–₪17.90 |
 | krombacher | — | beer | bottle | 330 | 6 | ampm, carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, rami-levy, shufersal, victory | ₪29.90–₪47.40 |
 | maccabee | 7.9% | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, mahsanei, politzer, rami-levy, shufersal, victory, yeinot-bitan, yochananof | ₪7.30–₪9.90 |
+| miller | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, hatzi-hinam, keshet-taamim, politzer, rami-levy, stop-market, tiv-taam, victory | ₪9.90–₪16.90 |
 | stella | — | beer | can | 440 | 1 | ampm, carrefour, hatzi-hinam, keshet-taamim, mahsanei, osher-ad, stop-market, victory, yeinot-bitan, yochananof | ₪9.90–₪16.90 |
-| becks | — | beer | other | 275 | 6 | fresh-market, keshet-taamim, mahsanei, politzer, shufersal, stop-market, tiv-taam, victory, yochananof | ₪29.90–₪40.90 |
-| carlsberg | — | beer | bottle | 330 | 1 | ampm, fresh-market, keshet-taamim, mahsanei, rami-levy, stop-market, tiv-taam, victory, yochananof | ₪6.90–₪11.90 |
 | goldstar | — | beer | bottle | 330 | 1 | ampm, carrefour, fresh-market, keshet-taamim, politzer, rami-levy, tiv-taam, victory, yeinot-bitan | ₪6.90–₪9.90 |
 | goldstar | לא מסונן | beer | bottle | 250 | 4 | ampm, carrefour, fresh-market, hatzi-hinam, mahsanei, osher-ad, rami-levy, tiv-taam, yeinot-bitan | ₪24.90–₪28.90 |
-| miller | — | beer | can | 500 | 1 | ampm, fresh-market, hatzi-hinam, keshet-taamim, politzer, rami-levy, stop-market, tiv-taam, victory | ₪9.90–₪16.90 |
-| hoegaarden | — | beer | bottle | 330 | 6 | ampm, fresh-market, osher-ad, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪39.90–₪59.90 |
+| hoegaarden | — | beer | bottle | 330 | 6 | ampm, fresh-market, mahsanei, osher-ad, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪39.90–₪59.90 |
+| tuborg-red | — | beer | bottle | 330 | 1 | ampm, carrefour, fresh-market, keshet-taamim, politzer, rami-levy, stop-market, tiv-taam, victory | ₪7.00–₪11.90 |
+| tuborg | — | beer | bottle | 330 | 6 | ampm, carrefour, keshet-taamim, mahsanei, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪34.80–₪52.90 |
+| alexander | בלונד | beer | other | 330 | 1 | ampm, carrefour, mahsanei, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪12.90–₪16.90 |
+| heineken | — | beer | bottle | 330 | 1 | ampm, carrefour, keshet-taamim, mahsanei, rami-levy, stop-market, victory, yeinot-bitan | ₪8.90–₪11.10 |
+| maccabee | — | beer | bottle | 330 | 6 | carrefour, keshet-taamim, mahsanei, rami-levy, shufersal, stop-market, victory, yeinot-bitan | ₪33.90–₪39.90 |
 | malka | בהירה | beer | bottle | 330 | 1 | ampm, fresh-market, hatzi-hinam, rami-levy, shufersal, stop-market, tiv-taam, yochananof | ₪13.90–₪16.90 |
 | malka | חיטה | beer | bottle | 330 | 1 | ampm, fresh-market, hatzi-hinam, keshet-taamim, politzer, shufersal, stop-market, tiv-taam | ₪13.90–₪16.90 |
-| tuborg-red | — | beer | bottle | 330 | 1 | ampm, fresh-market, keshet-taamim, politzer, rami-levy, stop-market, tiv-taam, victory | ₪7.90–₪11.90 |
-| tuborg | — | beer | bottle | 330 | 6 | ampm, keshet-taamim, mahsanei, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪34.80–₪52.90 |
-| alexander | בלונד | beer | other | 330 | 1 | ampm, mahsanei, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪12.90–₪16.90 |
+| staropramen | — | beer | can | 500 | 1 | ampm, carrefour, fresh-market, keshet-taamim, rami-levy, stop-market, tiv-taam, yeinot-bitan | ₪9.90–₪14.90 |
+| weihen | — | beer | other | 330 | 6 | carrefour, hatzi-hinam, keshet-taamim, mahsanei, politzer, shufersal, tiv-taam, victory | ₪59.90–₪78.70 |
 | benediktiner | — | beer | bottle | 500 | 1 | ampm, fresh-market, keshet-taamim, politzer, stop-market, tiv-taam, yochananof | ₪11.90–₪14.90 |
 | blue-moon | — | beer | bottle | 330 | 1 | ampm, keshet-taamim, politzer, shufersal, stop-market, tiv-taam, yochananof | ₪9.90–₪16.90 |
 | blue-moon | — | beer | can | 500 | 1 | ampm, hatzi-hinam, keshet-taamim, mahsanei, politzer, stop-market, tiv-taam | ₪12.90–₪15.90 |
 | budweiser | — | beer | can | 500 | 1 | ampm, fresh-market, hatzi-hinam, mahsanei, politzer, shufersal, stop-market | ₪9.90–₪12.50 |
 | chouffe | — | beer | bottle | 330 | 1 | fresh-market, hatzi-hinam, keshet-taamim, politzer, shufersal, stop-market, tiv-taam | ₪14.50–₪16.90 |
 | eagle | — | beer | bottle | 500 | 1 | carrefour, mahsanei, politzer, rami-levy, shufersal, yeinot-bitan, yochananof | ₪5.50–₪8.30 |
-| heineken | — | beer | bottle | 330 | 1 | ampm, keshet-taamim, mahsanei, rami-levy, stop-market, victory, yeinot-bitan | ₪8.90–₪11.10 |
+| eagle | — | beer | can | 500 | 1 | carrefour, fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, tiv-taam | ₪5.90–₪9.30 |
+| eagle | זהב | beer | can | 500 | 1 | carrefour, fresh-market, keshet-taamim, mahsanei, politzer, tiv-taam, yeinot-bitan | ₪6.90–₪9.30 |
 | krombacher | חיטה | beer | bottle | 500 | 1 | carrefour, keshet-taamim, mahsanei, politzer, rami-levy, victory, yochananof | ₪9.90–₪13.90 |
 | leffe | — | beer | can | 500 | 1 | hatzi-hinam, keshet-taamim, mahsanei, osher-ad, rami-levy, stop-market, yochananof | ₪11.90–₪14.90 |
 | leffe | בראון | beer | bottle | 330 | 6 | ampm, hatzi-hinam, politzer, rami-levy, stop-market, tiv-taam, yochananof | ₪39.90–₪59.90 |
-| maccabee | — | beer | bottle | 330 | 6 | carrefour, keshet-taamim, mahsanei, shufersal, stop-market, victory, yeinot-bitan | ₪34.90–₪39.90 |
 | maccabee | — | beer | bottle | 500 | 1 | ampm, carrefour, keshet-taamim, politzer, rami-levy, victory, yochananof | ₪6.90–₪8.90 |
+| maccabee | 7.9% | beer | bottle | 330 | 1 | ampm, carrefour, fresh-market, keshet-taamim, rami-levy, stop-market, tiv-taam | ₪6.60–₪9.90 |
 | miller | בוק | beer | bottle | 330 | 6 | carrefour, fresh-market, keshet-taamim, politzer, rami-levy, stop-market, tiv-taam | ₪35.90–₪47.90 |
 | paulaner | מינכן הל | beer | bottle | 500 | 1 | carrefour, fresh-market, hatzi-hinam, keshet-taamim, mahsanei, stop-market, tiv-taam | ₪12.90–₪15.90 |
-| staropramen | — | beer | can | 500 | 1 | ampm, fresh-market, keshet-taamim, rami-levy, stop-market, tiv-taam, yeinot-bitan | ₪9.90–₪14.90 |
-| weihen | — | beer | other | 330 | 6 | carrefour, hatzi-hinam, keshet-taamim, politzer, shufersal, tiv-taam, victory | ₪59.90–₪78.70 |
+| paulaner | מינכן הל | beer | can | 500 | 1 | carrefour, hatzi-hinam, keshet-taamim, rami-levy, stop-market, tiv-taam, yeinot-bitan | ₪11.50–₪15.90 |
+| shapiro | פייל אייל | beer | other | 330 | 1 | ampm, carrefour, mahsanei, shufersal, stop-market, tiv-taam, yeinot-bitan | ₪14.50–₪17.90 |
 | becks | — | beer | can | 500 | 1 | ampm, hatzi-hinam, keshet-taamim, politzer, stop-market, tiv-taam | ₪9.90–₪12.90 |
 | benediktiner | דונקל | beer | other | 500 | 1 | fresh-market, keshet-taamim, politzer, stop-market, tiv-taam, yochananof | ₪11.90–₪13.90 |
 | chouffe | מק שוף | beer | bottle | 330 | 1 | ampm, keshet-taamim, mahsanei, politzer, stop-market, tiv-taam | ₪13.90–₪17.90 |
-| eagle | — | beer | can | 500 | 1 | fresh-market, keshet-taamim, mahsanei, osher-ad, politzer, tiv-taam | ₪5.90–₪9.30 |
-| eagle | זהב | beer | can | 500 | 1 | fresh-market, keshet-taamim, mahsanei, politzer, tiv-taam, yeinot-bitan | ₪6.90–₪9.30 |
 | eagle | חזקה | beer | can | 500 | 1 | carrefour, keshet-taamim, mahsanei, politzer, tiv-taam, yeinot-bitan | ₪6.90–₪9.00 |
 | kronenbourg | — | beer | bottle | 330 | 6 | hatzi-hinam, keshet-taamim, osher-ad, shufersal, tiv-taam, yochananof | ₪39.90–₪63.90 |
 | leffe | — | beer | bottle | 330 | 6 | ampm, carrefour, politzer, stop-market, tiv-taam, yochananof | ₪39.90–₪59.90 |
-| maccabee | 7.9% | beer | bottle | 330 | 1 | ampm, fresh-market, keshet-taamim, rami-levy, stop-market, tiv-taam | ₪6.90–₪9.90 |
 | malka | אדמונית | beer | bottle | 330 | 1 | ampm, hatzi-hinam, politzer, shufersal, stop-market, tiv-taam | ₪13.90–₪16.90 |
-| paulaner | מינכן הל | beer | can | 500 | 1 | hatzi-hinam, keshet-taamim, rami-levy, stop-market, tiv-taam, yeinot-bitan | ₪11.50–₪15.90 |
-| shapiro | פייל אייל | beer | other | 330 | 1 | ampm, mahsanei, shufersal, stop-market, tiv-taam, yeinot-bitan | ₪14.50–₪17.90 |
 | staropramen | — | beer | bottle | 500 | 1 | carrefour, hatzi-hinam, keshet-taamim, rami-levy, stop-market, tiv-taam | ₪9.90–₪13.30 |
+| stella | — | beer | bottle | 330 | 1 | ampm, carrefour, keshet-taamim, osher-ad, politzer, stop-market | ₪7.90–₪10.90 |
+| alexander | אמבר | beer | other | 330 | 1 | carrefour, hatzi-hinam, mahsanei, stop-market, tiv-taam | ₪12.90–₪15.90 |
+| goldstar | — | beer | other | 330 | 6 | carrefour, keshet-taamim, mahsanei, rami-levy, stop-market | ₪35.90–₪38.90 |
+| goldstar | לא מסונן | beer | other | 330 | 1 | ampm, carrefour, politzer, stop-market, tiv-taam | ₪7.20–₪9.90 |
 | guinness | — | beer | bottle | 330 | 1 | hatzi-hinam, mahsanei, shufersal, stop-market, tiv-taam | ₪14.00–₪17.50 |
 | kasteel | רובוס | beer | other | 330 | 1 | ampm, keshet-taamim, osher-ad, shufersal, tiv-taam | ₪12.90–₪14.90 |
 | kasteel | רוז' | beer | other | 330 | 1 | ampm, keshet-taamim, osher-ad, shufersal, tiv-taam | ₪12.90–₪14.90 |
 | maccabee | שנדי אפרסק | radler | bottle | 330 | 6 | carrefour, shufersal, tiv-taam, yeinot-bitan, yochananof | ₪31.90–₪42.70 |
 | malka | הינדי | beer | other | 330 | 1 | ampm, hatzi-hinam, politzer, stop-market, tiv-taam | ₪13.90–₪16.90 |
 | negev | אמבר | beer | other | 330 | 1 | hatzi-hinam, politzer, shufersal, stop-market, tiv-taam | ₪13.90–₪16.90 |
-| stella | — | beer | bottle | 330 | 1 | ampm, keshet-taamim, osher-ad, politzer, stop-market | ₪7.90–₪10.90 |
 | tuborg | — | beer | bottle | 500 | 1 | carrefour, keshet-taamim, shufersal, victory, yochananof | ₪7.90–₪11.30 |
-| alexander | אמבר | beer | other | 330 | 1 | hatzi-hinam, mahsanei, stop-market, tiv-taam | ₪12.90–₪15.90 |
 | alexander | גרין | beer | other | 330 | 1 | hatzi-hinam, mahsanei, stop-market, tiv-taam | ₪12.90–₪15.90 |
 | becks | 0.0 | non_alcoholic | other | 275 | 6 | keshet-taamim, politzer, stop-market, tiv-taam | ₪26.90–₪35.90 |
 | benediktiner | לאגר | beer | other | 500 | 1 | keshet-taamim, stop-market, tiv-taam, yochananof | ₪11.90–₪13.50 |
 | franziskaner | — | beer | bottle | 500 | 1 | ampm, hatzi-hinam, rami-levy, tiv-taam | ₪12.50–₪16.90 |
-| goldstar | — | beer | other | 330 | 6 | keshet-taamim, mahsanei, rami-levy, stop-market | ₪35.90–₪38.90 |
-| goldstar | לא מסונן | beer | other | 330 | 1 | ampm, politzer, stop-market, tiv-taam | ₪7.20–₪9.90 |
 | heineken | — | beer | can | 330 | 6 | mahsanei, shufersal, stop-market, tiv-taam | ₪34.90–₪46.00 |
 | hoegaarden | — | beer | bottle | 330 | 1 | carrefour, keshet-taamim, stop-market, victory | ₪9.80–₪9.90 |
 | kronenbourg | רוזה | beer | bottle | 330 | 6 | ampm, hatzi-hinam, keshet-taamim, tiv-taam | ₪44.90–₪60.90 |
 | leffe | — | beer | bottle | 330 | 1 | keshet-taamim, stop-market, tiv-taam, yochananof | ₪8.90–₪10.00 |
 | leffe | בראון | beer | bottle | 330 | 1 | ampm, keshet-taamim, stop-market, tiv-taam | ₪8.90–₪11.90 |
+| malka | אדמונית | beer | other | 750 | 1 | keshet-taamim, politzer, stop-market, tiv-taam | ₪29.90–₪34.90 |
 | paulaner | — | beer | bottle | 500 | 1 | keshet-taamim, mahsanei, stop-market, tiv-taam | ₪12.90–₪14.90 |
+| shapiro | סטאוט | beer | bottle | 330 | 1 | carrefour, mahsanei, stop-market, yeinot-bitan | ₪14.90–₪17.90 |
+| staropramen | — | beer | bottle | 330 | 6 | carrefour, keshet-taamim, rami-levy, tiv-taam | ₪39.90–₪42.90 |
 | benediktiner | — | beer | can | 500 | 1 | keshet-taamim, stop-market, tiv-taam | ₪9.90–₪11.90 |
 | benediktiner | — | beer | other | 330 | 1 | keshet-taamim, stop-market, tiv-taam | ₪8.90–₪9.90 |
 | benediktiner | 0.0 | non_alcoholic | other | 500 | 1 | keshet-taamim, stop-market, tiv-taam | ₪9.90–₪11.50 |
 | benediktiner | דונקל | beer | can | 500 | 1 | keshet-taamim, stop-market, tiv-taam | ₪9.90–₪11.90 |
 | benediktiner | לאגר | beer | can | 500 | 4 | keshet-taamim, politzer, tiv-taam | ₪34.90–₪39.30 |
+| carlsberg | לומה | beer | other | 330 | 1 | carrefour, keshet-taamim, stop-market | ₪8.00–₪9.90 |
 | estrella | — | beer | other | 330 | 6 | fresh-market, shufersal, tiv-taam | ₪44.90–₪59.90 |
 | franziskaner | דונקל | beer | bottle | 500 | 1 | hatzi-hinam, politzer, tiv-taam | ₪12.90–₪14.90 |
 | goldstar | לא מסונן | beer | bottle | 250 | 1 | ampm, fresh-market, keshet-taamim | ₪6.90–₪12.90 |
@@ -165,12 +172,9 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | kasteel | רוז' | beer | can | 330 | 1 | rami-levy, shufersal, tiv-taam | ₪12.90–₪14.90 |
 | maccabee | — | beer | bottle | 330 | 1 | ampm, keshet-taamim, tiv-taam | ₪5.90–₪9.50 |
 | maccabee | שנדי | radler | other | 330 | 6 | keshet-taamim, tiv-taam, yochananof | ₪31.90–₪34.90 |
-| malka | אדמונית | beer | other | 750 | 1 | keshet-taamim, stop-market, tiv-taam | ₪29.90–₪34.90 |
 | malka | חיטה | beer | can | 330 | 1 | ampm, stop-market, tiv-taam | ₪14.90–₪16.90 |
 | malka | סטאוט | beer | other | 330 | 1 | hatzi-hinam, stop-market, tiv-taam | ₪14.10–₪15.90 |
 | negev | אלון | beer | other | 330 | 1 | hatzi-hinam, stop-market, tiv-taam | ₪14.90–₪16.10 |
-| shapiro | סטאוט | beer | bottle | 330 | 1 | mahsanei, stop-market, yeinot-bitan | ₪14.90–₪17.90 |
-| staropramen | — | beer | bottle | 330 | 6 | keshet-taamim, rami-levy, tiv-taam | ₪39.90–₪42.90 |
 | weihen | דונקל | beer | bottle | 500 | 1 | keshet-taamim, stop-market, tiv-taam | ₪12.90–₪14.90 |
 | becks | — | beer | bottle | 275 | 1 | ampm, keshet-taamim | ₪6.90–₪8.90 |
 | benediktiner | — | beer | can | 500 | 4 | keshet-taamim, tiv-taam | ₪37.90–₪39.30 |
@@ -182,21 +186,20 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | budweiser | — | beer | bottle | 330 | 1 | ampm, rami-levy | ₪6.90–₪9.50 |
 | budweiser | — | beer | other | 500 | 1 | keshet-taamim, tiv-taam | ₪10.90–₪15.10 |
 | budweiser | דארק | beer | can | 500 | 1 | keshet-taamim, tiv-taam | ₪8.90–₪9.20 |
-| carlsberg | לומה | beer | other | 330 | 1 | keshet-taamim, stop-market | ₪9.90–₪9.90 |
 | chouffe | — | beer | bottle | 750 | 1 | keshet-taamim, stop-market | ₪29.90–₪29.90 |
 | chouffe | מק שוף | beer | bottle | 750 | 1 | keshet-taamim, stop-market | ₪29.90–₪29.90 |
 | chouffe | צ'רי | beer | bottle | 750 | 1 | keshet-taamim, stop-market | ₪29.90–₪29.90 |
 | corona | — | beer | other | 355 | 6 | mahsanei, osher-ad | ₪39.90–₪41.90 |
 | erdinger | — | beer | other | 500 | 1 | keshet-taamim, tiv-taam | ₪11.90–₪12.50 |
 | goldstar | לא מסונן | beer | bottle | 500 | 1 | ampm, politzer | ₪8.40–₪10.40 |
-| heineken | 0.0 | non_alcoholic | bottle | 330 | 1 | carrefour, keshet-taamim | ₪6.30–₪6.90 |
+| heineken | 0.0 | non_alcoholic | bottle | 330 | 1 | carrefour, keshet-taamim | ₪6.00–₪6.90 |
 | kasteel | בריסטה | beer | other | 330 | 1 | keshet-taamim, tiv-taam | ₪12.90–₪13.90 |
 | kasteel | טרופיקל | beer | bottle | 330 | 1 | keshet-taamim, tiv-taam | ₪12.90–₪13.90 |
 | kasteel | רובוס | beer | other | 750 | 1 | keshet-taamim, tiv-taam | ₪34.90–₪44.90 |
 | kasteel | רוז' | beer | other | 750 | 1 | keshet-taamim, tiv-taam | ₪34.90–₪44.90 |
 | krombacher | — | beer | other | 330 | 1 | ampm, stop-market | ₪9.90–₪13.20 |
 | kronenbourg | — | beer | can | 330 | 4 | hatzi-hinam, tiv-taam | ₪31.00–₪39.90 |
-| maccabee | שנדי אפרסק | radler | bottle | 330 | 1 | carrefour, stop-market | ₪6.90–₪7.90 |
+| maccabee | שנדי אפרסק | radler | bottle | 330 | 1 | carrefour, stop-market | ₪6.00–₪7.90 |
 | malka | אדמונית | beer | can | 330 | 1 | stop-market, tiv-taam | ₪14.90–₪15.90 |
 | malka | בהירה | beer | can | 330 | 1 | ampm, stop-market | ₪14.90–₪16.90 |
 | malka | הינדי | beer | can | 330 | 1 | stop-market, tiv-taam | ₪14.90–₪15.90 |
@@ -204,6 +207,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | shapiro | חיטה | beer | other | 330 | 1 | mahsanei, stop-market | ₪14.90–₪14.90 |
 | staropramen | — | beer | other | 330 | 1 | rami-levy, stop-market | ₪7.90–₪8.30 |
 | tuborg | — | beer | bottle | 330 | 1 | keshet-taamim, politzer | ₪7.90–₪8.70 |
+| weihen | — | beer | other | 330 | 1 | carrefour, stop-market | ₪10.00–₪14.90 |
 | budweiser | — | beer | other | 275 | 6 | keshet-taamim | ₪29.90–₪29.90 |
 | budweiser | — | beer | other | 330 | 6 | keshet-taamim | ₪35.90–₪35.90 |
 | budweiser | דארק | beer | other | 500 | 1 | keshet-taamim | ₪10.90–₪10.90 |
@@ -232,7 +236,6 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | paulaner | — | beer | other | 500 | 1 | keshet-taamim | ₪12.90–₪12.90 |
 | stella | — | beer | can | 500 | 1 | keshet-taamim | ₪9.90–₪9.90 |
 | tuborg | — | beer | other | 500 | 1 | mahsanei | ₪10.80–₪10.80 |
-| weihen | — | beer | other | 330 | 1 | stop-market | ₪14.90–₪14.90 |
 | weihen | קריסטל | beer | other | 500 | 1 | stop-market | ₪12.90–₪12.90 |
 
 ## Promotions
@@ -254,6 +257,16 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | yeinot-bitan | שישיית בירה טובורג/קרלסברג 330 מ ל | 2 for ₪75.00 | DiscountedPrice only | everyone | published as a group |
 | yeinot-bitan | בירה היינקן/גולדסטאר רביעייה 250 מ ל | ₪20.00 | DiscountedPrice only | everyone | published |
 | yeinot-bitan | גולדסטאר ח פ בקבוק 6*330 מ ל | ₪27.90 | DiscountedPrice only | everyone | published |
+| carrefour | בירה מכבי 330 בקבוק שישייה | 2 for ₪64.00 | DiscountedPrice only | everyone | published as a group |
+| carrefour | גולדסטאר ח פ בקבוק 6*330 מ ל | ₪24.90 | DiscountedPrice only | everyone | published |
+| carrefour | שפירא פייל אייל 330 בקבוק | 2 for ₪25.00 | DiscountedPrice only | everyone | published as a group |
+| carrefour | גולדסטאר לא מסונן // rostBlackBatchWild | ₪29.90 | DiscountedPrice only | everyone | published |
+| carrefour | בירה פאולנר מינכן הל פחית 500 מ ל | 2 for ₪22.00 | DiscountedPrice only | everyone | published |
+| carrefour | שישיית בירה טובורג/קרלסברג 330 מ ל | 2 for ₪70.00 | DiscountedPrice only | everyone | published as a group |
+| carrefour | בירה לאגר שישיה 330 מ ל | ₪34.90 | DiscountedPrice only | everyone | published |
+| carrefour | בירה היינקן/גולדסטאר רביעייה 250 מ ל | ₪17.90 | DiscountedPrice only | everyone | published |
+| carrefour | בירה סטלה ארטואה שישיה 330 מ ל/קורונה אק | 2 for ₪65.00 | DiscountedPrice only | everyone | published as a group |
+| carrefour | בירה הייניקן בקבוק ח פ 6*330מ ל | ₪34.90 | DiscountedPrice only | everyone | published |
 | ampm | מבצע בירה אלכסנדר/גמס 2 יח ב 27.90 שח | 2 for ₪27.90 | description + DiscountedPrice | everyone | published |
 | ampm | מבצע 1/6 בירה קורונה/סטלה ב 42.90 שח | ₪42.90 | description + DiscountedPrice | everyone | published |
 | ampm | מבצע 1/6 בירה לף בלונד/הוגרדן ב 45.90 שח | ₪45.90 | description + DiscountedPrice | everyone | published |
@@ -264,6 +277,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | ampm | מבצע בירה קרלסברג/טובורג 330מל 2ב 18.90 | 2 for ₪18.90 | description + DiscountedPrice | everyone | published as a group |
 | ampm | מבצע 1/6 בירה קרלסברג ב 42.90 שחLUMA | ₪42.90 | description + DiscountedPrice | everyone | published |
 | ampm | מבצע 1/6 בירה באדוויזר ב 34.90 שח | ₪34.90 | description + DiscountedPrice | everyone | published |
+| ampm | מבצע 1/6 בירה בקס ב 29.90 שח | ₪29.90 | description + DiscountedPrice | everyone | published |
 | ampm | מבצע בירה בלומון 5.4% כוהל 2ב26שח | 2 for ₪26.00 | description + DiscountedPrice | everyone | published |
 | ampm | מבצע בירה באדוויזר/בקס פחית 2 ב 20 שח | 2 for ₪20.00 | description + DiscountedPrice | everyone | published as a group |
 | ampm | מבצע בירה פרנסיסקאנר 500 מ ל 26.902 שח | 2 for ₪26.90 | DiscountedPrice only | everyone | published |
@@ -375,6 +389,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | mahsanei | *גולדסטאר WILD BATCH 330 מייל שישייה 2ב62ש | 2 for ₪62.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | *קרלסברג בירה 500 חוזר 3ב20ש | 3 for ₪20.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | א/היינקן סליק בירה 330מ"ל פחית 2ב12ש: | 2 for ₪12.00 | description + DiscountedPrice | everyone | published |
+| mahsanei | ויינשטפן שישייה 330מ"ל 2ב120ש | 2 for ₪120.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | א/קרלסברג Luma שישיות} 330מ"ל ב35.90ש | ₪35.90 | description + DiscountedPrice | everyone | published |
 | mahsanei | א/קרלסברג 500 פחית 2ב15ש | 2 for ₪15.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | א/קרלסברג 330מ"ל שישייה 2ב70ש | 2 for ₪70.00 | description + DiscountedPrice | everyone | published |
@@ -386,6 +401,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | mahsanei | בירה סטלה ארטואה 440מ"ל פחית 2ב20ש | 2 for ₪20.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | בירה לף/הוגרדן פחית 500מ"ל ב10ש | ₪10.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | בירה לף/הוגרדן פחית 500מ"ל ב10ש | ₪10.00 | description + DiscountedPrice | everyone | published |
+| mahsanei | א/שישיית בירה 330מ"ל הוגרדן ב39.90ש"ח | ₪39.90 | description + DiscountedPrice | everyone | published |
 | mahsanei | א/קרומבאכר בקבוק 330 מ"ל שישייה ב29.90ש | ₪29.90 | description + DiscountedPrice | everyone | published |
 | mahsanei | קרומבאכר פחית בודד 0.5ל 2ב18ש | 2 for ₪18.00 | description + DiscountedPrice | everyone | published |
 | mahsanei | קרומבאכר פחית בודד 0.5ל 2ב18ש | 2 for ₪18.00 | description + DiscountedPrice | everyone | published |
@@ -434,7 +450,6 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | politzer | שישייה בירה באדוויזר ב 29.90 | ₪29.90 | description + DiscountedPrice | everyone | published |
 | politzer | גולדסטאר שישייה ב-29.90 | ₪29.90 | description + DiscountedPrice | everyone | published |
 | politzer | קרלסברג פחית 0.5 ליטר 2 ב 17.90- | 2 for ₪17.90 | description + DiscountedPrice | everyone | published |
-| politzer | קרלסברג בק שישיה ב 29.90- | ₪29.90 | description + DiscountedPrice | everyone | published |
 | politzer | פחית לף בלונד/ הוגרדן 2 ב 22 | 2 for ₪22.00 | description + DiscountedPrice | everyone | published |
 | politzer | בירה קורונה פחית 500 מ ל 2 ב 18 | 2 for ₪18.00 | description + DiscountedPrice | everyone | published |
 | politzer | בירה מילר פחית 2 ב 20 | 2 for ₪20.00 | description + DiscountedPrice | everyone | published |
@@ -466,6 +481,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | rami-levy | בירה פרנסיסקאנר 500מל 2ב23.90 כולל | 2 for ₪23.90 | description + DiscountedPrice | everyone | published |
 | rami-levy | בירה מילר בוק 330מל שישייה ב19.90 מו2 כו | ₪19.90 | description + DiscountedPrice | everyone | published |
 | rami-levy | שישיית בירה גולדסטאר 29.90כולל | ₪29.90 | DiscountedPrice only | everyone | published |
+| rami-levy | שישיית בירה 6*330 מ ל קרלסברג לומה ב35.9 | ₪35.90 | description + DiscountedPrice | everyone | published |
 | rami-levy | בירה טובורג רד/גרין 6*330מ ל ב29.90 כולל | ₪29.90 | description + DiscountedPrice | everyone | published |
 | rami-levy | סטרופארמן בק 330מל שישייה ב19.90 כולל | ₪19.90 | description + DiscountedPrice | everyone | published |
 | rami-levy | בירה 6*330 מ ל קרלסברג ב29.90 כולל | ₪29.90 | description + DiscountedPrice | everyone | published |
@@ -568,6 +584,8 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | carrefour | קופון פיצוי לקוח היינקן 330 מל שישייה | excluded | — | coupon | excluded |
 | yeinot-bitan | קופון פיצוי לקוח גולדסטאר 330 מל שישייה | excluded | — | coupon | excluded |
 | yeinot-bitan | קופון פיצוי לקוח היינקן 330 מל שישייה | excluded | — | coupon | excluded |
+| carrefour | קופון פיצוי לקוח גולדסטאר 330 מל שישייה | excluded | — | coupon | excluded |
+| carrefour | קופון פיצוי לקוח היינקן 330 מל שישייה | excluded | — | coupon | excluded |
 | keshet-taamim | בירה בלטס/אקסטרא 568 מל 2 ב 14.90 | 2 for ₪14.90 | description + DiscountedPrice | club | held: none of its items is a pack we could read |
 | keshet-taamim | בירה אובולון 1 ל ב 11.90 | ₪11.90 | description + DiscountedPrice | club | held: none of its items is a pack we could read |
 | keshet-taamim | בירה קלה בטעמים 500 מל 2 ב 14.90 | 2 for ₪14.90 | description + DiscountedPrice | club | held: none of its items is a pack we could read |
@@ -656,9 +674,11 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | yeinot-bitan | בירה קרפור סנשיין/בירה אדומה 330 מ ל | 3 for ₪20.00 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
 | yeinot-bitan | בירה 6*250 מ לWalbergem | ₪19.90 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
 | yeinot-bitan | בירה 6*250 מ לBRAUSAER | 2 for ₪30.00 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
+| carrefour | בירה 6*250 מ לWalbergem | ₪19.90 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
+| carrefour | בירה 6*250 מ לBRAUSAER | 2 for ₪30.00 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
+| carrefour | בירה קרפור סנשיין/בירה אדומה 330 מ ל | 3 for ₪20.00 | DiscountedPrice only | everyone | held: none of its items is a pack we could read |
 | ampm | מבצע 1/6 בירה אסטרייה דאם ב 49.90 שח | ₪49.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | ampm | מבצע בירה שקמה 330 מ ל 2 יח ב 26.90 שח | 2 for ₪26.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
-| ampm | מבצע 1/6 בירה בקס ב 29.90 שח | ₪29.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | ampm | מבצע 1/4 בירה פאולנר בקבוק ב 39.90 שח | ₪39.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | ampm | מבצע 1/4 גולדסטאר/הייניקן 2250ב45שח | unmapped | — | everyone | held: description says 50 for ₪45.00, DiscountedPrice says 2 for ₪45.00 |
 | ampm | מבצע בירה סאן מיגל אספסיאל 2 ב 16 שח | 2 for ₪16.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
@@ -756,11 +776,9 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | mahsanei | *שנדי 330מ"ל שישיה 2ב50ש | 2 for ₪50.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | *שנדי 330מ"ל שישיה 2ב50ש | 2 for ₪50.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | בירה בקבוק קוניגסבכר 500מ"ל 3ב18ש | 3 for ₪18.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
-| mahsanei | ויינשטפן שישייה 330מ"ל 2ב120ש | 2 for ₪120.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | שישיית בירה סינגה 325מ"ל ב29.90ש | ₪29.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | בירה מילר/סטארופרמן פחית בודד 0.5ל 3ב25ש | 3 for ₪25.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | א/שישיית בירה לף 330מ"ל ב39.90ש | ₪39.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
-| mahsanei | א/שישיית בירה 330מ"ל הוגרדן ב39.90ש"ח | ₪39.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | בירה מילר/סטארופרמן בקבוק 330מ"ל שישייה 2ב60ש | 2 for ₪60.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | בירה מילר/סטארופרמן בקבוק 330מ"ל שישייה 2ב60ש | 2 for ₪60.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | mahsanei | סן מיגל פחית 500מ"ל 2ב18ש | 2 for ₪18.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
@@ -778,7 +796,8 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | politzer | הייניקן 500 מ ל פחית 2-ב-16.90 | unmapped | — | everyone | held: description says ₪16.90, DiscountedPrice says 2 for ₪16.90 |
 | politzer | בירה מכבי 500 מ ל פחית 2-ב-13.90 | unmapped | — | everyone | held: description says ₪13.90, DiscountedPrice says 2 for ₪13.90 |
 | politzer | שמרי בירה פתיתים תבואות ב-19.90 | ₪19.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
-| politzer | טובורג שישיה בק 330 ב 29.90- | unmapped | — | everyone | held: description says 30 for ₪29.90, DiscountedPrice says ₪29.90 |
+| politzer | קרלסברג בק שישיה ב 29.90- | ₪29.90 | description + DiscountedPrice | everyone | not in force |
+| politzer | טובורג שישיה בק 330 ב 29.90- | unmapped | — | everyone | not in force |
 | politzer | שישייה בירה סטארופרמן ב 33.90 | ₪33.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | rami-levy | בירה פילזנר פחית 500 מ ל 2ב13כולל | 2 for ₪13.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | rami-levy | בירה אנגלמן 500-568 מ ל 2ב19 כולל | 2 for ₪19.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
@@ -786,7 +805,6 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | rami-levy | בירה ואן פור 500 מ ל 3ב11 כולל | 3 for ₪11.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | rami-levy | בירה מולר 500 מ ל 3ב10 כולל | 3 for ₪10.00 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | rami-levy | פחית בירה צסו 568 מ ל 2ב16.90 כולל | 2 for ₪16.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
-| rami-levy | שישיית בירה 6*330 מ ל קרלסברג לומה ב35.9 | ₪35.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | rami-levy | בירה הייניקן 4*250מ ל ב15.90כולל | unmapped | — | everyone | held: description says ₪15.90, DiscountedPrice says ₪15.30 |
 | rami-levy | בירה שנדי 6*330מ ל ב27.90 כולל | ₪27.90 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
 | shufersal | 2ב34.40 פקדון בירה גינס פחית 440 מ"ל | 2 for ₪34.40 | description + DiscountedPrice | everyone | held: none of its items is a pack we could read |
@@ -831,16 +849,16 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 
 ## Unresolved products (why each one was not priced)
 
-* 14 × the same barcode reads differently — carrefour: tuborg-red #×# can / yeinot-bitan: tuborg-red #×# can / ampm: tuborg #×# can / hatzi-hinam: tuborg-red #×# can / keshet-taamim: tubo
+* 15 × the same barcode reads differently — carrefour: tuborg-red #×# can / yeinot-bitan: tuborg-red #×# can / carrefour: tuborg-red #×# can / ampm: tuborg #×# can / hatzi-hinam: tuborg-r
 * 12 × which alexander beer? the name names no known variant
-* 9 × the same barcode reads differently — carrefour: weihen ויטוס #×# bottle / hatzi-hinam: weihen ויטוס #×# bottle / keshet-taamim: weihen ויטוס #×# / mahsanei: weihen ויטוס #×# bottle
+* 10 × the same barcode reads differently — carrefour: weihen ויטוס #×# bottle / carrefour: weihen ויטוס #×# bottle / hatzi-hinam: weihen ויטוס #×# bottle / keshet-taamim: weihen ויטוס #×
+* 9 × the same barcode reads differently — yeinot-bitan: corona #×# bottle / carrefour: corona #×# bottle / ampm: corona #×# bottle / keshet-taamim: corona #×# / osher-ad: corona #×# / r
 * 8 × which negev beer? the name names no known variant
-* 8 × the same barcode reads differently — yeinot-bitan: corona #×# bottle / ampm: corona #×# bottle / keshet-taamim: corona #×# / osher-ad: corona #×# / rami-levy: corona #×# / tiv-taam
 * 8 × the same barcode reads differently — keshet-taamim: paulaner #×# / mahsanei: paulaner חיטה #×# / rami-levy: paulaner חיטה #×# / shufersal: paulaner חיטה #×# can / stop-market: paul
 * 7 × the same barcode reads differently — ampm: paulaner #×# / keshet-taamim: paulaner #×# / mahsanei: paulaner חיטה #×# bottle / osher-ad: paulaner #×# bottle / shufersal: paulaner #×#
 * 7 × the same barcode reads differently — ampm: guinness #×# can / hatzi-hinam: guinness #×# can / keshet-taamim: guinness #×# can / mahsanei: guinness #×# can / politzer: guinness #×# 
 * 6 × which malka beer? the name names no known variant
-* 5 × the same barcode reads differently — carrefour: maccabee שנדי לימון ליים radler #×# / politzer: maccabee שנדי radler #×# bottle / shufersal: maccabee שנדי לימון ליים radler #×# / t
+* 6 × the same barcode reads differently — carrefour: maccabee שנדי לימון ליים radler #×# / carrefour: maccabee שנדי לימון ליים radler #×# / politzer: maccabee שנדי radler #×# bottle / s
 * 4 × which shapiro beer? the name names no known variant
 * 4 × volume unknown; container unknown
 * 4 × pack size unknown
@@ -894,24 +912,15 @@ Examples:
 | yochananof | 7290012921063 | בקבוק בירה מלכה הינד | which malka beer? the name names no known variant |
 | fresh-market | 7290000327587 | גולדסטאר בקבוק 250 מ | pack size unknown |
 | fresh-market | 7290019398264 | בירה קורונה בקבוק 35 | volume unknown; pack size unknown |
-| keshet-taamim | 4008287958201 | מארז קרומבאכר 5 פחיו | volume unknown; pack size unknown; container unknown |
 | keshet-taamim | 4607051150270 | תה מאיסקי קורונה 100 | volume unknown; pack size unknown; container unknown |
+| keshet-taamim | 4008287958201 | מארז קרומבאכר 5 פחיו | volume unknown; pack size unknown; container unknown |
 
 ## Invalid prices
 
-* ampm 4100130937163 בירה בקס 6 יחידות 1. ₪36.9: ₪134.18 per litre is implausibly high — likely a multipack whose name lost its pack size
-* ampm 7501064191527 בירה קורונה בקבוק שי ₪49.9: ₪140.56 per litre is implausibly high — likely a multipack whose name lost its pack size
-* mahsanei 7290011018368 ויינשטפן בירת חיטה ₪64.9: ₪196.67 per litre is implausibly high — likely a multipack whose name lost its pack size
-* mahsanei 7290019398233 בירה סטלה ארטואה ₪39.9: ₪120.91 per litre is implausibly high — likely a multipack whose name lost its pack size
-* mahsanei 7290019398257 בירה הוגרדן ₪49.9: ₪151.21 per litre is implausibly high — likely a multipack whose name lost its pack size
-* politzer 7290012921070 בירה מלכה אדמונית ₪29.9: ₪90.61 per litre is implausibly high — likely a multipack whose name lost its pack size
-* rami-levy 7290110110369 בירה קרלסברג לומה שי ₪37.9: ₪114.85 per litre is implausibly high — likely a multipack whose name lost its pack size
-* rami-levy 7290008464734 בירה גולדסטאר SLOWBR ₪34.9: ₪105.76 per litre is implausibly high — likely a multipack whose name lost its pack size
-* rami-levy 7290008464703 בירה מכבי ח"פ 330 בק ₪33.9: ₪102.73 per litre is implausibly high — likely a multipack whose name lost its pack size
 * tiv-taam 7290067642005 בירה גולדסטאר 10% 330 מ"ל SLOW BREW ₪8.2: ₪4.14 per litre is implausibly low
 
 ## Out of scope (kept out on purpose)
 
-* malt: 37 rows
-* cider: 119 rows
+* malt: 38 rows
+* cider: 120 rows
 

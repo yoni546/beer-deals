@@ -94,6 +94,20 @@ export function loadDay(dir) {
 }
 
 /**
+ * Terms written in a promotion's text that change who gets the price, shown beside it (never dropped):
+ * "מעל 75" — only on a basket over ₪75; "מו2" / "מוגבל ל־2" — at most 2 per customer.
+ */
+export function termsOf(description) {
+  const text = clean(description);
+  const terms = {};
+  const basket = text.match(/מעל\s*(\d{2,4})(?!\d)/);
+  if (basket) terms.min_basket_agorot = Number(basket[1]) * 100;
+  const limit = text.match(/(?:^|\s)(?:מוגבל\s*ל?-?\s*|מו)(\d{1,2})(?=\s|$)/);
+  if (limit) terms.max_qty = Number(limit[1]);
+  return terms;
+}
+
+/**
  * @param {ReturnType<typeof loadDay>["units"]} units
  * @param {number} now epoch ms — promotions not in force at `now` are not written
  */
@@ -126,7 +140,7 @@ export function buildPlan(units, now = Date.now()) {
 
   // Pass 1 — every row of every branch: classify, read the pack and variant, check the price.
   for (const u of units) {
-    const stats = { publisher: u.publisher, retailer: u.retailer, store: u.branch.feed_store_code, name: u.branch.name_he, rows: u.items.length, duplicates: 0, beer: 0, ours: 0, otherBeer: 0, outOfScope: 0 };
+    const stats = { publisher: u.publisher, retailer: u.retailer, store: u.branch.feed_store_code, name: u.branch.name_he, rows: u.items.length, promosInFile: u.promotions.length, duplicates: 0, beer: 0, ours: 0, otherBeer: 0, outOfScope: 0 };
     const rows = new Map();
     for (const item of u.items) {
       if (rows.has(item.item_code)) stats.duplicates++;
@@ -160,7 +174,11 @@ export function buildPlan(units, now = Date.now()) {
         list.push({ ...sample, beer: verdict.beer, why });
         noteProduct(u, item, "review", why);
       };
-      if (!price.ok) hold(price.reason, invalid);
+      // Too dear for the pack the name suggests — typically a six-pack whose name was cut before the pack
+      // word ("בירה קרלסברג לומה שי"). Its barcode may say which pack it is (pass 1b); otherwise it is rejected.
+      const lostPack = !price.ok && /multipack/.test(price.reason) && isGtin(item.item_code) && known;
+      if (lostPack) packless.push({ u, item, sample, verdict, variant, pack: { ...pack, why: price.reason }, hold: (why) => hold(why, invalid) });
+      else if (!price.ok) hold(price.reason, invalid);
       else if (!known) hold(`which ${verdict.beer} beer? the name names no known variant`);
       else if (pack.confidence === "unresolved") {
         // The barcode may still say which pack it is (below, once every branch has been read).
@@ -390,6 +408,7 @@ export function buildPlan(units, now = Date.now()) {
             audience: read.audience,
             ...(deposit ? { deposit: depositNote } : {}),
             ...(read.kind === "multi_buy" ? { multi_buy: { qty, total_agorot: total }, min_qty: qty } : {}),
+            ...termsOf(promo.description),
             note_he: clean(promo.description),
           },
           natural_key: skuSet.length === 1 ? `${u.publisher}:${promo.promotion_id}` : `${u.publisher}:${promo.promotion_id}:${sku}`,
@@ -416,13 +435,24 @@ export function buildPlan(units, now = Date.now()) {
     }
   }
 
+  // The same offer published twice (two promotion ids, same pack, price, terms and dates — Rami Levy does
+  // this): one line, not two identical ones.
+  const once = (key) => {
+    const seen = new Set();
+    return (row) => (seen.has(key(row)) ? false : (seen.add(key(row)), true));
+  };
+  // (Both are in force today, so their start dates do not matter to the shopper — the end date does.)
+  const where = (row) => `${row.retailer}|${row.branch.feed_chain_code}|${row.branch.feed_store_code}|${row.status}|${row.valid_to}`;
+  const uniquePromotions = promotions.filter(once((p) => `${where(p)}|${p.sku}|${p.promo_type}|${p.price_agorot}|${JSON.stringify(p.conditions.multi_buy ?? null)}`));
+  const uniqueGroups = groups.filter(once((g) => `${where(g)}|${[...g.skus].sort().join(",")}|${g.required_qty}|${g.total_agorot}`));
+
   return {
     units: perUnit.map(({ unit, stats }) => ({ ...stats, source: unit.source, branch: unit.branch, observedAt: unit.observedAt, fileHash: unit.fileHash, files: unit.files, dialect: unit.dialect })),
     skus: [...skus.values()].map((s) => ({ ...s, barcodes: [...s.barcodes], retailers: [...s.retailers].sort() })),
     sourceProducts: [...sourceProducts.values()],
     regular,
-    promotions,
-    groups,
+    promotions: uniquePromotions,
+    groups: uniqueGroups,
     unresolved: unresolved.map(({ unit, item, ...r }) => r),
     invalid,
     outOfScope,
