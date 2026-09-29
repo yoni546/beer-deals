@@ -130,6 +130,26 @@ component (`src/design/`):
   components are identical. The neutral **house** look (no bottle) covers onboarding before a pick and any
   beer without an identity (Somersby, a cider, deliberately).
 
+## The stage (0.7.1)
+
+The background is a composition, always the same, only the beer changes: **one hero bottle** of favourite
+#1, centred and large, its label in the upper third of the screen (the cap runs off the top — a close-up),
+and **two smaller bottles of the same beer** behind it at the sides, softer and tilted outward. The hero is
+almost in focus (the label reads); the sides are further back. Home leaves an open **stage** under the
+greeting where nothing covers the hero, with a small caption ("הבירה שלכם · גולדסטאר") that links to the
+beer; onboarding's last step does the same. The tone filter still guarantees contrast for every counter
+text over any bottle pixel; a top scrim keeps the greeting calm over the label.
+
+## Calm controls (0.7.1)
+
+Sort and pack filters are ONE quiet control that names what is active ("מיון: הכי משתלם · מארזים"); the
+options open under it (native `<details>`, closes once a choice is made). A page's own primary toggle
+("הבירות שלי" on a chain page) stays in plain view. The jump to regular prices is one small link.
+
+A deal line has two levels: **name ····· saving · price**, then one row of facts (במקום ₪X · store · until ·
+deposit · multi-buy terms). Lines are separated by solid hairlines with room above and below; strips by
+space and torn edges. Nothing unfolds on an ordinary line.
+
 ## Deals, then regular prices
 
 A beer page and a chain page are two parts in this order, never mixed: **מבצעים עכשיו** (promotions everyone

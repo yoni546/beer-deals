@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.7.1 — 2026-09-29
+
+**מראה נקי יותר, והבירה שלכם במרכז** · Design
+
+- הבקבוק של הבירה הראשונה שלכם עומד עכשיו במרכז המסך, ברור ומזוהה, עם שני בקבוקים קטנים לצדו.
+- מיון וסינון נמצאים עכשיו בכפתור אחד קטן, שנפתח רק כשצריך.
+- כל מבצע מופרד בבירור מהבא: המחיר וההנחה בשורה אחת, והפרטים החשובים בשורה שמתחת.
+
+Internal:
+
+- Backdrop composition: hero bottle (blur 0.6, label in the upper third) + two side bottles (soft filter, 42svh, tilted); Home stage window with caption; onboarding step 3 stage.
+- SortBar folded into one <details> keyed by the active state; JumpToRegular replaces the segmented jump; OfferLine without per-line details (legacy deals keep a report toggle); solid dividers; per-litre only when sorting per litre.
+- Fixes: store link at least 44px wide; e2e updated (openSort), composition asserted in favourite-one.spec.
+
 ## 0.7.0 — 2026-09-29
 
 **מחירים לפי הסניף, מבצעים שפתוחים לכולם, ובקבוק אמיתי ברקע** · Feature, Data
