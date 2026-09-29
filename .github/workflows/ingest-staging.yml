@@ -1,0 +1,126 @@
+name: Daily price ingestion (STAGING)
+
+# Once a day: fetch the chains' price-transparency files → parse them with the installed skill →
+# build the plan (dry-run report) → write it to the STAGING database → read it back → only if the
+# quality gate passed, ring the staging notification worker.
+#
+# STAGING ONLY. Production ingestion is not enabled: it needs the owner's staging sign-off and the
+# production gates in docs/FINAL-READINESS-REPORT.md. scripts/ingest/run.mjs refuses the production
+# project whatever it is given.
+#
+# Needs (Settings → Secrets and variables → Actions); without them it exits quietly and writes nothing:
+#   secret    STAGING_SUPABASE_URL                the staging project's URL
+#   secret    STAGING_SUPABASE_ANON_KEY           its anon key (the read-back check reads as the public)
+#   secret    STAGING_SUPABASE_SERVICE_ROLE_KEY   its service-role key (the writer)
+#   optional  secret STAGING_CRON_SECRET + variable STAGING_SITE_URL   to ring the staging notification worker
+#
+# Idempotent: a file already imported is skipped (start_ingestion_run). Recoverable: any run can be undone
+# with  select rollback_ingestion_run('<run id>', 'reason');  (docs/INGESTION-READINESS.md §1).
+# GitHub only runs scheduled workflows from the default branch: this starts the day it is merged.
+
+on:
+  schedule:
+    # 04:23 UTC = 07:23 in Israel (summer) / 06:23 (winter): after the chains' early-morning full files.
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ingest-staging
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Fetch, plan, write to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the staging secrets are configured
+        id: configured
+        env:
+          URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "Staging secrets are not configured; nothing to do."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.configured.outputs.ok == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        if: steps.configured.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        if: steps.configured.outputs.ok == 'true'
+        run: npm ci
+
+      - name: Fetch today's feed files (read-only)
+        if: steps.configured.outputs.ok == 'true'
+        run: node scripts/ingest/fetch-sample.mjs
+
+      - name: Parse them with the israeli-grocery-price-intelligence skill
+        if: steps.configured.outputs.ok == 'true'
+        run: node scripts/ingest/parse.mjs
+
+      - name: Dry run (the plan, as a report)
+        if: steps.configured.outputs.ok == 'true'
+        run: node scripts/ingest/dry-run.mjs
+
+      - name: Write to STAGING (quality gate — exits non-zero if the database refused anything)
+        if: steps.configured.outputs.ok == 'true'
+        id: write
+        env:
+          URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          ANON: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          umask 077
+          # The writer reads credentials only from this git-ignored file (never from the environment).
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_ANON_KEY=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nAPP_ENV=staging\n' "$URL" "$ANON" "$KEY" > .env.staging.local
+          node scripts/ingest/run.mjs --target staging
+
+      - name: Read back what the public sees
+        if: steps.configured.outputs.ok == 'true'
+        run: node scripts/ingest/verify-staging.mjs
+
+      - name: Keep the reports
+        if: always() && steps.configured.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-reports
+          path: |
+            docs/INGESTION-DRY-RUN.md
+            docs/INGESTION-STAGING-REPORT.md
+            .ingest-cache/*/fetch-report.json
+            .ingest-cache/*/staging-write.json
+          retention-days: 30
+
+      - name: Ring the staging notification worker (only after a clean import)
+        if: success() && steps.configured.outputs.ok == 'true'
+        env:
+          CRON_SECRET: ${{ secrets.STAGING_CRON_SECRET }}
+          SITE_URL: ${{ vars.STAGING_SITE_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$SITE_URL" ]; then
+            echo "No staging site to ring yet; the queued notifications wait for the worker."
+            exit 0
+          fi
+          curl -fsS --max-time 100 -X POST -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/notifications/run"
+
+      - name: Remove the credentials file
+        if: always()
+        run: rm -f .env.staging.local

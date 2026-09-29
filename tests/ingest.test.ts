@@ -309,3 +309,18 @@ describe("the staging writer", () => {
     expect(src).toContain(".env.staging.local");
   });
 });
+
+describe("the daily ingestion workflow", () => {
+  it("targets staging only, reads only staging secrets, and announces nothing after a failed import", () => {
+    const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-staging.yml"), "utf8");
+    expect(yml).toContain("run.mjs --target staging");
+    expect(yml).not.toMatch(/--target\s+production/);
+    // Every secret it names is a staging one.
+    const secrets = [...yml.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]);
+    expect(secrets.length).toBeGreaterThan(0);
+    for (const s of secrets) expect(s, s).toMatch(/^STAGING_/);
+    // The notification step runs only when everything before it succeeded (the quality gate exits non-zero).
+    expect(yml).toMatch(/Ring the staging notification worker[\s\S]*?if: success\(\)/);
+    expect(readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8")).toContain("process.exit(2)");
+  });
+});

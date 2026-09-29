@@ -216,3 +216,12 @@ writeFileSync(join(cache, DAY, "staging-write.json"), JSON.stringify(written, nu
 console.log(JSON.stringify({ regular: written.regular, promotions: written.promotions, groups: written.groups, errors: written.errors.length }));
 if (written.errors.length) console.log(written.errors.slice(0, 10));
 console.log("wrote docs/INGESTION-STAGING-REPORT.md");
+
+// Quality gate: a record the database refused means the plan and the schema disagree. The run stays
+// (it can be inspected, or undone with rollback_ingestion_run), but the caller must not go on to
+// announce anything: exit non-zero so the scheduled workflow skips the notification step.
+const rejected = written.regular.rejected + written.promotions.rejected;
+if (written.errors.length > 0 || rejected > 0) {
+  console.error(`QUALITY GATE FAILED: ${rejected} records rejected, ${written.errors.length} errors. Nothing will be announced.`);
+  process.exit(2);
+}
