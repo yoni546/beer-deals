@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { discountPercent, formatAgorot, formatPrice, shekelsToAgorot } from "@/lib/money";
 import { parseCategory } from "@/lib/categories";
-import { buildDealNotification } from "@/lib/push/message";
 
 describe("shekelsToAgorot", () => {
   it("parses the prices people actually type", () => {
@@ -74,35 +73,5 @@ describe("parseCategory", () => {
     expect(parseCategory("all")).toBe("sixpack");
     expect(parseCategory("case")).toBe("case");
     expect(parseCategory("single")).toBe("single");
-  });
-});
-
-describe("buildDealNotification", () => {
-  it("writes the message from the spec", () => {
-    const { title, body } = buildDealNotification({
-      firstName: "יוני",
-      beerName: "גולדסטאר",
-      category: "sixpack",
-      dealPriceAgorot: 2490,
-      storeName: "רמי לוי",
-      discountPercent: 38,
-    });
-
-    expect(title).toBe("יוני 🍺 מבצע על גולדסטאר");
-    expect(body).toBe("שישייה ב־24.90 ₪ ברמי לוי — 38% הנחה.");
-  });
-
-  it("leaves out a name it does not have", () => {
-    const { title } = buildDealNotification({
-      firstName: null,
-      beerName: "גולדסטאר",
-      category: "case",
-      dealPriceAgorot: 8900,
-      storeName: "שופרסל",
-      discountPercent: 30,
-    });
-
-    expect(title).not.toContain("undefined");
-    expect(title).toBe("🍺 מבצע על גולדסטאר");
   });
 });

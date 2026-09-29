@@ -41,14 +41,14 @@ it goes only into Vercel's environment variables (§4) — never a file, never c
 
 ## 2. Apply the schema
 
-Either way, the result is identical (migrations `0001`–`0010`).
+Either way, the result is identical (migrations `0001`–`0012`).
 
 **A · CLI (recommended; repeatable)**
 ```bash
 npx supabase login                         # opens the browser once
 npx supabase link --project-ref <staging ref>     # asks for the database password
 npx supabase db push --dry-run             # shows what will run
-npx supabase db push                       # applies 0001 … 0010 in order
+npx supabase db push                       # applies 0001 … 0012 in order
 ```
 **B · paste**: SQL editor → New query → paste `supabase/RUN_THIS_IN_SUPABASE.sql` → Run (fresh
 project only; regenerate with `npm run sql:build`).
@@ -95,7 +95,7 @@ node scripts/check-environment.mjs \
   --url https://<staging ref>.supabase.co --anon-key <staging publishable key> \
   --site https://<staging site> --expect staging
 ```
-It prints ✓/✗ for: reachable · anonymous sign-ins · every migration (0001–0010) · profile
+It prints ✓/✗ for: reachable · anonymous sign-ins · every migration (0001–0012) · profile
 columns protected · notifications off by default · the site's routes and function region.
 Then the browser-level smoke: `E2E_BASE_URL=https://<staging site> npx playwright test`.
 

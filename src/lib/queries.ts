@@ -49,7 +49,8 @@ export const getSettings = cache(async (): Promise<AppSettings | null> => {
     .from("app_settings")
     .select(
       "weekly_deal_id, notify_min_discount_percent, notify_max_price_agorot, " +
-        "notify_cooldown_hours, weekly_deal_preferred_beer_slug",
+        "notify_cooldown_hours, notify_daily_cap, notify_quiet_start, notify_quiet_end, " +
+        "weekly_deal_preferred_beer_slug",
     )
     .eq("id", true)
     .maybeSingle();

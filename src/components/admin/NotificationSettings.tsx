@@ -66,8 +66,30 @@ export function NotificationSettings({ settings }: { settings: AppSettings }) {
           />
         </div>
 
+        <div>
+          <label htmlFor="dailyCap" className={label}>
+            מקסימום התראות ליום לכל משתמש
+          </label>
+          <input id="dailyCap" name="dailyCap" type="number" min={1} max={10} defaultValue={settings.notify_daily_cap} className={field} />
+        </div>
+
+        <fieldset>
+          <legend className={label}>שעות שקט (שעון ישראל)</legend>
+          <div className="flex items-center gap-3">
+            <label className="flex-1 text-sm text-ink-2">
+              מ־
+              <input name="quietStart" type="number" min={0} max={23} defaultValue={settings.notify_quiet_start} className={`${field} mt-1`} />
+            </label>
+            <label className="flex-1 text-sm text-ink-2">
+              עד
+              <input name="quietEnd" type="number" min={0} max={23} defaultValue={settings.notify_quiet_end} className={`${field} mt-1`} />
+            </label>
+          </div>
+          <p className="mt-1.5 text-sm text-ink-2">בשעות האלה לא שולחים; מבצע שעדיין בתוקף יישלח כשהשקט נגמר. אותה שעה בשני השדות מבטלת את השעות.</p>
+        </fieldset>
+
         <p className="text-sm leading-relaxed text-ink-2">
-          התראה נשלחת רק אם המבצע עומד בשני התנאים, ורק למי שזו הבירה הראשית שלו.
+          התראה נשלחת רק אם למבצע יש אחוז הנחה מאומת שעומד בשני התנאים, ורק למי שזו הבירה הראשית שלו.
         </p>
 
         {!state.ok && <Notice>{state.error}</Notice>}

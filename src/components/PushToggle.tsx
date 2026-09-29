@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
 import { Tape } from "@/components/ui/Tape";
-import { deletePushSubscription, savePushSubscription } from "@/lib/actions/push";
+import { deletePushSubscription, savePushSubscription, sendTestPush } from "@/lib/actions/push";
 import { setNotificationsEnabled } from "@/lib/actions/profile";
 import { derivePushState, disablePush, enablePush, withTimeout, type PushState } from "@/lib/push/client";
 
@@ -32,7 +32,9 @@ export function PushToggle({
 }) {
   const [state, setState] = useState<PushState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [testing, startTest] = useTransition();
 
   useEffect(() => {
     let cancelled = false;
@@ -85,8 +87,17 @@ export function PushToggle({
   const on = state.kind === "on";
   const blocked = state.kind === "blocked";
 
+  function sendTest() {
+    setTestResult(null);
+    startTest(async () => {
+      const result = await sendTestPush();
+      setTestResult(result.ok ? { ok: true, text: result.message ?? "נשלחה." } : { ok: false, text: result.error });
+    });
+  }
+
   function toggle() {
     setError(null);
+    setTestResult(null);
     startTransition(async () => {
       if (on) {
         const outcome = await disablePush({
@@ -152,6 +163,15 @@ export function PushToggle({
           />
         </span>
       </button>
+
+      {on && (
+        <div className="space-y-2 border-t border-dashed border-paper-line pt-3 pb-1">
+          <button type="button" onClick={sendTest} disabled={testing} className="btn btn-quiet w-full">
+            {testing ? "שולחים…" : "שלחו לי התראת בדיקה"}
+          </button>
+          {testResult && <Notice tone={testResult.ok ? "info" : "error"}>{testResult.text}</Notice>}
+        </div>
+      )}
 
       {(blocked || error) && (
         <div className="space-y-2 pt-2 pb-1">

@@ -1,0 +1,46 @@
+name: Notification worker
+
+# Rings the app's notification worker every ten minutes.
+#
+# The worker (POST /api/notifications/run) turns queued promotions into push notifications
+# and records every attempt. It is idempotent, so extra or overlapping rings are harmless.
+#
+# GitHub only runs `schedule` workflows from the DEFAULT branch, so this starts working the
+# day it is merged to main. It needs two settings in the repository (Settings → Secrets and
+# variables → Actions); without them it exits quietly and sends nothing:
+#
+#   secret    CRON_SECRET   the same value as the app's CRON_SECRET (16+ random characters)
+#   variable  SITE_URL      the deployed origin, no trailing slash, e.g. https://beer-deals.vercel.app
+#
+# Never point this at a staging site with the production secret, or the reverse: each
+# environment has its own CRON_SECRET (docs/NOTIFICATIONS.md).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: notification-worker
+  cancel-in-progress: false
+
+jobs:
+  ring:
+    name: Run the worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ring the doorbell
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$SITE_URL" ]; then
+            echo "CRON_SECRET or SITE_URL is not configured for this repository; nothing to do."
+            exit 0
+          fi
+          # -f fails on 4xx/5xx so a misconfiguration shows up as a red run, not a silent one.
+          curl -fsS --max-time 100 -X POST -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/notifications/run"
+          echo

@@ -6,12 +6,29 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.5.0 — 2026-09-29
+
+**התראות שנבנו מחדש** · Feature
+
+- התראה נשלחת רק על מבצע שאחוז ההנחה שלו מאומת מול מחיר רגיל אמין, ורק על הבירה הראשית שלכם.
+- כך היא נראית: "מבצע חדש ברמי לוי", ומתחת הבירה, האריזה, המחיר וכמה חסכתם. לחיצה עליה פותחת את דף הבירה.
+- לא מפריעים בלילה: בין 22:00 ל־08:00 מחכים, ואם המבצע עדיין בתוקף מקבלים אותו בבוקר. לכל היותר שתי התראות ביום.
+- בהגדרות יש כפתור "שלחו לי התראת בדיקה", כדי לוודא שההתראות מגיעות למכשיר שלכם.
+- אנחנו עדיין בודקים אותן על טלפונים אמיתיים. אם משהו לא הגיע, ספרו לנו.
+
+Internal:
+
+- Migration 0012: notification_events (outbox, deduped), notification_deliveries (one row per person per event, every attempt), app_settings daily cap + quiet hours, admin_recent_deliveries(), update_notification_rules(); triggers enqueue on live promotions and approved legacy deals (never sample data).
+- src/lib/push/{rules,message,worker,sender,run}.ts; POST /api/notifications/run (bearer CRON_SECRET, closed without it); .github/workflows/notifications.yml rings it every 10 minutes once merged to main. notify.ts and push_log writes are gone.
+- Tests: rules (pure), message, worker against the real migrations via the fake Supabase (dedupe, cooldown, daily cap, quiet hours, retries, dead devices), route auth, RLS/grants.
+- NOT verified on real devices: docs/NOTIFICATIONS.md §5 is the checklist; the table there is empty on purpose.
+
 ## 0.4.0 — 2026-09-29
 
 **מראה חדש ומסכים חדשים** · Feature, Design
 
 - עיצוב חדש מהיסוד: כל מבצע הוא שורה על רצועת קבלה, עם שם, מחיר גדול ואחוז הנחה שנבדק.
-- סרגל ניווט תחתון: מבצעים, בירות, סופרים והגדרות, תמיד במרחק לחיצה.
+- סרגל ניווט תחתון: מבצעים, בירות, סופרים והגדרות. ובראש הדף הראשי חיפוש אחד, לבירה או לסופר.
 - האפליקציה לובשת את הצבעים של הבירה הראשית שלכם. בהגדרות אפשר לבחור מראה אחר, ובהיר או כהה.
 - דף בירה עם מבצעים ומחירים רגילים בנפרד, לכל אריזה בנפרד, ודף סופר עם "הבירות שלי".
 - מיון לפי משתלם, מחיר או מחיר לליטר, וסינון לפי סוג אריזה. אפשר גם לסדר מחדש את ארבע הבירות.
@@ -22,6 +39,7 @@ Internal:
 - All public screens rebuilt on offers_feed / regular_prices_feed; new pure logic in src/lib/{offer-logic,format,search,urls}.ts (Hebrew-aware search, pack grouping, verified-saving ranking, URL-carried sort/filter state).
 - Admin area restyled onto the same tokens (no behaviour change). Legacy DealCard/Picker/CategoryTabs/PreferencesEditor and the legacy deal queries removed.
 - Quality gates in CI: Playwright at 390x844 and 430x932 checks touch targets >= 44px, text >= 12px, no sideways scroll, and axe WCAG A/AA in light, dark and five themes.
+- Home search (HomeSearch), store pages fold beyond the first six beers, Playwright checks at 360/768px as well.
 
 ## 0.3.1 — 2026-09-29 (internal)
 

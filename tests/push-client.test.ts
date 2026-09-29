@@ -8,7 +8,7 @@ import {
   withTimeout,
   type EnablePushDeps,
 } from "@/lib/push/client";
-import { buildDealPath } from "@/lib/push/message";
+import { buildBeerPath } from "@/lib/push/message";
 
 describe("notification switch state (B-04: the switch must show what is true)", () => {
   const base = { supported: true, permission: "granted" as NotificationPermission, hasSubscription: true, profileEnabled: true };
@@ -150,12 +150,12 @@ describe("helpers", () => {
 
 describe("notification deep link (B-03: it must open a page that exists)", () => {
   it("is addressed by the beer's SLUG — the only thing /beer/[slug] resolves", () => {
-    expect(buildDealPath({ beerSlug: "goldstar", category: "sixpack" })).toBe("/beer/goldstar?c=sixpack");
-    expect(buildDealPath({ beerSlug: "tuborg-red", category: "case" })).toBe("/beer/tuborg-red?c=case");
+    expect(buildBeerPath({ beerSlug: "goldstar" })).toBe("/beer/goldstar");
+    expect(buildBeerPath({ beerSlug: "tuborg-red" })).toBe("/beer/tuborg-red");
   });
 
   it("never looks like a database id", () => {
-    const path = buildDealPath({ beerSlug: "goldstar", category: "single" });
+    const path = buildBeerPath({ beerSlug: "goldstar" });
     expect(path).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/);
   });
 });

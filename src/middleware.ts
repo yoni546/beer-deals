@@ -52,8 +52,9 @@ export const config = {
     /*
      * Everything except static assets and the PWA files. The service worker and
      * manifest must be fetchable without a session — a browser requests them
-     * outside the page's credential context.
+     * outside the page's credential context. The notification worker's endpoint has its own
+     * bearer-token check and must not mint an anonymous user for every scheduler call.
      */
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|screenshots/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|screenshots/|api/notifications/).*)",
   ],
 };

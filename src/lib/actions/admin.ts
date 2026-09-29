@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
-import { notifyAboutDeal } from "@/lib/push/notify";
+import { runNotifications } from "@/lib/push/run";
 import { shekelsToAgorot } from "@/lib/money";
 import type { DealCategory } from "@/lib/categories";
 import type { AdminLevel, DealStatus, ReportStatus } from "@/lib/db/types";
@@ -26,14 +26,15 @@ export async function approveDeal(dealId: string): Promise<ActionResult> {
 
   revalidateAdmin();
 
-  // Deciding whether this is worth a push — and sending it — happens after the
-  // approval has committed, so a failure in the notification path can never
-  // roll back the approval itself.
-  const push = await notifyAboutDeal(dealId);
+  // Approving queued a notification event in the same transaction (a database trigger).
+  // Running the worker now delivers it within seconds instead of at the next scheduled run;
+  // it happens after the approval committed, so a failure here can never roll it back.
+  const push = await runNotifications();
+  const sent = push.ok ? push.summary.sent : 0;
 
   return {
     ok: true,
-    message: push.sent > 0 ? `אושר. נשלחה התראה ל-${push.sent} משתמשים.` : "המבצע אושר.",
+    message: sent > 0 ? `אושר. נשלחה התראה ל-${sent} משתמשים.` : "המבצע אושר.",
   };
 }
 
@@ -114,10 +115,13 @@ export async function updateNotificationSettings(
   if (maxPrice === null) return { ok: false, error: "מחיר מקסימלי לא תקין." };
 
   const supabase = await supabaseServer();
-  const { error } = await supabase.rpc("update_notification_settings", {
+  const { error } = await supabase.rpc("update_notification_rules", {
     p_min_discount_percent: Number(formData.get("minDiscount")),
     p_max_price_agorot: maxPrice,
     p_cooldown_hours: Number(formData.get("cooldownHours")),
+    p_daily_cap: Number(formData.get("dailyCap")),
+    p_quiet_start: Number(formData.get("quietStart")),
+    p_quiet_end: Number(formData.get("quietEnd")),
   });
 
   if (error) return { ok: false, error: describeDbError(error) };

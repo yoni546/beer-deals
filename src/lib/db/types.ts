@@ -87,6 +87,9 @@ export type AppSettings = {
   notify_min_discount_percent: number;
   notify_max_price_agorot: number;
   notify_cooldown_hours: number;
+  notify_daily_cap: number;
+  notify_quiet_start: number;
+  notify_quiet_end: number;
   weekly_deal_preferred_beer_slug: string | null;
 };
 
