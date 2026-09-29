@@ -22,11 +22,14 @@ export function ThemePicker({
   appearance,
   primarySlug,
   primaryName,
+  beerNames,
 }: {
   override: string | null;
   appearance: Appearance;
   primarySlug: string | null;
   primaryName: string | null;
+  /** Beer slug → Hebrew name, so a look can be recognised by the beer it belongs to. */
+  beerNames: Record<string, string>;
 }) {
   const [theme, setTheme] = useState<string | null>(override);
   const [mode, setMode] = useState<Appearance>(appearance);
@@ -92,7 +95,9 @@ export function ThemePicker({
           <span className="min-w-0 flex-1">
             <span className="block text-base font-bold text-ink">צבעי האפליקציה</span>
             <span className="block text-sm text-ink-2">
-              {theme === null ? `אוטומטי${primaryName ? `, לפי ${primaryName}` : ""}` : `נבחר ידנית: ${active.name_he}`}
+              {theme === null
+                ? `אוטומטי${primaryName ? `, לפי ${primaryName}` : ""}`
+                : `נבחר ידנית: ${active.name_he}${beerNames[active.slug] ? ` (${beerNames[active.slug]})` : ""}`}
             </span>
           </span>
           <span className="text-sm font-semibold text-ink underline underline-offset-4 group-open:hidden">לבחירה</span>
@@ -111,7 +116,7 @@ export function ThemePicker({
           </li>
           {ALL_THEMES.map((mood) => (
             <li key={mood.slug}>
-              <ThemeTile label={mood.name_he} selected={theme === mood.slug} onSelect={() => choose({ theme: mood.slug })} slug={mood.slug} mode={mode} />
+              <ThemeTile label={mood.name_he} beer={beerNames[mood.slug]} selected={theme === mood.slug} onSelect={() => choose({ theme: mood.slug })} slug={mood.slug} mode={mode} />
             </li>
           ))}
         </ul>
@@ -126,18 +131,19 @@ export function ThemePicker({
   );
 }
 
-function ThemeTile({ label, selected, onSelect, slug, mode }: { label: string; selected: boolean; onSelect: () => void; slug: string; mode: Appearance }) {
+function ThemeTile({ label, beer, selected, onSelect, slug, mode }: { label: string; beer?: string; selected: boolean; onSelect: () => void; slug: string; mode: Appearance }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-1 py-2 ${
+      className={`flex min-h-[5.5rem] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-1 py-2 ${
         selected ? "border-ink" : "border-transparent"
       }`}
     >
       <Swatch slug={slug} mode={mode} />
       <span className="line-clamp-2 text-center text-xs leading-tight font-semibold text-ink">{label}</span>
+      {beer && <span className="line-clamp-1 text-center text-xs leading-tight text-ink-2">{beer}</span>}
     </button>
   );
 }

@@ -83,6 +83,9 @@ test("Home search: a beer or a chain, typos forgiven, Enter opens the best match
   await page.waitForLoadState("networkidle");
   await box.fill("zzzz");
   await expect(page.getByText("לא מצאנו בירה או סופר בשם הזה")).toBeVisible();
+  await page.getByRole("button", { name: "נקו את החיפוש" }).first().click(); // a way out, not just advice
+  await expect(box).toHaveValue("");
+  await expect(page.getByText("לא מצאנו בירה או סופר בשם הזה")).toHaveCount(0);
 });
 
 test("Home: sorting lives in the URL, reorders the lines, and survives a reload", async ({ page }) => {
@@ -206,6 +209,9 @@ test.describe("settings", () => {
     await onboard(page);
     await page.goto("/settings");
     await page.getByText("צבעי האפליקציה").click();
+
+    // A look names the beer it belongs to, so it can be found by hand.
+    await expect(page.getByRole("button", { name: /יין אדום.*טובורג אדום/ })).toBeVisible();
 
     await page.getByRole("button", { name: "ניטרלי" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-theme", "house");

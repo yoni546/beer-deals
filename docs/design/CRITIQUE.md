@@ -1,4 +1,4 @@
-# Design critique — "The Tape" at release 0.5.1
+# Design critique — "The Tape" at release 0.5.2
 
 Written by the person who built it, against `PRODUCT.md`/`DESIGN.md` and the audit's acceptance criteria, looking at
 `docs/design/screens/` and at every screen in a browser at 390×844 and 430×932, light and dark, in several themes.
@@ -27,13 +27,12 @@ screens; every control is ≥ 44 px; nothing scrolls sideways at 360/390/430/768
    the current chips work with no JavaScript.)
 2. **Lines are tall.** Every offer line is three rows (~136 px) so that each target is 44 px; about four lines fit on a
    screen. A compact mode, or moving the store into the first row on Home, would double the density.
-3. **Manual theme names describe a mood, not a beer.** "יין אדום", "פלדה חמה" are lovely but a person choosing a look by
-   hand cannot tell which beer it belongs to. Show the beer's name under the mood name.
+3. ~~Manual theme names describe a mood, not a beer.~~ *Fixed in 0.5.2: each look shows the beer it belongs to.*
 4. **The regular-prices view has no search**, and the beer list / store list are separate searches from Home's combined box.
 
 ## P3 — polish
 
-* The zero-result search state gives advice but no button.
+* ~~The zero-result search state gives advice but no button.~~ *Fixed in 0.5.2.*
 * `filter: drop-shadow` follows the perforated edges; on a very long page on a low-end phone it may cost scroll
   smoothness. Measure before optimising.
 * No pull-to-refresh or explicit refresh control; "עודכן לפני…" is the only freshness cue on the page.

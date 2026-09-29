@@ -89,6 +89,9 @@ export function ListingSearch({
           <Tape className="px-5 py-8 text-center">
             <p className="text-base font-bold text-ink">{emptyLabel}</p>
             <p className="mt-2 text-sm text-ink-2">בדקו את האיות, או נסו רק חלק מהשם.</p>
+            <button type="button" onClick={() => setQuery("")} className="btn btn-quiet mt-4">
+              הציגו את הכול
+            </button>
           </Tape>
         ) : (
           <Rows items={matches} basePath={basePath} />

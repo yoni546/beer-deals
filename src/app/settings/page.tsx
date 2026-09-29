@@ -46,6 +46,7 @@ export default async function SettingsPage() {
             appearance={(viewer.profile?.appearance ?? "system") as Appearance}
             primarySlug={viewer.primaryBeer?.slug ?? null}
             primaryName={viewer.primaryBeer?.name_he ?? null}
+            beerNames={Object.fromEntries(beers.map((beer) => [beer.slug, beer.name_he]))}
           />
         </Section>
 

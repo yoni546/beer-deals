@@ -1,14 +1,14 @@
 # Audit acceptance criteria — where each stands (2026-09-29)
 
 The 35 criteria of `docs/PRODUCT-AUDIT-2026-09-29.md` §18, checked against the branch
-`rebuild/beer-deals-v1` at release 0.5.1. **Met** = proved by a named automated test in CI. **Partly** = built, but
+`rebuild/beer-deals-v1` at release 0.5.2. **Met** = proved by a named automated test in CI. **Partly** = built, but
 not exactly as worded or not fully covered. **Not met** = not done, with the reason. Nothing is marked met on the
 strength of a manual look alone.
 
 | # | Criterion (short) | Status | Evidence / gap |
 | --- | --- | --- | --- |
 | 1 | `/beer`, `/store` 200; every route non-5xx at both viewports | Met | `hotfix.spec › B-01 every route answers…` |
-| 2 | Search finds Goldstar for `גולד`, `גולדסטר`, `gold`, niqqud variants; zero-result state offers a next action | Partly | `format-search.test.ts`, `hotfix.spec › search…`, `redesign.spec › Home search`. The empty state says how to fix the search ("בדקו את האיות") but offers no button. |
+| 2 | Search finds Goldstar for `גולד`, `גולדסטר`, `gold`, niqqud variants; zero-result state offers a next action | Met | `format-search.test.ts`, `hotfix.spec › search…`, `redesign.spec › Home search` (the empty state has a "clear the search" button). |
 | 3 | No public read returns a demo row | Met | `hotfix.spec › B-02`, `demo.test.ts`, `dev-seed.test.ts` (seeds refuse to run unflagged) |
 | 4 | Goldstar 6×330 and 6×500 live at one chain together | Met | `catalog.test.ts` |
 | 5 | A regular price and a promotion coexist | Met | `catalog.test.ts`; `redesign.spec › beer page` |
@@ -43,5 +43,5 @@ strength of a manual look alone.
 | 34 | No emoji as icons; Impeccable critique with no P0/P1; before/after screenshots | Met | `no-emoji.test.ts`; detector output `[]` (CLAUDE.md asks for it before a UI PR); `docs/design/CRITIQUE.md`; `docs/design/screens/` (after) and `docs/audit-2026-09-29/` (before) |
 | 35 | CI required checks on `main` | **Not met** (owner) | CI runs typecheck, lint, tests, build, Playwright + axe. Branch protection is a GitHub setting only the owner can change. |
 
-**Score:** 26 met · 6 partly · 3 not met (device matrix, performance, branch protection) — the three not-met
+**Score:** 27 met · 5 partly · 3 not met (device matrix, performance, branch protection) — the three not-met
 items all need something outside the repository.

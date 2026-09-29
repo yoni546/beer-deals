@@ -70,6 +70,9 @@ export function HomeSearch({ beers, stores }: { beers: Entry[]; stores: Entry[] 
             <Tape className="px-5 py-5 text-center">
               <p className="text-base font-bold text-ink">לא מצאנו בירה או סופר בשם הזה</p>
               <p className="mt-1 text-sm text-ink-2">בדקו את האיות, או נסו רק חלק מהשם.</p>
+              <button type="button" onClick={() => setQuery("")} className="btn btn-quiet mt-4">
+                נקו את החיפוש
+              </button>
             </Tape>
           ) : (
             <Tape as="div" className="pb-1">

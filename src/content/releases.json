@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.5.2",
+    "date": "2026-09-29",
+    "title_he": "שיפורים קטנים בחיפוש ובהגדרות",
+    "highlights_he": [
+      "כשחיפוש לא מוצא כלום יש עכשיו כפתור שמנקה אותו.",
+      "בבחירת מראה ידנית, כל מראה מציג גם את שם הבירה שהוא שייך לה."
+    ],
+    "kind": [
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "ThemePicker gets beerNames (slug → Hebrew name); empty search states in HomeSearch/ListingSearch get a clear button. Closes critique P2-3 and one P3."
+    ]
+  },
+  {
     "version": "0.5.1",
     "date": "2026-09-29",
     "title_he": "הכנה לייבוא מחירים בטוח",

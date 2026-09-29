@@ -6,6 +6,17 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.5.2 — 2026-09-29
+
+**שיפורים קטנים בחיפוש ובהגדרות** · Design
+
+- כשחיפוש לא מוצא כלום יש עכשיו כפתור שמנקה אותו.
+- בבחירת מראה ידנית, כל מראה מציג גם את שם הבירה שהוא שייך לה.
+
+Internal:
+
+- ThemePicker gets beerNames (slug → Hebrew name); empty search states in HomeSearch/ListingSearch get a clear button. Closes critique P2-3 and one P3.
+
 ## 0.5.1 — 2026-09-29 (internal)
 
 **הכנה לייבוא מחירים בטוח** · Data
