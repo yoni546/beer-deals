@@ -5,23 +5,24 @@ import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
 import { RegularStrip } from "@/components/RegularStrip";
-import { JumpToRegular, SectionHeading } from "@/components/Sections";
+import { CategorySection, NoDealLine, Part } from "@/components/Sections";
 import { SortBar } from "@/components/SortBar";
 import { Chip } from "@/components/ui/Chip";
 import { CheckIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
+import { PACK_CLASS_HE } from "@/lib/format";
 import { getGroupOffers, getOffers, getRegularPrices } from "@/lib/offers";
 import {
-  filterByPack,
-  filterRegularByPack,
+  PACK_CLASSES,
   groupByBeer,
+  groupPackClass,
   groupRegularByBeer,
   newestObservation,
+  orderByPack,
   packClass,
   parsePack,
   parseSort,
   regularPackClass,
-  sortOffers,
   sortRegular,
   type PackFilter,
 } from "@/lib/offer-logic";
@@ -34,13 +35,13 @@ export const dynamic = "force-dynamic";
 type Search = { view?: string; mine?: string; sort?: string; unit?: string; pack?: string; c?: string; tab?: string };
 
 /**
- * One chain (not one branch), in two parts, never mixed: current beer deals (everyone can use them,
- * including "any N of these" group offers), then regular beer prices — grouped by beer with the
- * person's favourites first. Prices are per branch; a chain row says which branch, or "החל מ־".
+ * One chain (not one branch), by kind of pack — שישיות, then ארגזים, then בודדים — and inside each kind
+ * the current beer deals (everyone can use them, including "any N of these" mix-and-match offers) first,
+ * then the regular beer prices. Never mixed. Beers are grouped with the person's favourites first. Prices
+ * are per branch; a chain row says which branch, or "החל מ־".
  *
- * "הבירות שלי" narrows the page to the four ranked beers and lists all four, in order,
- * even when some have nothing on offer — saying so, instead of quietly dropping them and
- * leaving the person unsure whether the app had checked.
+ * "הבירות שלי" narrows the page to the four ranked beers, and a favourite this chain has nothing for is
+ * still named at the end, instead of quietly dropped and leaving the person unsure whether we checked.
  */
 export default async function StorePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Search> }) {
   const { slug } = await params;
@@ -78,63 +79,33 @@ export default async function StorePage({ params, searchParams }: { params: Prom
   const defaults = { sort: "value", unit: "", pack: "all" };
   const link = (patch: Record<string, string | undefined>) => withParams(path, current, patch, defaults);
 
-  const availablePacks = [...new Set([...scopedOffers.map(packClass), ...scopedRegular.map(regularPackClass)])] as PackFilter[];
+  const availablePacks = [
+    ...new Set([...scopedOffers.map(packClass), ...scopedRegular.map(regularPackClass), ...scopedGroups.map(groupPackClass)]),
+  ] as PackFilter[];
   const beerCount = new Set(offers.map((offer) => offer.beer_id)).size;
   const freshest = newestObservation([...scopedOffers, ...scopedRegular]);
   const dealCount = offers.length + groupOffers.length;
 
-  const dealGroups = groupByBeer(filterByPack(scopedOffers, pack), favouriteIds).map((group) => ({
-    ...group,
-    offers: sortOffers(group.offers, sort, perLiter),
+  const kinds = PACK_CLASSES.filter((kind) => (pack === "all" || pack === kind) && availablePacks.includes(kind)).map((kind) => ({
+    kind,
+    deals: groupByBeer(scopedOffers.filter((offer) => packClass(offer) === kind), favouriteIds).map((group) => ({
+      ...group,
+      offers: orderByPack(group.offers, sort, perLiter),
+    })),
+    groups: scopedGroups.filter((group) => groupPackClass(group) === kind),
+    // Inside a beer the packs keep their natural order (a 330 ml bottle is not "cheaper" than a six-pack);
+    // only per litre — the one number that compares packs — re-orders them.
+    regular: groupRegularByBeer(scopedRegular.filter((price) => regularPackClass(price) === kind), favouriteIds).map((group) => ({
+      ...group,
+      prices: perLiter ? sortRegular(group.prices, sort, true) : group.prices,
+    })),
   }));
-  // Inside a beer the packs stay smallest-first (a 330 ml bottle is not "cheaper" than a six-pack);
-  // only per litre — the one number that compares packs — re-orders them.
-  const regularGroups = groupRegularByBeer(filterRegularByPack(scopedRegular, pack), favouriteIds).map((group) => ({
-    ...group,
-    prices: perLiter ? sortRegular(group.prices, sort, true) : group.prices,
-  }));
+  // With "mine" on, a favourite this chain has nothing for is still named.
+  const missing = mineOnly
+    ? viewer.favorites.filter((beer) => !scopedOffers.some((o) => o.beer_id === beer.id) && !scopedRegular.some((p) => p.beer_id === beer.id))
+    : [];
 
-  // With "mine" on, every favourite gets a place in the person's own order, whether or not
-  // this chain has anything for it.
-  const dealItems = mineOnly ? viewer.favorites.map((beer) => dealGroups.find((group) => group.beerId === beer.id) ?? beer) : dealGroups;
-  const regularItems = mineOnly ? viewer.favorites.map((beer) => regularGroups.find((group) => group.beerId === beer.id) ?? beer) : regularGroups;
-
-  const dealNodes = dealItems.map((item, index) =>
-    "offers" in item ? (
-      <Strip
-        key={item.beerId}
-        title={item.name}
-        beerSlug={item.slug}
-        href={`/beer/${item.slug}`}
-        aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
-        offers={item.offers}
-        lead="pack"
-        perLiter={perLiter}
-        showStore={false}
-        printIn={index === 0}
-        headingLevel="h3"
-      />
-    ) : (
-      <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} />
-    ),
-  );
-  const regularNodes = regularItems.map((item) =>
-    "prices" in item ? (
-      <RegularStrip
-        key={item.beerId}
-        title={item.name}
-        href={`/beer/${item.slug}`}
-        aside={`${item.prices.length} ${item.prices.length === 1 ? "אריזה" : "אריזות"}`}
-        prices={item.prices}
-        lead="pack"
-        perLiter={perLiter}
-        headingLevel="h3"
-      />
-    ) : (
-      <NoOffer key={item.id} name={item.name_he} slug={item.slug} where={store.name_he} price />
-    ),
-  );
-  // A busy chain must not become an endless page: the first few beers, the rest one tap away.
+  // A busy chain must not become an endless page: the first few beers of each list, the rest one tap away.
   // ("My beers" is at most four, so it is never folded.)
   const FIRST = 6;
   const head = (nodes: React.ReactNode[]) => (mineOnly ? nodes : nodes.slice(0, FIRST));
@@ -161,7 +132,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
       />
 
       {(dealCount > 0 || regular.length > 0) && (
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-2">
+        <div className="mb-6">
           <SortBar
             path={path}
             state={{ sort, perLiter, pack, extra: { mine: current.mine } }}
@@ -173,42 +144,80 @@ export default async function StorePage({ params, searchParams }: { params: Prom
               </Chip>
             }
           />
-          <JumpToRegular count={regular.length} />
         </div>
       )}
 
-      <section aria-labelledby="deals" className="scroll-mt-4">
-        <SectionHeading id="deals">מבצעי בירה עכשיו</SectionHeading>
-        {dealCount === 0 ? (
-          <EmptyState title={`אין כרגע מבצע ב${store.name_he}`}>כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן.</EmptyState>
-        ) : (
-          <div className="space-y-7">
-            {head(dealNodes)}
-            <Fold hidden={tail(dealNodes).length}>{tail(dealNodes)}</Fold>
-            {dealItems.length === 0 && scopedGroups.length === 0 && <EmptyState title="אין מבצע באריזה הזו">נסו סוג אריזה אחר.</EmptyState>}
-            <GroupStrip title="מבצעי שילוב" offers={scopedGroups} showStore={false} headingLevel="h3" />
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="regular" className="mt-9 scroll-mt-4">
-        <SectionHeading id="regular">מחירי בירה רגילים</SectionHeading>
-        {regular.length === 0 ? (
-          <EmptyState title="עוד אין מחירים רגילים לרשת הזו">מחירים רגילים נכנסים מפרסומי הרשתות.</EmptyState>
-        ) : (
-          <div className="space-y-7">
-            {head(regularNodes)}
-            <Fold hidden={tail(regularNodes).length}>{tail(regularNodes)}</Fold>
-            {regularItems.length === 0 && <EmptyState title="אין מחיר באריזה הזו">נסו סוג אריזה אחר.</EmptyState>}
-          </div>
-        )}
-      </section>
+      {dealCount === 0 && regular.length === 0 ? (
+        <EmptyState title={`עוד אין מחירי בירה מ${store.name_he}`}>מחירים ומבצעים נכנסים מפרסומי הרשתות. כשיופיעו, הם יעלו כאן.</EmptyState>
+      ) : kinds.length === 0 && missing.length === 0 ? (
+        <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
+      ) : (
+        <div className="space-y-10">
+          {kinds.map(({ kind, deals, groups: mixes, regular: prices }, section) => {
+            const dealNodes = deals.map((item, index) => (
+              <Strip
+                key={item.beerId}
+                title={item.name}
+                beerSlug={item.slug}
+                href={`/beer/${item.slug}`}
+                aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
+                offers={item.offers}
+                lead="pack"
+                perLiter={perLiter}
+                showStore={false}
+                printIn={section === 0 && index === 0}
+                headingLevel="h4"
+              />
+            ));
+            const regularNodes = prices.map((item) => (
+              <RegularStrip
+                key={item.beerId}
+                title={item.name}
+                href={`/beer/${item.slug}`}
+                aside={`${item.prices.length} ${item.prices.length === 1 ? "אריזה" : "אריזות"}`}
+                prices={item.prices}
+                lead="pack"
+                perLiter={perLiter}
+                headingLevel="h4"
+              />
+            ));
+            return (
+              <CategorySection key={kind} kind={kind}>
+                {dealNodes.length > 0 || mixes.length > 0 ? (
+                  <Part part="deals" title="מבצעים">
+                    {head(dealNodes)}
+                    <Fold hidden={tail(dealNodes).length}>{tail(dealNodes)}</Fold>
+                    <GroupStrip title="מבצעי שילוב" offers={mixes} showStore={false} headingLevel="h4" />
+                  </Part>
+                ) : (
+                  <NoDealLine>
+                    אין כרגע מבצע על {PACK_CLASS_HE[kind]} ב{store.name_he}.
+                  </NoDealLine>
+                )}
+                {regularNodes.length > 0 && (
+                  <Part part="regular" title="מחירים רגילים">
+                    {head(regularNodes)}
+                    <Fold hidden={tail(regularNodes).length}>{tail(regularNodes)}</Fold>
+                  </Part>
+                )}
+              </CategorySection>
+            );
+          })}
+          {missing.length > 0 && (
+            <div className="space-y-5">
+              {missing.map((beer) => (
+                <NoOffer key={beer.id} name={beer.name_he} slug={beer.slug} where={store.name_he} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </Screen>
   );
 }
 
-/** A favourite with nothing to show at this chain: named, and said plainly. */
-function NoOffer({ name, slug, where, price = false }: { name: string; slug: string; where: string; price?: boolean }) {
+/** A favourite with nothing at all at this chain — no deal and no price: named, and said plainly. */
+function NoOffer({ name, slug, where }: { name: string; slug: string; where: string }) {
   return (
     <Tape className="px-4 py-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -217,13 +226,9 @@ function NoOffer({ name, slug, where, price = false }: { name: string; slug: str
             {name}
           </Link>
         </h3>
-        <span className="hatch shrink-0 rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
-          {price ? "אין מחיר" : "אין מבצע"}
-        </span>
+        <span className="hatch shrink-0 rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">אין מחיר</span>
       </div>
-      <p className="mt-1 text-sm text-ink-2">
-        {price ? `לא ראינו מחיר רגיל של ${name} ב${where}.` : `אין כרגע מבצע על ${name} ב${where}.`}
-      </p>
+      <p className="mt-1 text-sm text-ink-2">{`לא ראינו את ${name} ב${where} — לא במבצע ולא במחיר רגיל.`}</p>
     </Tape>
   );
 }

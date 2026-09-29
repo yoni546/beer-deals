@@ -85,7 +85,7 @@ test("B-01 · search by supermarket opens the store's deals", async ({ page }) =
 test("a line on the tape leads to its beer and to its store", async ({ page }) => {
   await onboard(page);
   const line = page.locator("article", { hasText: "₪25.00" }).first();
-  await line.getByRole("link", { name: /6 × 330/ }).click();
+  await line.getByRole("link", { name: /6×330/ }).click();
   await expect(page).toHaveURL(/\/beer\/goldstar$/);
 
   await page.goto("/");

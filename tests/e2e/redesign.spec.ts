@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedRealCatalog } from "./helpers";
+import { onboard, resetDb, seedDeals, seedRealCatalog, sql } from "./helpers";
 
 /**
  * The rebuilt screens ("The Tape", DESIGN.md), exercised the way a person uses them.
@@ -27,9 +27,44 @@ test("Home: the four beers are keys in the person's own order, and the first is 
   const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
   await expect(keys).toHaveCount(4);
   await expect(keys.nth(0)).toContainText("מכבי");
-  await expect(keys.nth(0)).toContainText("ראשית");
+  await expect(keys.nth(0)).toContainText("#1");
+  await expect(keys.nth(3)).toContainText("#4");
+  // Minimal: each beer's own bottle, no card around it.
+  await expect(keys.nth(0).locator("img[data-bottle-photo='maccabee']")).toBeVisible();
+  await expect(keys.nth(0).locator(".tape")).toHaveCount(0);
   await expect(keys.nth(1)).toContainText("גולדסטאר");
   await expect(keys.nth(3)).toContainText("קורונה");
+});
+
+test("Home: beer for home — packs and cases only, a single never reaches Home", async ({ page }) => {
+  // A single-can deal on the person's own #1 (a user-submitted one: it has a kind, "בודד", and no count).
+  await seedDeals([{ beer: "goldstar", store: "hatzi-hinam", category: "single", deal: 590, regular: 790 }]);
+  const singles = await sql<{ n: number }>("select count(*)::int as n from public.offers_feed where pack_label = 'בודד' or pack_quantity = 1");
+  expect(singles[0].n).toBeGreaterThan(0);
+  await onboard(page);
+  await expect(page.locator("main")).not.toContainText("₪5.90");
+  const lines = page.locator("main article");
+  expect(await lines.count()).toBeGreaterThan(0);
+  for (const text of await lines.allInnerTexts()) expect(text).toMatch(/שישייה|רביעייה|שמינייה|ארגז|זוג|שלישייה|עשירייה/);
+  await openSort(page);
+  await expect(page.getByRole("link", { name: "בודדים", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "שישיות", exact: true })).toBeVisible();
+  await expect(page.getByText("מארזים")).toHaveCount(0);
+  // …and the single is still one tap away, on the beer's page, under בודדים.
+  await page.goto("/beer/goldstar");
+  await expect(page.locator("section[data-pack-section='single']")).toContainText("₪5.90");
+});
+
+test("Home: when none of my beers has a pack or case deal, it says exactly that", async ({ page }) => {
+  const quiet = await sql<{ name_he: string }>(
+    `select name_he from public.beers b where b.is_active and b.category = 'beer'
+       and not exists (select 1 from public.offers_feed o where o.beer_id = b.id and coalesce(o.pack_quantity, 2) >= 2)
+       and not exists (select 1 from public.group_offers_feed g where b.id = any(g.beer_ids))
+     order by b.sort_order limit 4`,
+  );
+  expect(quiet).toHaveLength(4);
+  await onboard(page, "שקטה", quiet.map((b) => b.name_he));
+  await expect(page.getByText("אין כרגע מבצעי שישיות או ארגזים לבירות שלך")).toBeVisible();
 });
 
 test("Home: the headline deal is a verified saving on one of the person's beers, with the price shown as printed", async ({ page }) => {
@@ -95,9 +130,9 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
   await onboard(page);
   // Folded by default: one control that names the active order.
   await expect(page.locator("details.sort-panel > summary").first()).toContainText("הכי משתלם");
-  await expect(page.getByRole("link", { name: /מחיר.*מהזול ליקר/ })).toBeHidden();
+  await expect(page.getByRole("link", { name: "מהזול ליקר" })).toBeHidden();
   await openSort(page);
-  await page.getByRole("link", { name: /מחיר.*מהזול ליקר/ }).click();
+  await page.getByRole("link", { name: "מהזול ליקר" }).click();
   await expect(page).toHaveURL(/sort=price_asc/);
 
   // The strip, not the headline card above it (which carries the same beer's name).
@@ -108,9 +143,9 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
   expect(ascending.length).toBeGreaterThan(1);
   expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
 
-  await expect(page.locator("details.sort-panel > summary").first()).toContainText("מחיר, מהזול");
+  await expect(page.locator("details.sort-panel > summary").first()).toContainText("מהזול ליקר");
   await openSort(page);
-  await page.getByRole("link", { name: /מחיר.*מהיקר לזול/ }).click();
+  await page.getByRole("link", { name: "מהיקר לזול" }).click();
   await expect(page).toHaveURL(/sort=price_desc/);
   const descending = await pricesIn(goldstar);
   expect(descending).toEqual([...descending].sort((a, b) => b - a));
@@ -118,29 +153,31 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
   await page.reload();
   await expect(page).toHaveURL(/sort=price_desc/);
   await openSort(page);
-  await expect(page.getByRole("link", { name: /מחיר.*מהיקר לזול/ })).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("link", { name: "מהיקר לזול" })).toHaveAttribute("aria-current", "true");
 });
 
-/** The two parts of a beer or chain page. */
-const dealsPart = (page: Page) => page.locator("section[aria-labelledby='deals']");
-const regularPart = (page: Page) => page.locator("section[aria-labelledby='regular']");
-const strip = (part: ReturnType<Page["locator"]>, name: string) => part.locator("section", { has: part.page().getByRole("heading", { level: 3, name }) });
+/** A beer's or chain's page: one section per kind of pack (שישיות, ארגזים, בודדים), deals then regular prices in each. */
+const kind = (page: Page, k: "small_multipack" | "case" | "single") => page.locator(`section[data-pack-section='${k}']`);
+const dealsPart = (page: Page, k: "small_multipack" | "case" | "single" = "small_multipack") => kind(page, k).locator("[data-part='deals']");
+const regularPart = (page: Page, k: "small_multipack" | "case" | "single" = "small_multipack") => kind(page, k).locator("[data-part='regular']");
+const strip = (part: ReturnType<Page["locator"]>, name: string) => part.locator("section", { has: part.page().getByRole("heading", { level: 4, name }) });
 
 test("Beer page: every pack is its own strip and a chain's 6×500 price never sits among the 6×330s", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
 
-  for (const pack of ["6 × 330 מ״ל · פחית", "6 × 500 מ״ל · פחית", "24 × 330 מ״ל · פחית"]) {
-    await expect(dealsPart(page).getByRole("heading", { level: 3, name: pack }), pack).toBeVisible();
+  for (const pack of ["שישייה · 6×330 מ״ל · פחית", "שישייה · 6×500 מ״ל · פחית"]) {
+    await expect(dealsPart(page).getByRole("heading", { level: 4, name: pack }), pack).toBeVisible();
   }
+  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · פחית" })).toBeVisible();
 
-  const small = strip(dealsPart(page), "6 × 330 מ״ל · פחית");
+  const small = strip(dealsPart(page), "שישייה · 6×330 מ״ל · פחית");
   await expect(small).toContainText("₪25.00");
   // Shufersal's ₪29.90 on this pack is a club price: not for everyone, so never shown (0014).
   await expect(small).not.toContainText("₪29.90");
   await expect(small).not.toContainText("₪40.00");
 
-  const mid = strip(dealsPart(page), "6 × 500 מ״ל · פחית");
+  const mid = strip(dealsPart(page), "שישייה · 6×500 מ״ל · פחית");
   await expect(mid).toContainText("₪40.00");
   await expect(mid).toContainText("2 ב־₪80"); // the multi-buy terms travel with the price
   await expect(mid).not.toContainText("₪25.00");
@@ -152,37 +189,54 @@ test("Beer page: the pack filter narrows to one kind of pack and stays in the UR
   await openSort(page);
   await page.getByRole("link", { name: "ארגזים" }).click();
   await expect(page).toHaveURL(/pack=case/);
-  await expect(dealsPart(page).getByRole("heading", { level: 3, name: "24 × 330 מ״ל · פחית" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "6 × 330 מ״ל · פחית" })).toHaveCount(0);
+  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · פחית" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 4, name: "שישייה · 6×330 מ״ל · פחית" })).toHaveCount(0);
+  await expect(kind(page, "small_multipack")).toHaveCount(0);
 });
 
-test("Beer page: deals first, then regular prices — every chain, and one sort orders both", async ({ page }) => {
+test("Beer page: שישיות, then ארגזים, then בודדים — deals before regular prices in each, one sort orders both", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
-  await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /^(מבצעים עכשיו|מחירים רגילים)$/ })).toHaveText(["מבצעים עכשיו", "מחירים רגילים"]);
-  await page.getByRole("link", { name: /מחירים רגילים/ }).click();
-  await expect(page).toHaveURL(/#regular$/);
-
-  const small = strip(regularPart(page), "6 × 330 מ״ל · פחית");
-  expect(await pricesIn(small)).toEqual([3690, 3790, 3890, 3990]);
+  const sections = page.getByRole("heading", { level: 2 }).filter({ hasText: /^(שישיות|ארגזים|בודדים)$/ });
+  const names = await sections.allInnerTexts();
+  expect(names).toEqual(["שישיות", "ארגזים", "בודדים"].filter((n) => names.includes(n)));
+  expect(names[0]).toBe("שישיות");
+  // Inside a kind: the deals, then the regular prices — never mixed.
+  const parts = await kind(page, "small_multipack").locator("[data-part]").evaluateAll((els) => els.map((el) => el.getAttribute("data-part")));
+  expect(parts).toEqual(["deals", "regular"]);
+  // No "מארזים" anywhere.
   await openSort(page);
-  await page.getByRole("link", { name: /מחיר.*מהיקר לזול/ }).click();
+  await expect(page.getByText("מארזים")).toHaveCount(0);
+
+  const small = strip(regularPart(page), "שישייה · 6×330 מ״ל · פחית");
+  expect(await pricesIn(small)).toEqual([3690, 3790, 3890, 3990]);
+  await page.getByRole("link", { name: "מהיקר לזול" }).click();
   await expect(page).toHaveURL(/sort=price_desc/);
-  expect(await pricesIn(strip(regularPart(page), "6 × 330 מ״ל · פחית"))).toEqual([3990, 3890, 3790, 3690]);
+  expect(await pricesIn(strip(regularPart(page), "שישייה · 6×330 מ״ל · פחית"))).toEqual([3990, 3890, 3790, 3690]);
   // A regular price is not dressed up as a saving.
   await expect(small.getByText(/−\d+%/)).toHaveCount(0);
 });
 
-test("Store page: 'my beers' lists all four in order and says plainly which have nothing here", async ({ page }) => {
+test("Store page: 'my beers' keeps to the four, in order, by kind of pack — and names any with nothing here", async ({ page }) => {
   await onboard(page);
   await page.goto("/store/rami-levy");
   await page.getByRole("link", { name: "הבירות שלי" }).click();
   await expect(page).toHaveURL(/mine=1/);
 
-  const headings = dealsPart(page).getByRole("heading", { level: 3 });
-  await expect(headings.filter({ hasText: /^(גולדסטאר|מכבי|היינקן|קורונה)$/ })).toHaveText(["גולדסטאר", "מכבי", "היינקן", "קורונה"]);
-  await expect(page.getByText("אין כרגע מבצע על מכבי ברמי לוי")).toBeVisible();
-  await expect(page.getByText("אין כרגע מבצע על היינקן ברמי לוי")).toBeVisible();
+  const mine = /^(גולדסטאר|מכבי|היינקן|קורונה)$/;
+  const beersShown = await page.getByRole("heading", { level: 4 }).allInnerTexts();
+  expect(beersShown.length).toBeGreaterThan(0);
+  for (const name of beersShown) expect(name).toMatch(mine);
+  // Inside each part the favourites keep the person's order.
+  const order = ["גולדסטאר", "מכבי", "היינקן", "קורונה"];
+  for (const part of await page.locator("[data-part]").all()) {
+    const names = (await part.getByRole("heading", { level: 4 }).allInnerTexts()).map((n) => order.indexOf(n));
+    expect(names).toEqual([...names].sort((a, b) => a - b));
+  }
+  // A favourite with nothing at all here is still named, plainly.
+  for (const name of order.filter((n) => !beersShown.includes(n))) {
+    await expect(page.getByText(`לא ראינו את ${name} ברמי לוי`)).toBeVisible();
+  }
 });
 
 test("A deal line says, on the line itself, the regular price it is measured against and where that comes from", async ({ page }) => {

@@ -33,7 +33,7 @@ export function Strip({
   limit?: number;
   moreHref?: string;
   printIn?: boolean;
-  headingLevel?: "h2" | "h3";
+  headingLevel?: "h2" | "h3" | "h4";
   /** When the strip is about one beer: its bottle beside the heading. */
   beerSlug?: string;
   /** The list is ordered per litre: each line shows that number. */

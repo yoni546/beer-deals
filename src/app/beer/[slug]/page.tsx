@@ -4,14 +4,14 @@ import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
 import { RegularStrip } from "@/components/RegularStrip";
-import { JumpToRegular, SectionHeading } from "@/components/Sections";
+import { CategorySection, NoDealLine, Part } from "@/components/Sections";
 import { SortBar } from "@/components/SortBar";
-import { packText } from "@/lib/format";
+import { PACK_CLASS_HE, packText } from "@/lib/format";
 import { getGroupOffers, getOffers, getRegularPrices } from "@/lib/offers";
 import {
-  filterByPack,
-  filterRegularByPack,
+  PACK_CLASSES,
   groupByPack,
+  groupPackClass,
   groupRegularByPack,
   newestObservation,
   orderPackGroups,
@@ -30,14 +30,15 @@ export const dynamic = "force-dynamic";
 type Search = { view?: string; sort?: string; unit?: string; pack?: string; c?: string };
 
 /**
- * One beer, every pack, every chain — in two parts, never mixed:
+ * One beer, every pack, every chain — by kind of pack, in the order someone buying beer for home looks:
  *
- *   מבצעים עכשיו      promotions everyone can use, pack by pack, plus "any N of these" group offers
- *   מחירים רגילים      the ordinary shelf price per pack and chain
+ *   שישיות     deals everyone can use (pack by pack: שישייה, then שמינייה, then רביעייה), then regular prices
+ *   ארגזים     deals, then regular prices
+ *   בודדים     deals, then regular prices
  *
- * Packs are never compared as the same product: Goldstar 6×330 and 6×500 are different strips.
- * One sort (price ↑ / price ↓ / best verified saving, optionally per litre) orders both parts.
- * (`?view=regular`, the old tab link, still opens the page; both parts are on it.)
+ * Packs are never compared as the same product: Goldstar 6×330 and 6×500 are different strips. One sort
+ * (best verified saving / cheapest / dearest, optionally per litre) orders everything; a category chip
+ * keeps one kind. (`?view=regular`, the old tab link, still opens the page.)
  */
 export default async function BeerPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Search> }) {
   const { slug } = await params;
@@ -59,9 +60,13 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
   const freshest = newestObservation([...offers, ...regular]);
   const dealCount = offers.length + groups.length;
 
-  const availablePacks = [...new Set([...offers.map(packClass), ...regular.map(regularPackClass)])] as PackFilter[];
-  const dealGroups = orderPackGroups(groupByPack(filterByPack(offers, pack)));
-  const regularGroups = groupRegularByPack(filterRegularByPack(regular, pack));
+  const availablePacks = [...new Set([...offers.map(packClass), ...regular.map(regularPackClass), ...groups.map(groupPackClass)])] as PackFilter[];
+  const kinds = PACK_CLASSES.filter((kind) => (pack === "all" || pack === kind) && availablePacks.includes(kind)).map((kind) => ({
+    kind,
+    deals: orderPackGroups(groupByPack(offers.filter((offer) => packClass(offer) === kind)), sort, perLiter),
+    groups: groups.filter((group) => groupPackClass(group) === kind),
+    regular: groupRegularByPack(regular.filter((price) => regularPackClass(price) === kind), sort, perLiter),
+  }));
 
   return (
     <Screen>
@@ -84,61 +89,63 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
       />
 
       {(dealCount > 0 || regular.length > 0) && (
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-2">
+        <div className="mb-6">
           <SortBar path={path} state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
-          <JumpToRegular count={regular.length} />
         </div>
       )}
 
-      <section aria-labelledby="deals" className="scroll-mt-4">
-        <SectionHeading id="deals">מבצעים עכשיו</SectionHeading>
-        {dealCount === 0 ? (
+      {kinds.length === 0 ? (
+        dealCount > 0 || regular.length > 0 ? (
+          <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
+        ) : (
           <EmptyState title={`אין כרגע מבצע על ${beer.name_he}`}>
             כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן. אם זו אחת מארבע הבירות שלכם, תקבלו גם התראה.
           </EmptyState>
-        ) : dealGroups.length === 0 && groups.length === 0 ? (
-          <EmptyState title="אין מבצע באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
-        ) : (
-          <div className="space-y-7">
-            {dealGroups.map((group, index) => (
-              <Strip
-                key={group.key}
-                title={packText(group.offers[0])}
-                aside={`${group.offers.length} ${group.offers.length === 1 ? "רשת" : "רשתות"}`}
-                offers={sortOffers(group.offers, sort, perLiter)}
-                lead="chain"
-                perLiter={perLiter}
-                printIn={index === 0}
-                headingLevel="h3"
-              />
-            ))}
-            <GroupStrip title="מבצעי שילוב" offers={groups} headingLevel="h3" />
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="regular" className="mt-9 scroll-mt-4">
-        <SectionHeading id="regular">מחירים רגילים</SectionHeading>
-        {regular.length === 0 ? (
-          <EmptyState title="עוד אין מחירים רגילים לבירה הזו">מחירים רגילים נכנסים מפרסומי הרשתות.</EmptyState>
-        ) : regularGroups.length === 0 ? (
-          <EmptyState title="אין מחיר באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
-        ) : (
-          <div className="space-y-7">
-            {regularGroups.map((group) => (
-              <RegularStrip
-                key={group.key}
-                title={packText(group.prices[0])}
-                aside={`${group.prices.length} ${group.prices.length === 1 ? "רשת" : "רשתות"}`}
-                prices={sortRegular(group.prices, sort, perLiter)}
-                lead="chain"
-                perLiter={perLiter}
-                headingLevel="h3"
-              />
-            ))}
-          </div>
-        )}
-      </section>
+        )
+      ) : (
+        <div className="space-y-10">
+          {kinds.map(({ kind, deals, groups: mixes, regular: prices }, section) => (
+            <CategorySection key={kind} kind={kind}>
+              {deals.length > 0 || mixes.length > 0 ? (
+                <Part part="deals" title="מבצעים">
+                  {deals.map((group, index) => (
+                    <Strip
+                      key={group.key}
+                      title={packText(group.offers[0])}
+                      aside={`${group.offers.length} ${group.offers.length === 1 ? "רשת" : "רשתות"}`}
+                      offers={sortOffers(group.offers, sort, perLiter)}
+                      lead="chain"
+                      perLiter={perLiter}
+                      printIn={section === 0 && index === 0}
+                      headingLevel="h4"
+                    />
+                  ))}
+                  <GroupStrip title="מבצעי שילוב" offers={mixes} headingLevel="h4" />
+                </Part>
+              ) : (
+                <NoDealLine>
+                  אין כרגע מבצע על {PACK_CLASS_HE[kind]} של {beer.name_he}.
+                </NoDealLine>
+              )}
+              {prices.length > 0 && (
+                <Part part="regular" title="מחירים רגילים">
+                  {prices.map((group) => (
+                    <RegularStrip
+                      key={group.key}
+                      title={packText(group.prices[0])}
+                      aside={`${group.prices.length} ${group.prices.length === 1 ? "רשת" : "רשתות"}`}
+                      prices={sortRegular(group.prices, sort, perLiter)}
+                      lead="chain"
+                      perLiter={perLiter}
+                      headingLevel="h4"
+                    />
+                  ))}
+                </Part>
+              )}
+            </CategorySection>
+          ))}
+        </div>
+      )}
     </Screen>
   );
 }

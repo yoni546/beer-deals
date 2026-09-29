@@ -70,21 +70,38 @@ export function volumeHe(ml: number): string {
   return `${Number.isInteger(liters) ? liters : liters.toFixed(2).replace(/0$/, "")} ל׳`;
 }
 
+/** The three categories a person sees — never "מארזים" (src/lib/offer-logic.ts, PackClass). */
+export const PACK_CLASS_HE = { small_multipack: "שישיות", case: "ארגזים", single: "בודדים" } as const;
+
+const PACK_NAME_HE: Record<number, string> = { 2: "זוג", 3: "שלישייה", 4: "רביעייה", 5: "חמישייה", 6: "שישייה", 8: "שמינייה", 10: "עשירייה" };
+
 /**
- * "6 × 330 מ״ל · פחית" — the pack as printed on a shelf label, led by the variant when there is one
- * ("לא מסונן · 500 מ״ל · פחית", "0.0 · 6 × 330 מ״ל · בקבוק"): two variants in the same can are two
- * different products. Legacy deals only know a category.
+ * What a pack of N is called on an Israeli shelf. The real count, always: a four-pack is a רביעייה and
+ * an eight a שמינייה, even though both are listed under "שישיות". Twelve or more is a ארגז. A single has
+ * no pack word.
+ */
+export function packNameHe(quantity: number): string | null {
+  if (quantity <= 1) return null;
+  if (quantity >= 12) return "ארגז";
+  return PACK_NAME_HE[quantity] ?? `מארז ${quantity}`;
+}
+
+/**
+ * "שישייה · 6×330 מ״ל · פחית" — the pack as printed on a shelf label: its name, the real count and size,
+ * the container when the chain says it. Led by the variant when there is one ("לא מסונן · 500 מ״ל · פחית",
+ * "0.0 · רביעייה · 4×330 מ״ל · בקבוק"): two variants in the same can are two different products.
+ * Legacy deals only know a category.
  */
 export function packText(offer: Pick<Offer, "volume_ml" | "pack_quantity" | "container" | "pack_label"> & { variant?: string | null }): string {
   if (!offer.volume_ml || !offer.pack_quantity) return offer.pack_label;
-  const size = offer.pack_quantity > 1 ? `${offer.pack_quantity} × ${volumeHe(offer.volume_ml)}` : volumeHe(offer.volume_ml);
+  const size = offer.pack_quantity > 1 ? `${offer.pack_quantity}×${volumeHe(offer.volume_ml)}` : volumeHe(offer.volume_ml);
   const container = offer.container ? CONTAINER_HE[offer.container] : "";
-  return [offer.variant || "", size, container].filter(Boolean).join(" · ");
+  return [offer.variant || "", packNameHe(offer.pack_quantity) ?? "", size, container].filter(Boolean).join(" · ");
 }
 
 export type ConditionChip = { label: string; kind: "multi" | "club" | "limit" | "coupon" };
 
-/** The terms of a promotion as short chips: "2 ב־₪45", "חברי מועדון", "עד 6 ליחידות". */
+/** The terms of a promotion as short chips: "2 ב־₪45", "חברי מועדון", "עד 6 ללקוח", "בקנייה מעל ₪75". */
 export function conditionChips(offer: Pick<Offer, "conditions" | "promo_type">): ConditionChip[] {
   const c = offer.conditions ?? {};
   const chips: ConditionChip[] = [];
@@ -96,7 +113,8 @@ export function conditionChips(offer: Pick<Offer, "conditions" | "promo_type">):
   if (c.club || offer.promo_type === "club_price") chips.push({ label: c.club ? `חברי ${c.club}` : "חברי מועדון", kind: "club" });
   if (c.coupon || offer.promo_type === "coupon") chips.push({ label: "עם קופון", kind: "coupon" });
   if (c.min_qty && c.min_qty > 1 && !c.multi_buy) chips.push({ label: `מינימום ${c.min_qty} יחידות`, kind: "limit" });
-  if (c.max_qty) chips.push({ label: `עד ${c.max_qty} ליחידות`, kind: "limit" });
+  if (c.max_qty) chips.push({ label: `עד ${c.max_qty} ללקוח`, kind: "limit" });
+  if (c.min_basket_agorot) chips.push({ label: `בקנייה מעל ₪${Math.round(c.min_basket_agorot / 100)}`, kind: "limit" });
   return chips;
 }
 

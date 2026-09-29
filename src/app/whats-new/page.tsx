@@ -1,10 +1,13 @@
+import { notFound } from "next/navigation";
 import { Screen, TopBar } from "@/components/Chrome";
 import { MarkReleaseSeen } from "@/components/MarkReleaseSeen";
 import { ChevronDownIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import { visibleReleases, type Release } from "@/lib/releases";
+import { getViewer } from "@/lib/session";
 
 export const metadata = { title: "מה חדש" };
+export const dynamic = "force-dynamic";
 
 const dateFormat = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
@@ -26,10 +29,15 @@ function Bullets({ release }: { release: Release }) {
 }
 
 /**
- * What's New: the latest update in full, earlier ones one tap away.
- * Static content from src/content/releases.json — no database, no login.
+ * What's New: the latest update in full, earlier ones one tap away. Content from src/content/releases.json.
+ *
+ * For the people who run the app only (0.8.0): the check is here, on the server, from the admins table
+ * (getViewer → RLS-protected read) — hiding the link is a courtesy, this is the rule. Anyone else gets the
+ * ordinary "not found" page, so the address does not even say there is something behind it.
  */
-export default function WhatsNewPage() {
+export default async function WhatsNewPage() {
+  const viewer = await getViewer();
+  if (!viewer.isAdmin) notFound();
   const [latest, ...earlier] = visibleReleases;
 
   return (

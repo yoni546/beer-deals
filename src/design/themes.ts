@@ -171,6 +171,9 @@ export type BottlePhoto = {
 
 const PHOTOS = photos as Record<string, BottlePhoto>;
 
+/** A beer's approved bottle photo, or null (then it is drawn). */
+export const photoFor = (slug: string): BottlePhoto | null => PHOTOS[slug] ?? null;
+
 /** The identity for a beer slug; the neutral house look for anything else. */
 export const identityFor = (slug: string | null | undefined): BeerIdentity => (slug ? BY_SLUG.get(slug) : undefined) ?? HOUSE;
 

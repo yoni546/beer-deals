@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Price } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import type { GroupOffer } from "@/lib/db/types";
-import { depositHe, validUntilHe, whereSeenHe } from "@/lib/format";
+import { depositHe, packText, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 /**
@@ -32,7 +32,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
           <span key={pack.sku_id}>
             {i > 0 && " · "}
             <Link href={`/beer/${pack.beer_slug}`} className="text-ink underline-offset-4 hover:underline">
-              {pack.label}
+              {pack.beer_name} {packText({ ...pack, pack_label: pack.label })}
             </Link>
           </span>
         ))}
@@ -71,7 +71,7 @@ export function GroupStrip({
   title: string;
   offers: GroupOffer[];
   showStore?: boolean;
-  headingLevel?: "h2" | "h3";
+  headingLevel?: "h2" | "h3" | "h4";
 }) {
   if (offers.length === 0) return null;
   const Heading = headingLevel;

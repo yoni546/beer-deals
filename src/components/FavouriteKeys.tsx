@@ -1,14 +1,13 @@
 import Link from "next/link";
-import { BeerMark } from "@/components/ui/Bottle";
-import { Saving } from "@/components/ui/Price";
+import { BeerBottle } from "@/components/ui/Bottle";
 import type { Beer } from "@/lib/db/types";
 import type { BeerSummary } from "@/lib/offer-logic";
 
 /**
- * The person's four beers as four keys in a row, in their own order. Rank #1 is lit —
- * it sets the theme and is the only beer that may send a notification. A key with
- * no offer right now is dimmed and says so; it is never left out, so the row always
- * reads as the same four beers.
+ * The person's four beers, in their own order: each one's own bottle, a small rank, its name — standing
+ * on the counter, no cards. #1 is marked (it sets the look and is the only beer that may notify). A beer
+ * with a deal on a pack or case right now says how many, in a few words; one without says nothing, and is
+ * never left out, so the row always reads as the same four beers.
  */
 export function FavouriteKeys({
   beers,
@@ -18,49 +17,32 @@ export function FavouriteKeys({
   summaries: Record<string, BeerSummary>;
 }) {
   return (
-    <ol className="grid grid-cols-4 gap-2" aria-label="ארבע הבירות שלי, לפי הסדר">
+    <ol className="grid grid-cols-4 gap-1" aria-label="ארבע הבירות שלי, לפי הסדר">
       {beers.map((beer, index) => {
-        const summary = summaries[beer.id] ?? { count: 0, bestValuePct: null };
-        const has = summary.count > 0;
-        const lead = index === 0;
+        const count = summaries[beer.id]?.count ?? 0;
         return (
-          <li key={beer.id}>
-            <Link
-              href={`/beer/${beer.slug}`}
-              className="tape tape-flat flex h-[6.5rem] flex-col justify-between rounded-xl p-2.5"
-            >
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-2">
+          <li key={beer.id} data-rank={index + 1}>
+            <Link href={`/beer/${beer.slug}`} className="favourite-key flex flex-col items-center gap-1 rounded-xl px-1 pt-1 pb-1.5 text-center">
+              <span className="relative flex h-[4.5rem] items-end justify-center">
+                <BeerBottle slug={beer.slug} height={72} />
                 <span
                   aria-hidden
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
-                    lead ? "bg-deal text-on-deal" : "border border-paper-line text-ink"
+                  className={`num absolute -top-1 -start-3 rounded-full px-1.5 text-[0.75rem] leading-5 font-bold ${
+                    index === 0 ? "bg-deal text-on-deal" : "bg-ground text-on-ground-2 ring-1 ring-ground-line"
                   }`}
                 >
-                  {index + 1}
+                  #{index + 1}
                 </span>
-                <span className="sr-only">מקום {index + 1}: </span>
-                {lead && <span>ראשית</span>}
-                <BeerMark slug={beer.slug} height={30} className="ms-auto -mt-1" />
               </span>
-              {/* A long single-word name ("גולדסטאר") cannot wrap; it gets a slightly smaller size instead of being clipped. */}
-              <span
-                className={`line-clamp-2 leading-tight font-bold text-ink ${
-                  Math.max(...beer.name_he.split(/\s+/).map((w) => w.length)) > 7 ? "text-[0.8rem]" : "text-[0.95rem]"
-                }`}
-              >
+              <span className="w-full truncate text-[0.8125rem] leading-tight font-semibold text-on-ground">
+                <span className="sr-only">מקום {index + 1}: </span>
                 {beer.name_he}
               </span>
-              <span className={`text-xs ${has ? "font-semibold text-price" : "text-ink-2"}`}>
-                {has ? (
-                  summary.bestValuePct !== null ? (
-                    <>עד <Saving pct={summary.bestValuePct} /></>
-                  ) : (
-                    <>{summary.count} {summary.count === 1 ? "מבצע" : "מבצעים"}</>
-                  )
-                ) : (
-                  "אין מבצע"
-                )}
-              </span>
+              {count > 0 && (
+                <span className="text-[0.75rem] leading-none text-on-ground-2">
+                  {count} {count === 1 ? "מבצע" : "מבצעים"}
+                </span>
+              )}
             </Link>
           </li>
         );

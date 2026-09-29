@@ -142,9 +142,24 @@ text over any bottle pixel; a top scrim keeps the greeting calm over the label.
 
 ## Calm controls (0.7.1)
 
-Sort and pack filters are ONE quiet control that names what is active ("מיון: הכי משתלם · מארזים"); the
-options open under it (native `<details>`, closes once a choice is made). A page's own primary toggle
-("הבירות שלי" on a chain page) stays in plain view. The jump to regular prices is one small link.
+Sort and pack filters are ONE quiet control that names what is active ("מיון: הכי משתלם · שישיות"); the
+options open under it (native `<details>`, closes once a choice is made): הכי משתלם · מהזול ליקר · מהיקר
+לזול · לליטר, and הכל · שישיות · ארגזים · בודדים (Home has no בודדים). A page's own primary toggle
+("הבירות שלי" on a chain page) stays in plain view.
+
+## Kinds of pack (0.8.0)
+
+A beer's or chain's page is three sections — שישיות, ארגזים, בודדים (`CategorySection`) — each with its
+deals first and its regular prices after (`Part`, a small heading each; a kind with regular prices but no
+deal says so in one quiet line). Strips are named with the pack's word and real count ("שישייה · 6×330 מ״ל
+· פחית"); the container is left out when the chain did not state it.
+
+## My beers (0.8.0)
+
+The four beers stand on the counter, not on cards: each one's own bottle (the approved photo, else the
+drawn bottle — `BeerBottle`), a small rank (#1 in the deal colour, #2–#4 quiet), the name, and a few words
+only when there is a deal. The same in Settings, where the rows keep the grip (drag) and the arrow buttons
+(keyboard); the look still follows #1 the moment it is saved.
 
 A deal line has two levels: **name ····· saving · price**, then one row of facts (במקום ₪X · store · until ·
 deposit · multi-buy terms). Lines are separated by solid hairlines with room above and below; strips by

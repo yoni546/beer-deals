@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.8.0",
+    "date": "2026-09-30",
+    "title_he": "שישיות וארגזים קודם, ועוד הרבה רשתות ובירות",
+    "highlights_he": [
+      "בעמוד הראשי מוצגים רק מבצעים על שישיות וארגזים, קודם של הבירות שלכם.",
+      "הכל מסודר בשלוש קטגוריות: שישיות, ארגזים ובודדים. כל אריזה מופיעה בשם הנכון שלה: רביעייה, שישייה, שמינייה או ארגז.",
+      "נוספו ויקטורי, מחסני השוק, קשת טעמים, פרשמרקט, סטופ מרקט ופוליצר, ושתים־עשרה בירות חדשות כמו קרומבכר, איגל ו־1664.",
+      "הרבה יותר מבצעים ומחירים מכל רשת: תיקנו את הקריאה של שישיות ושל מבצעים שבעבר לא הצלחנו לקרוא.",
+      "הבירות שלי מוצגות עכשיו כבקבוקים אמיתיים עם המקום של כל אחת, ויש כפתור לשתף את האפליקציה עם חברים."
+    ],
+    "kind": [
+      "feature",
+      "data",
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Beer for home: Home shows packs and cases only (offers_feed read with packsOnly: pack_quantity >= 2 or legacy); order favourites, 6-packs, cases, 8/4-packs, other packs (orderForHome); empty state 'אין כרגע מבצעי שישיות או ארגזים לבירות שלך'. Hero and editor's pick from packs only.",
+      "Pack classes single (1) / small_multipack (2-11) / case (12+) in src/lib/offer-logic.ts; categories שישיות/ארגזים/בודדים (never מארזים); ?pack=multi and c=sixpack map to small_multipack. Labels with the real count (packNameHe). Beer and chain pages: one section per kind, deals then regular prices; default pack order 6 -> 8 -> 4 unless a price sort is chosen.",
+      "What's New is admin-only: /whats-new checks getViewer().isAdmin on the server (notFound otherwise); the link shows for admins only. Regular users get ShareApp (Web Share API, else clipboard; always https://beer-deals.vercel.app; 'הקישור הועתק').",
+      "Ingestion: container 'other' instead of hold; per-unit Quantity; unit-less Hatzi Hinam volumes; pack from barcode consensus (pass 1b, incl. names cut before the pack word); same-price code collapse; shelf-price confirmation of single-statement promotions; per-pack price cuts; unreadable items left out; duplicate promotions merged; min-basket / per-customer limit terms. Laib Catalog JSON API (Victory, Mahsanei). New publishers keshet, freshmarket, stop-market, politzer; blocked (password): super-yuda, salach-dabach, yellow.",
+      "Migration 0016: 12 beers (+brands), 4 stores, 4 sources. Applied to STAGING only. Staging re-imported (rollback + re-import of 2026-09-29 files): 1,027 regular, 307 public promotion rows, 70 mix-and-match live. docs/RETAILER-COVERAGE.md via scripts/ingest/coverage.mjs. Same files, 0.7.1 rules -> 0.8.0: regular 170 -> 1,027; public promotions 16 -> 307."
+    ]
+  },
+  {
     "version": "0.7.1",
     "date": "2026-09-29",
     "title_he": "מראה נקי יותר, והבירה שלכם במרכז",

@@ -46,7 +46,12 @@ describe("when a promotion ends", () => {
 describe("packs", () => {
   it("writes the pack like a shelf label", () => {
     const can = { volume_ml: 330, pack_quantity: 6, container: "can" as const, pack_label: "x" };
-    expect(packText(can)).toBe("6 × 330 מ״ל · פחית");
+    expect(packText(can)).toBe("שישייה · 6×330 מ״ל · פחית");
+    // The real count, always: a four is a רביעייה and an eight a שמינייה — never a שישייה.
+    expect(packText({ ...can, pack_quantity: 4, container: "bottle" })).toBe("רביעייה · 4×330 מ״ל · בקבוק");
+    expect(packText({ ...can, pack_quantity: 8, volume_ml: 500 })).toBe("שמינייה · 8×500 מ״ל · פחית");
+    expect(packText({ ...can, pack_quantity: 24 })).toBe("ארגז · 24×330 מ״ל · פחית");
+    expect(packText({ ...can, container: "other" })).toBe("שישייה · 6×330 מ״ל"); // the chain did not say
     expect(packText({ ...can, pack_quantity: 1, container: "bottle" })).toBe("330 מ״ל · בקבוק");
     expect(packText({ ...can, volume_ml: 1500, pack_quantity: 1 })).toBe("1.5 ל׳ · פחית");
     expect(packText({ volume_ml: null, pack_quantity: null, container: null, pack_label: "שישייה" })).toBe("שישייה");
@@ -65,7 +70,8 @@ describe("promotion terms as chips", () => {
     expect(conditionChips({ promo_type: "multi_buy", conditions: { multi_buy: { qty: 3, total_agorot: 10050 } } })[0].label).toBe("3 ב־₪100.50");
     expect(conditionChips({ promo_type: "club_price", conditions: { club: "שופרסל פלוס" } })).toEqual([{ label: "חברי שופרסל פלוס", kind: "club" }]);
     expect(conditionChips({ promo_type: "club_price", conditions: {} })[0].label).toBe("חברי מועדון");
-    expect(conditionChips({ promo_type: "price_cut", conditions: { max_qty: 6 } })).toEqual([{ label: "עד 6 ליחידות", kind: "limit" }]);
+    expect(conditionChips({ promo_type: "price_cut", conditions: { max_qty: 6 } })).toEqual([{ label: "עד 6 ללקוח", kind: "limit" }]);
+    expect(conditionChips({ promo_type: "price_cut", conditions: { min_basket_agorot: 7500 } })).toEqual([{ label: "בקנייה מעל ₪75", kind: "limit" }]);
     expect(conditionChips({ promo_type: "price_cut", conditions: {} })).toEqual([]);
   });
 });

@@ -1,9 +1,18 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkReleaseSeen } from "@/components/MarkReleaseSeen";
 import { LAST_SEEN_KEY, WhatsNewLink } from "@/components/WhatsNewLink";
 import WhatsNewPage from "@/app/whats-new/page";
+
+// The page asks the server who is looking (the admins table, through RLS). Here: a switch.
+const viewer = { isAdmin: true };
+vi.mock("@/lib/session", () => ({ getViewer: async () => viewer }));
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NEXT_NOT_FOUND");
+  },
+}));
 import { latestVisibleVersion, visibleReleases } from "@/lib/releases";
 
 // The screen shows the newest release users are meant to see; internal-only releases
@@ -45,8 +54,14 @@ describe("What's New entry point", () => {
 });
 
 describe("What's New screen", () => {
-  it("shows the latest release in full and earlier ones collapsed", () => {
-    const { container } = render(<WhatsNewPage />);
+  it("is for admins only: anyone else gets 'not found', decided on the server", async () => {
+    viewer.isAdmin = false;
+    await expect(WhatsNewPage()).rejects.toThrow("NEXT_NOT_FOUND");
+    viewer.isAdmin = true;
+  });
+
+  it("shows the latest release in full and earlier ones collapsed", async () => {
+    const { container } = render(await WhatsNewPage());
 
     expect(screen.getByRole("heading", { name: latestRelease.title_he })).toBeTruthy();
     for (const line of latestRelease.highlights_he) expect(screen.getByText(line)).toBeTruthy();

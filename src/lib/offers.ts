@@ -40,6 +40,8 @@ export type OfferFilter = {
   excludeBeerIds?: string[];
   /** Best verified savings first, capped — for "more deals" lists that could otherwise be huge. */
   topByValue?: number;
+  /** Leave out single units (Home is beer for home: packs and cases). Legacy deals without a count stay. */
+  packsOnly?: boolean;
 };
 
 export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
@@ -54,6 +56,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
     query = query.in("beer_id", filter.beerIds);
   }
   if (filter.excludeBeerIds?.length) query = query.not("beer_id", "in", `(${filter.excludeBeerIds.join(",")})`);
+  if (filter.packsOnly) query = query.or("pack_quantity.gte.2,pack_quantity.is.null");
   if (filter.topByValue) {
     query = query.order("value_pct", { ascending: false, nullsFirst: false }).limit(filter.topByValue);
   }

@@ -80,7 +80,7 @@ export function RegularStrip({
   aside?: React.ReactNode;
   prices: RegularPrice[];
   lead: "chain" | "pack";
-  headingLevel?: "h2" | "h3";
+  headingLevel?: "h2" | "h3" | "h4";
   perLiter?: boolean;
 }) {
   const Heading = headingLevel;

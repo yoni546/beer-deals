@@ -91,8 +91,19 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
   price ("+ ₪1.80 פיקדון") and never counts as a saving.
 - **"Any N of these for ₪X"** is one group offer across several packs, shown as such — never a
   per-pack price the chain did not publish.
-- **What's New:** a small, unobtrusive entry, the latest update, and recent history; every
-  meaningful change ships a release entry (see `CLAUDE.md`).
+- **Beer for home (0.8.0).** People buy beer to take home: six-packs and small packs first, then
+  cases, single cans and bottles last. Home shows **packs and cases only** — never a single — ordered:
+  the person's own beers, then true six-packs, cases, eights and fours, other packs. With nothing to
+  show it says "אין כרגע מבצעי שישיות או ארגזים לבירות שלך".
+- **Three categories, and only three:** שישיות (2–11 units: 4, 6 and 8 are the real ones), ארגזים
+  (12 or more), בודדים (1). There is no "מארזים". Every product still says what it is, with its real count:
+  רביעייה · 4×330 מ״ל, שישייה · 6×330 מ״ל, שמינייה · 8×500 מ״ל, ארגז · 24×330 מ״ל — a four is never
+  called a שישייה. Inside שישיות the default order is 6, then 8, then 4, unless the person picks a price
+  sort. Beer and chain pages go שישיות → ארגזים → בודדים, and inside each, deals everyone can use first,
+  then regular prices; a kind with nothing is left out.
+- **What's New is for the people who run the app** (admins; checked on the server). Every meaningful
+  change still ships a release entry (see `CLAUDE.md`). Everyone else gets "אהבתם? שתפו לחברים",
+  which shares the production address.
 - Technical constraints that must be preserved: Row Level Security as the permission system;
   money in integer agorot; the service worker never caches pages (a stale price in an aisle is
   the one unforgivable failure); the discount is never typed by hand and never shown without a

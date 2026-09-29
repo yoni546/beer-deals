@@ -50,7 +50,7 @@ test("changing #1 to Heineken changes the app at once, on every page, and leaves
   await expect(stage(page)).toHaveAttribute("data-beer", "heineken");
   expect(await ground(page)).not.toBe(goldstarGround);
 
-  for (const route of ["/", "/beer/goldstar", "/store/rami-levy", "/whats-new"]) {
+  for (const route of ["/", "/beer/goldstar", "/store/rami-levy", "/settings"]) {
     await page.goto(route);
     await expect(page.locator("body"), route).toHaveAttribute("data-theme", "heineken");
     await expect(page.locator(".bottle-stage[data-beer='goldstar']"), `${route}: stale Goldstar bottle`).toHaveCount(0);

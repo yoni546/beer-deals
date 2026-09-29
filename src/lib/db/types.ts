@@ -117,6 +117,8 @@ export type Sku = {
 export type OfferConditions = {
   min_qty?: number;
   max_qty?: number;
+  /** Only with a basket over this amount ("מעל 75"): anyone can get it, but not on its own. */
+  min_basket_agorot?: number;
   /** "2 for ₪45": qty packs for total_agorot. The per-pack price is ceil(total / qty). */
   multi_buy?: { qty: number; total_agorot: number };
   club?: string;

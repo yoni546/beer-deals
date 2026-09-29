@@ -39,7 +39,8 @@ test("no sample deal is ever shown as a real one", async ({ page }) => {
   }
 });
 
-test("What's New is reachable and shows a version", async ({ page }) => {
-  await page.goto("/whats-new");
-  await expect(page.getByText(/גרסה\s*\d+\.\d+\.\d+/)).toBeVisible();
+test("What's New is for admins only: a visitor gets the not-found page", async ({ page }) => {
+  const response = await page.goto("/whats-new");
+  expect(response!.status()).toBe(404);
+  await expect(page.getByText(/גרסה\s*\d+\.\d+\.\d+/)).toHaveCount(0);
 });

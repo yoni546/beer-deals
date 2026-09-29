@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Offer, RegularPrice } from "@/lib/db/types";
 import {
+  PACK_FILTERS,
+  classOfQuantity,
   filterByPack,
+  groupPackClass,
+  homeOrder,
+  orderForHome,
+  packOrder,
   filterRegularByPack,
   groupByBeer,
   groupByPack,
@@ -78,7 +84,8 @@ describe("URL parsing", () => {
   });
 
   it("keeps old links and push notifications working by mapping the old pack categories", () => {
-    expect(parsePack(undefined, "sixpack")).toBe("multi");
+    expect(parsePack(undefined, "sixpack")).toBe("small_multipack");
+    expect(parsePack("multi")).toBe("small_multipack"); // 0.7.x "מארזים" links
     expect(parsePack(undefined, "case")).toBe("case");
     expect(parsePack(undefined, "single")).toBe("single");
     expect(parsePack("case", "single")).toBe("case"); // the new parameter wins
@@ -88,14 +95,33 @@ describe("URL parsing", () => {
 describe("pack classes", () => {
   it("classifies catalogue offers by how many are in the pack", () => {
     expect(packClass(offer({ pack_quantity: 1 }))).toBe("single");
-    expect(packClass(offer({ pack_quantity: 6 }))).toBe("multi");
+    expect(packClass(offer({ pack_quantity: 6 }))).toBe("small_multipack");
     expect(packClass(offer({ pack_quantity: 24 }))).toBe("case");
+  });
+
+  it("has exactly three kinds: 1 is single, 2–11 a small multipack (4, 6, 8 and the rare others), 12+ a case", () => {
+    const table = [1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 15, 18, 20, 24].map((n) => [n, classOfQuantity(n)]);
+    expect(table).toEqual([
+      [1, "single"], [2, "small_multipack"], [3, "small_multipack"], [4, "small_multipack"], [5, "small_multipack"],
+      [6, "small_multipack"], [8, "small_multipack"], [10, "small_multipack"], [11, "small_multipack"],
+      [12, "case"], [15, "case"], [18, "case"], [20, "case"], [24, "case"],
+    ]);
+    expect(classOfQuantity(null)).toBe("single");
+    // The filters a person sees: packs, cases, singles — and no "multi"/"מארזים".
+    expect(PACK_FILTERS).toEqual(["all", "small_multipack", "case", "single"]);
+  });
+
+  it("classifies a mix-and-match offer by the kind most of its packs are", () => {
+    const packs = (...ns: number[]) => ({ packs: ns.map((pack_quantity) => ({ pack_quantity })) });
+    expect(groupPackClass(packs(6, 6))).toBe("small_multipack");
+    expect(groupPackClass(packs(1, 1, 6))).toBe("single");
+    expect(groupPackClass(packs(24))).toBe("case");
   });
 
   it("classifies legacy deals by their category label", () => {
     const legacy = (pack_label: string) => offer({ origin: "legacy", pack_label, pack_quantity: null, sku_id: null });
     expect(packClass(legacy("בודד"))).toBe("single");
-    expect(packClass(legacy("שישייה"))).toBe("multi");
+    expect(packClass(legacy("שישייה"))).toBe("small_multipack");
     expect(packClass(legacy("ארגז"))).toBe("case");
   });
 
@@ -196,11 +222,21 @@ function regular(overrides: Partial<RegularPrice> = {}): RegularPrice {
 }
 
 describe("pack ordering", () => {
-  it("lists packs from smallest to largest, whatever the sort mode put first", () => {
+  it("lists packs by kind (packs, cases, singles), and 6×330 before 6×500", () => {
     const big = offer({ sku_id: "24x330", volume_ml: 330, pack_quantity: 24, pack_label: "24 × 330" });
     const mid = offer({ sku_id: "6x500", volume_ml: 500, pack_quantity: 6, pack_label: "6 × 500" });
     const small = offer({ sku_id: "6x330", volume_ml: 330, pack_quantity: 6, pack_label: "6 × 330" });
-    expect(orderPackGroups(groupByPack([big, mid, small])).map((g) => g.key)).toEqual(["6x330", "6x500", "24x330"]);
+    const one = offer({ sku_id: "1x330", volume_ml: 330, pack_quantity: 1, pack_label: "330" });
+    expect(orderPackGroups(groupByPack([one, big, mid, small])).map((g) => g.key)).toEqual(["6x330", "6x500", "24x330", "1x330"]);
+  });
+
+  it("orders the packs six, then eight, then four, then the rare others — unless a price sort is chosen", () => {
+    const pack = (n: number, price: number) => offer({ sku_id: `${n}x330`, pack_quantity: n, effective_agorot: price, pack_label: String(n) });
+    const list = [pack(4, 1500), pack(2, 900), pack(8, 3000), pack(6, 2500)];
+    expect(orderPackGroups(groupByPack(list)).map((g) => g.key)).toEqual(["6x330", "8x330", "4x330", "2x330"]);
+    expect(orderPackGroups(groupByPack(list), "price_asc").map((g) => g.key)).toEqual(["2x330", "4x330", "6x330", "8x330"]);
+    expect(orderPackGroups(groupByPack(list), "price_desc").map((g) => g.key)).toEqual(["8x330", "6x330", "4x330", "2x330"]);
+    expect([6, 8, 4, 10].map(packOrder)).toEqual([...[6, 8, 4, 10].map(packOrder)].sort((a, b) => a - b));
   });
 
   it("keeps Goldstar 6×330 and 6×500 as two groups", () => {
@@ -220,10 +256,10 @@ describe("regular prices", () => {
     expect(groups[0].prices.map((p) => p.price_agorot)).toEqual([3790, 3990]);
   });
 
-  it("filters by pack kind: single, multi-pack, case", () => {
+  it("filters by pack kind: single, small multipack, case", () => {
     const prices = [regular({ pack_quantity: 1 }), regular({ pack_quantity: 6 }), regular({ pack_quantity: 24 })];
     expect(filterRegularByPack(prices, "single").map((p) => p.pack_quantity)).toEqual([1]);
-    expect(filterRegularByPack(prices, "multi").map((p) => p.pack_quantity)).toEqual([6]);
+    expect(filterRegularByPack(prices, "small_multipack").map((p) => p.pack_quantity)).toEqual([6]);
     expect(filterRegularByPack(prices, "case").map((p) => p.pack_quantity)).toEqual([24]);
     expect(filterRegularByPack(prices, "all")).toHaveLength(3);
   });
@@ -234,5 +270,21 @@ describe("regular prices", () => {
       ["b-a", "b-b"],
     );
     expect(groups.map((g) => g.beerId)).toEqual(["b-a", "b-b", "b-x"]);
+  });
+});
+
+describe("Home: beer for home", () => {
+  it("ranks true six-packs, then cases, then eights and fours, then other packs; singles last of all", () => {
+    expect([6, 24, 8, 4, 10, 1].map(homeOrder)).toEqual([0, 1, 2, 2, 3, 9]);
+  });
+
+  it("puts the person's beers first, then orders each by pack — and an explicit price sort wins", () => {
+    const o = (beer: string, n: number, price: number, value: number | null = null) =>
+      offer({ beer_id: beer, pack_quantity: n, effective_agorot: price, value_pct: value, sku_id: `${beer}-${n}` });
+    const list = [o("b-other", 6, 2000, 40), o("b-mine", 4, 1200, 30), o("b-mine", 24, 9000, 10), o("b-mine", 6, 2600, 5)];
+    const home = orderForHome(list, ["b-mine"], "value").map((x) => `${x.beer_id}:${x.pack_quantity}`);
+    expect(home).toEqual(["b-mine:6", "b-mine:24", "b-mine:4", "b-other:6"]);
+    const cheapest = orderForHome(list, ["b-mine"], "price_asc").map((x) => x.effective_agorot);
+    expect(cheapest).toEqual([1200, 2000, 2600, 9000]);
   });
 });

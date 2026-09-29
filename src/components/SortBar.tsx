@@ -1,6 +1,7 @@
 import { Chip, ChipRow } from "@/components/ui/Chip";
-import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon } from "@/components/ui/icons";
-import type { PackFilter, SortMode } from "@/lib/offer-logic";
+import { ChevronDownIcon } from "@/components/ui/icons";
+import { PACK_CLASS_HE } from "@/lib/format";
+import { PACK_FILTERS, type PackFilter, type SortMode } from "@/lib/offer-logic";
 import { withParams } from "@/lib/urls";
 
 export type ViewState = {
@@ -13,19 +14,18 @@ export type ViewState = {
 
 const DEFAULTS = { sort: "value", unit: "", pack: "all" };
 
-const PACK_LABEL: Record<PackFilter, string> = { all: "כל האריזות", single: "בודדים", multi: "מארזים", case: "ארגזים" };
-const SORT_LABEL: Record<SortMode, string> = { value: "משתלם", price_asc: "מחיר", price_desc: "מחיר" };
-
-const SORT_SUMMARY: Record<SortMode, string> = { value: "הכי משתלם", price_asc: "מחיר, מהזול", price_desc: "מחיר, מהיקר" };
+/** The three categories a person sees (src/lib/offer-logic.ts, PackClass) — never "מארזים". */
+const PACK_LABEL: Record<PackFilter, string> = { all: "הכל", ...PACK_CLASS_HE };
+const SORT_LABEL: Record<SortMode, string> = { value: "הכי משתלם", price_asc: "מהזול ליקר", price_desc: "מהיקר לזול" };
 
 /**
  * Sort and filter, folded into ONE quiet control that says what is active ("מיון: הכי משתלם ·
- * מארזים"); the options open under it. Everything is a link to "this page with one thing changed"
+ * שישיות"); the options open under it. Everything is a link to "this page with one thing changed"
  * (src/lib/urls.ts), so state is in the URL and it works with no script at all (native <details>).
  * A page's own primary toggle (the store page's "my beers") stays outside, in plain view.
  *
- *   משתלם | מחיר ↑ | מחיר ↓ | לליטר             how to order
- *   כל האריזות | בודדים | מארזים | ארגזים      which packs
+ *   הכי משתלם | מהזול ליקר | מהיקר לזול | לליטר     how to order
+ *   הכל | שישיות | ארגזים | בודדים                  which packs (Home has no singles)
  */
 export function SortBar({
   path,
@@ -53,7 +53,7 @@ export function SortBar({
   };
   const href = (patch: Record<string, string | undefined>) => withParams(path, current, patch, DEFAULTS);
   const summary = [
-    sorting ? SORT_SUMMARY[state.sort] : null,
+    sorting ? SORT_LABEL[state.sort] : null,
     state.perLiter ? "לליטר" : null,
     packs && state.pack !== "all" ? PACK_LABEL[state.pack] : null,
   ].filter(Boolean);
@@ -78,17 +78,12 @@ export function SortBar({
         <ChipRow label="מיון">
           <Chip href={href({ sort: "value" })} selected={state.sort === "value"}>
             {SORT_LABEL.value}
-            <span className="sr-only">: הנחה גבוהה קודם</span>
           </Chip>
           <Chip href={href({ sort: "price_asc" })} selected={state.sort === "price_asc"}>
             {SORT_LABEL.price_asc}
-            <ArrowUpIcon size={16} />
-            <span className="sr-only">מהזול ליקר</span>
           </Chip>
           <Chip href={href({ sort: "price_desc" })} selected={state.sort === "price_desc"}>
             {SORT_LABEL.price_desc}
-            <ArrowDownIcon size={16} />
-            <span className="sr-only">מהיקר לזול</span>
           </Chip>
           <Chip href={href({ unit: state.perLiter ? "" : "1" })} selected={state.perLiter}>
             לליטר
@@ -100,8 +95,7 @@ export function SortBar({
       {packs && (
         <ChipRow label="סינון">
           {packs &&
-            (["all", "single", "multi", "case"] as PackFilter[])
-            .filter((pack) => pack === "all" || pack === state.pack || !availablePacks || availablePacks.includes(pack))
+            PACK_FILTERS.filter((pack) => pack === "all" || pack === state.pack || !availablePacks || availablePacks.includes(pack))
             .map((pack) => (
               <Chip key={pack} href={href({ pack })} selected={state.pack === pack}>
                 {PACK_LABEL[pack]}

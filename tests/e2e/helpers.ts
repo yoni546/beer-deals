@@ -72,6 +72,14 @@ export async function addBeerWithoutIdentity() {
   );
 }
 
+/** Makes the person onboarded under `firstName` an admin (test database only). */
+export async function makeAdmin(firstName: string) {
+  await exec(
+    `insert into public.admins (user_id, level) select id, 'admin' from public.profiles where first_name = '${firstName.replace(/'/g, "''")}'
+     on conflict (user_id) do nothing;`,
+  );
+}
+
 export async function createAdmin(email = "admin@example.test", password = "correct-horse") {
   const { id } = (await post("/__test/create-user", { email, password, admin: "super_admin" })) as { id: string };
   return { id, email, password };

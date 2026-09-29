@@ -5,6 +5,7 @@ import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PushToggle } from "@/components/PushToggle";
 import { Tape } from "@/components/ui/Tape";
+import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
 import { getBeers } from "@/lib/queries";
@@ -41,12 +42,13 @@ export default async function SettingsPage() {
         <Section title="האפליקציה">
           <div className="space-y-3">
             <InstallPrompt />
-            <Tape className="flex items-center justify-between px-4 py-1">
-              <WhatsNewLink latestVersion={latestVisibleVersion} className="-mx-2.5 text-ink" />
+            <Tape className="flex min-h-11 items-center justify-between px-4 py-1">
+              {viewer.isAdmin ? <WhatsNewLink latestVersion={latestVisibleVersion} className="-mx-2.5 text-ink" /> : <span className="text-sm text-ink-2">מבצעי בירה</span>}
               <span className="text-sm text-ink-2">
                 גרסה <span className="num">{latestRelease.version}</span>
               </span>
             </Tape>
+            <ShareApp />
           </div>
         </Section>
 

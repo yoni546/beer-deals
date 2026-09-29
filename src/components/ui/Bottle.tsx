@@ -1,5 +1,5 @@
 import { SHAPES, shade, type BottleSpec } from "@/design/bottles";
-import { identityFor, toneTransfer, type Mode, type ThemePreset } from "@/design/themes";
+import { identityFor, photoFor, toneTransfer, type Mode, type ThemePreset } from "@/design/themes";
 
 /**
  * A drawn bottle: the real silhouette, glass, cap and label colours of a beer — and no logo,
@@ -191,4 +191,18 @@ export function BeerMark({ slug, height = 36, className = "" }: { slug: string; 
     );
   }
   return <BottleArt spec={spec} idPrefix={`mark-${slug}-${height}`} className={className} style={{ width, height }} />;
+}
+
+/**
+ * A beer's own bottle, small: the real product photo when there is one (as photographed — the same
+ * approved files as the counter), else the drawn bottle. Decorative: the beer's name is always beside it.
+ */
+export function BeerBottle({ slug, height = 72, className = "" }: { slug: string; height?: number; className?: string }) {
+  const photo = photoFor(slug);
+  if (!photo) return <BeerMark slug={slug} height={height} className={className} />;
+  const width = Math.round((height * photo.width) / photo.height);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- a small, already-optimised WebP; next/image adds nothing here
+    <img src={photo.src} alt="" width={width} height={height} data-bottle-photo={slug} className={`object-contain ${className}`} style={{ width, height }} loading="lazy" decoding="async" />
+  );
 }

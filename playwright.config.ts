@@ -14,6 +14,7 @@ import { defineConfig } from "@playwright/test";
 const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3200);
 const FAKE_PORT = Number(process.env.E2E_FAKE_PORT ?? 54321);
 const REMOTE = process.env.E2E_BASE_URL;
+const STAGING = Boolean(process.env.E2E_STAGING);
 
 const appEnv = {
   NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${FAKE_PORT}`,
@@ -33,7 +34,12 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts/,
   // Against a deployed URL only the read-only smoke runs; everything else seeds
   // the local fake database. Locally, the deployed-smoke spec stays out of the way.
-  testIgnore: REMOTE ? /(hotfix|whats-new)\.spec\.ts/ : /deployed-smoke\.spec\.ts/,
+  // With E2E_STAGING (the app against the staging project's real data) only the real-data spec runs.
+  testIgnore: STAGING
+    ? /^(?!.*staging-real-data\.spec\.ts$).*$/
+    : REMOTE
+      ? /(hotfix|whats-new|staging-real-data)\.spec\.ts/
+      : /(deployed-smoke|staging-real-data)\.spec\.ts/,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   // One shared fake database: specs reset it themselves, so no parallelism.

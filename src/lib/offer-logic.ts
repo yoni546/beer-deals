@@ -13,10 +13,54 @@ import type { Offer, RegularPrice } from "@/lib/db/types";
  */
 
 export type SortMode = "value" | "price_asc" | "price_desc";
-export type PackFilter = "all" | "single" | "multi" | "case";
+
+/**
+ * The three kinds of pack, and the ONLY three categories a person sees (PRODUCT.md, "Beer for home"):
+ *
+ *   single           1 unit                         "בודדים"
+ *   small_multipack  2–11 units: 4, 6 and 8 are     "שישיות" (the everyday word for a pack of beer; each
+ *                    the real ones; 2, 3, 5, 10     product still says what it is: רביעייה · 4×330 מ״ל,
+ *                    turn up rarely                 שמינייה · 8×500 מ״ל — a 4 is never called a שישייה)
+ *   case             12 or more: 12, 15, 18, 20, 24 "ארגזים"
+ *
+ * The line between the last two is 12 because no chain sells a "case" of fewer, and every 10-pack in
+ * the feeds is a shrink-wrapped multipack, not a crate.
+ */
+export type PackClass = "single" | "small_multipack" | "case";
+export type PackFilter = "all" | PackClass;
 
 export const SORT_MODES: SortMode[] = ["value", "price_asc", "price_desc"];
-export const PACK_FILTERS: PackFilter[] = ["all", "single", "multi", "case"];
+/** In the order a page shows them: packs first, then cases, then singles (beer for home). */
+export const PACK_CLASSES: PackClass[] = ["small_multipack", "case", "single"];
+export const PACK_FILTERS: PackFilter[] = ["all", ...PACK_CLASSES];
+
+/** How many units → which kind of pack. */
+export const classOfQuantity = (n: number | null | undefined): PackClass => {
+  const units = n ?? 1;
+  return units <= 1 ? "single" : units >= 12 ? "case" : "small_multipack";
+};
+
+/**
+ * Inside the packs, the order a shopper looks for them: six-packs, then eights, then fours, then the
+ * rare others. (Cases by size, smallest first.) Lower comes first.
+ */
+export function packOrder(n: number | null | undefined): number {
+  const units = n ?? 1;
+  if (classOfQuantity(units) !== "small_multipack") return units;
+  return ({ 6: 0, 8: 1, 4: 2 } as Record<number, number>)[units] ?? 3 + units / 100;
+}
+
+/**
+ * Home's order (beer for home): true six-packs, then cases, then eights and fours, then any other
+ * multipack. Singles never reach Home. Lower comes first.
+ */
+export function homeOrder(n: number | null | undefined): number {
+  const units = n ?? 1;
+  const kind = classOfQuantity(units);
+  if (kind === "single") return 9;
+  if (kind === "case") return 1;
+  return units === 6 ? 0 : units === 8 || units === 4 ? 2 : 3;
+}
 
 export const parseSort = (value: string | undefined | null): SortMode =>
   SORT_MODES.includes(value as SortMode) ? (value as SortMode) : "value";
@@ -27,21 +71,35 @@ export const parseSort = (value: string | undefined | null): SortMode =>
  */
 export function parsePack(pack: string | undefined | null, legacyCategory?: string | null): PackFilter {
   if (PACK_FILTERS.includes(pack as PackFilter)) return pack as PackFilter;
+  if (pack === "multi") return "small_multipack"; // 0.7.x links ("מארזים")
   if (legacyCategory === "single") return "single";
-  if (legacyCategory === "sixpack") return "multi";
+  if (legacyCategory === "sixpack") return "small_multipack";
   if (legacyCategory === "case") return "case";
   return "all";
 }
 
 /** Which of the three kinds of pack an offer is. */
-export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity">): Exclude<PackFilter, "all"> {
+export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity">): PackClass {
   if (offer.origin === "legacy") {
     if (offer.pack_label === "בודד") return "single";
     if (offer.pack_label === "ארגז") return "case";
-    return "multi";
+    return "small_multipack";
   }
-  const n = offer.pack_quantity ?? 1;
-  return n <= 1 ? "single" : n >= 12 ? "case" : "multi";
+  return classOfQuantity(offer.pack_quantity);
+}
+
+/**
+ * A mix-and-match offer's kind: the kind most of its packs are (they are nearly always one kind;
+ * a tie goes to the kind shown first).
+ */
+export function groupPackClass(group: { packs: Array<{ pack_quantity: number }> }): PackClass {
+  const counts = PACK_CLASSES.map((kind) => group.packs.filter((p) => classOfQuantity(p.pack_quantity) === kind).length);
+  return PACK_CLASSES[counts.indexOf(Math.max(...counts))];
+}
+
+/** Items split into the three kinds, in page order, leaving out kinds with nothing in them. */
+export function byPackClass<T>(items: T[], kindOf: (item: T) => PackClass): Array<{ kind: PackClass; items: T[] }> {
+  return PACK_CLASSES.map((kind) => ({ kind, items: items.filter((item) => kindOf(item) === kind) })).filter((part) => part.items.length > 0);
 }
 
 export const filterByPack = (offers: Offer[], pack: PackFilter) =>
@@ -91,17 +149,75 @@ export function groupByPack(offers: Offer[]): PackGroup[] {
 /** Total volume of a pack in millilitres — what "smaller pack first" means. */
 const totalMl = (pack: { volume_ml: number | null; pack_quantity: number | null }) => (pack.volume_ml ?? 0) * (pack.pack_quantity ?? 1);
 
-/** Pack groups from smallest to largest, so 6×330 always precedes 6×500 whatever the sort mode. */
-export function orderPackGroups(groups: PackGroup[]): PackGroup[] {
-  return [...groups].sort((a, b) => totalMl(a.offers[0]) - totalMl(b.offers[0]) || a.label.localeCompare(b.label, "he"));
+type PackShape = { volume_ml: number | null; pack_quantity: number | null };
+
+/** The default order of packs of one beer: by kind, then 6 → 8 → 4 (cases by size), then volume. */
+const packShapeOrder = (a: PackShape, b: PackShape) =>
+  PACK_CLASSES.indexOf(classOfQuantity(a.pack_quantity)) - PACK_CLASSES.indexOf(classOfQuantity(b.pack_quantity)) ||
+  packOrder(a.pack_quantity) - packOrder(b.pack_quantity) ||
+  totalMl(a) - totalMl(b);
+
+/**
+ * Pack groups in the default order (six-packs, eights, fours, then cases, then singles; 6×330 before
+ * 6×500). When the person picks a price sort, packs of the same kind follow it instead: the group whose
+ * best offer is cheapest (or dearest) first — still never mixing two packs in one group.
+ */
+export function orderPackGroups(groups: PackGroup[], mode: SortMode = "value", perLiter = false): PackGroup[] {
+  const explicit = mode !== "value" || perLiter;
+  const best = (group: PackGroup) => {
+    const values = group.offers.map((offer) => comparable(offer, perLiter)).filter(Number.isFinite);
+    if (values.length === 0) return Number.POSITIVE_INFINITY;
+    return mode === "price_desc" ? -Math.max(...values) : Math.min(...values);
+  };
+  return [...groups].sort((a, b) => {
+    const kind = PACK_CLASSES.indexOf(packClass(a.offers[0])) - PACK_CLASSES.indexOf(packClass(b.offers[0]));
+    if (kind !== 0) return kind;
+    if (explicit) return best(a) - best(b) || packShapeOrder(a.offers[0], b.offers[0]);
+    return packShapeOrder(a.offers[0], b.offers[0]) || a.label.localeCompare(b.label, "he");
+  });
+}
+
+/**
+ * One beer's offers inside one kind (a chain page's strip): by default in pack order — six-packs, eights,
+ * fours (cases by size), smaller units first — then by saving; a price sort, when chosen, wins.
+ */
+export function orderByPack(offers: Offer[], mode: SortMode, perLiter = false): Offer[] {
+  const sorted = sortOffers(offers, mode, perLiter);
+  if (mode !== "value" || perLiter) return sorted;
+  const position = new Map(sorted.map((offer, index) => [offer, index]));
+  return [...sorted].sort((a, b) => packShapeOrder(a, b) || position.get(a)! - position.get(b)!);
+}
+
+/**
+ * Home's order for a list of offers: favourites first (in the person's order), then six-packs, cases,
+ * eights and fours, other multipacks — and inside each, the chosen sort. An explicit price sort wins over
+ * the pack order.
+ */
+export function orderForHome(offers: Offer[], favouriteOrder: string[], mode: SortMode, perLiter = false): Offer[] {
+  const sorted = sortOffers(offers, mode, perLiter);
+  if (mode !== "value" || perLiter) return sorted;
+  const rank = (offer: Offer) => {
+    const at = favouriteOrder.indexOf(offer.beer_id);
+    return at === -1 ? Number.POSITIVE_INFINITY : at;
+  };
+  const position = new Map(sorted.map((offer, index) => [offer, index]));
+  return [...sorted].sort(
+    (a, b) =>
+      (rank(a) === rank(b) ? 0 : rank(a) < rank(b) ? -1 : 1) ||
+      homeOrder(a.pack_quantity) - homeOrder(b.pack_quantity) ||
+      position.get(a)! - position.get(b)!,
+  );
 }
 
 export type RegularGroup = { key: string; label: string; prices: RegularPrice[] };
 
 const cheapestFirst = (a: RegularPrice, b: RegularPrice) => a.price_agorot - b.price_agorot || a.store_name.localeCompare(b.store_name, "he");
 
-/** Regular prices grouped by pack (SKU): smaller packs first, cheapest chain first inside each. */
-export function groupRegularByPack(prices: RegularPrice[]): RegularGroup[] {
+/** Regular prices grouped by pack (SKU), in the default pack order (as orderPackGroups), cheapest chain first inside each. */
+export function groupRegularByPack(prices: RegularPrice[], mode: SortMode = "value", perLiter = false): RegularGroup[] {
+  const explicit = mode !== "value" || perLiter;
+  const key = (p: RegularPrice) => (perLiter ? p.unit_price_per_liter_agorot : p.price_agorot);
+  const best = (group: RegularGroup) => (mode === "price_desc" ? -Math.max(...group.prices.map(key)) : Math.min(...group.prices.map(key)));
   const groups = new Map<string, RegularGroup>();
   for (const price of prices) {
     const existing = groups.get(price.sku_id);
@@ -110,12 +226,16 @@ export function groupRegularByPack(prices: RegularPrice[]): RegularGroup[] {
   }
   return [...groups.values()]
     .map((group) => ({ ...group, prices: [...group.prices].sort(cheapestFirst) }))
-    .sort((a, b) => totalMl(a.prices[0]) - totalMl(b.prices[0]) || a.label.localeCompare(b.label, "he"));
+    .sort((a, b) => {
+      const kind = PACK_CLASSES.indexOf(regularPackClass(a.prices[0])) - PACK_CLASSES.indexOf(regularPackClass(b.prices[0]));
+      if (kind !== 0) return kind;
+      if (explicit) return best(a) - best(b) || packShapeOrder(a.prices[0], b.prices[0]);
+      return packShapeOrder(a.prices[0], b.prices[0]) || a.label.localeCompare(b.label, "he");
+    });
 }
 
 /** The pack kind of a regular price, mirroring `packClass` for offers. */
-export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity">): Exclude<PackFilter, "all"> =>
-  price.pack_quantity <= 1 ? "single" : price.pack_quantity >= 12 ? "case" : "multi";
+export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity">): PackClass => classOfQuantity(price.pack_quantity);
 
 export const filterRegularByPack = (prices: RegularPrice[], pack: PackFilter) =>
   pack === "all" ? prices : prices.filter((price) => regularPackClass(price) === pack);
@@ -137,7 +257,7 @@ export function groupRegularByBeer(prices: RegularPrice[], beerOrder: string[] =
   return [...groups.values()]
     .map((group) => ({
       ...group,
-      prices: [...group.prices].sort((a, b) => totalMl(a) - totalMl(b) || cheapestFirst(a, b)),
+      prices: [...group.prices].sort((a, b) => packShapeOrder(a, b) || cheapestFirst(a, b)),
     }))
     .sort((a, b) => {
       const [ra, rb] = [rank(a.beerId), rank(b.beerId)];

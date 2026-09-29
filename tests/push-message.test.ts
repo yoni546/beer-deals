@@ -20,12 +20,12 @@ describe("the notification text (audit §13.3)", () => {
   it("names the chain, the pack, the price, and the saving — and where it came from", () => {
     const message = buildOfferNotification(offer());
     expect(message.title).toBe("מבצע חדש ברמי לוי");
-    expect(message.body).toBe("גולדסטאר 6 × 330 מ״ל · פחית · ₪25.00 במקום ₪37.90 · −34%");
+    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · ₪25.00 במקום ₪37.90 · −34%");
   });
 
   it("says nothing about a saving it cannot vouch for", () => {
     const message = buildOfferNotification(offer({ value_pct: null, reference_agorot: null, reference_trust: null }));
-    expect(message.body).toBe("גולדסטאר 6 × 330 מ״ל · פחית · ₪25.00");
+    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · ₪25.00");
     expect(message.body).not.toMatch(/במקום|%/);
   });
 
@@ -33,7 +33,7 @@ describe("the notification text (audit §13.3)", () => {
     const message = buildOfferNotification(
       offer({ effective_agorot: 4000, promo_type: "multi_buy", conditions: { multi_buy: { qty: 2, total_agorot: 8000 } }, value_pct: 20, reference_agorot: 4990 }),
     );
-    expect(message.body).toBe("גולדסטאר 6 × 330 מ״ל · פחית · 2 ב־₪80.00 · −20%");
+    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · 2 ב־₪80.00 · −20%");
     expect(message.body).not.toContain("במקום");
   });
 

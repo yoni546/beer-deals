@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { Notice } from "@/components/Chrome";
-import { BeerMark } from "@/components/ui/Bottle";
+import { BeerBottle } from "@/components/ui/Bottle";
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon, GripIcon, PlusIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import { savePreferences } from "@/lib/actions/profile";
@@ -102,13 +102,14 @@ export function FavouritesEditor({
         <input id="name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} autoComplete="given-name" className="field" />
       </Tape>
 
-      <Tape className="pb-2">
-        <div className="px-4 pt-4 pb-1">
-          <h3 className="text-base font-bold text-ink">ארבע הבירות שלכם, לפי הסדר</h3>
-          <p className="mt-0.5 text-sm text-ink-2">גררו כדי לשנות את הסדר. הראשונה היא האפליקציה שלכם: הבקבוק, הצבעים וההתראות.</p>
+      {/* The four beers stand on the counter (no card): each one's bottle, a small rank, its name. */}
+      <div>
+        <div className="pb-1">
+          <h3 className="text-base font-bold text-on-ground">ארבע הבירות שלכם, לפי הסדר</h3>
+          <p className="mt-0.5 text-sm text-on-ground-2">גררו כדי לשנות את הסדר. הראשונה היא האפליקציה שלכם.</p>
         </div>
 
-        <ol className="divide-y divide-dotted divide-paper-line">
+        <ol className="divide-y divide-dotted divide-ground-line">
           {picked.map((beer, index) => {
             const isDragged = dragging?.id === beer.id;
             return (
@@ -118,7 +119,7 @@ export function FavouritesEditor({
                 rows.current[index] = el;
               }}
               data-rank={index + 1}
-              className={`relative flex items-center gap-1 bg-paper pe-1 ${isDragged ? "z-10 shadow-lg ring-2 ring-accent" : ""}`}
+              className={`relative flex items-center gap-1 pe-1 ${isDragged ? "z-10 rounded-xl bg-ground shadow-lg ring-2 ring-accent" : ""}`}
               style={isDragged ? { transform: `translateY(${dragging.offset}px)` } : undefined}
             >
               <span
@@ -128,25 +129,25 @@ export function FavouritesEditor({
                 onPointerUp={onGripUp}
                 onPointerCancel={onGripUp}
                 data-grip={beer.slug}
-                className="flex h-14 w-11 shrink-0 cursor-grab touch-none items-center justify-center text-ink-2 active:cursor-grabbing"
+                className="flex h-16 w-11 shrink-0 cursor-grab touch-none items-center justify-center text-on-ground-2 active:cursor-grabbing"
               >
                 <GripIcon size={20} />
               </span>
               <span
                 aria-hidden
-                className={`me-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  index === 0 ? "bg-deal text-on-deal" : "border border-paper-line text-ink"
+                className={`num me-1 shrink-0 rounded-full px-1.5 text-xs leading-5 font-bold ${
+                  index === 0 ? "bg-deal text-on-deal" : "text-on-ground-2 ring-1 ring-ground-line"
                 }`}
               >
-                {index + 1}
+                #{index + 1}
               </span>
-              <BeerMark slug={beer.slug} height={30} className="shrink-0" />
-              <span className="min-w-0 flex-1 py-2">
-                <span className="block truncate text-base font-semibold text-ink">
+              <BeerBottle slug={beer.slug} height={52} className="shrink-0" />
+              <span className="min-w-0 flex-1 py-2 ps-1">
+                <span className="block truncate text-base font-semibold text-on-ground">
                   <span className="sr-only">מקום {index + 1}: </span>
                   {beer.name_he}
                 </span>
-                {index === 0 && <span className="block text-xs text-ink-2">המראה וההתראות</span>}
+                {index === 0 && <span className="block text-xs text-on-ground-2">המראה וההתראות</span>}
               </span>
               <IconButton label={`העלו את ${beer.name_he} מקום אחד`} disabled={index === 0} onClick={() => move(index, index - 1)}>
                 <ArrowUpIcon size={20} />
@@ -166,8 +167,8 @@ export function FavouritesEditor({
         </p>
 
         {picked.length < 4 && (
-          <div className="tear mx-0 px-4 pt-3 pb-2">
-            <p className="mb-2 text-sm font-semibold text-ink">
+          <div className="border-t border-dotted border-ground-line pt-3 pb-2">
+            <p className="mb-2 text-sm font-semibold text-on-ground">
               {picked.length === 3 ? "עוד בירה אחת" : `עוד ${4 - picked.length} בירות`}. לחצו כדי להוסיף:
             </p>
             <ul className="flex flex-wrap gap-2">
@@ -176,7 +177,7 @@ export function FavouritesEditor({
                   <button
                     type="button"
                     onClick={() => add(beer)}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-paper-line px-3.5 text-sm font-semibold text-ink"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ground-line px-3.5 text-sm font-semibold text-on-ground"
                   >
                     <PlusIcon size={16} />
                     {beer.name_he}
@@ -186,7 +187,7 @@ export function FavouritesEditor({
             </ul>
           </div>
         )}
-      </Tape>
+      </div>
 
       <input type="hidden" name="firstName" value={name} />
       <input type="hidden" name="beerIds" value={picked.map((beer) => beer.id).join(",")} />
@@ -208,7 +209,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink disabled:text-ink-3 disabled:opacity-60"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-ground disabled:opacity-35"
     >
       {children}
     </button>

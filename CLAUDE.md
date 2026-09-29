@@ -21,14 +21,17 @@ For every meaningful change, in the **same pull request**:
    unless the release is purely internal. Put developer notes in `internal`.
 3. Run `npm run changelog` to regenerate `CHANGELOG.md`. **Never edit `CHANGELOG.md` by
    hand** — it is generated from the JSON.
-4. Open the app, tap **מה חדש**, and confirm your release is the one shown.
+4. Open the app as an admin, tap **מה חדש**, and confirm your release is the one shown.
 
 `tests/releases.test.ts` (part of `npm test` / `npm run verify` / CI) fails if
 `package.json`, `src/content/releases.json` and `CHANGELOG.md` disagree. Do not weaken or
 skip that test; fix the release entry instead.
 
 The app has a small **מה חדש** link (Home header and Settings) → `/whats-new`: the latest
-update in full, earlier ones collapsed. That screen is fed only by `releases.json`.
+update in full, earlier ones collapsed. That screen is fed only by `releases.json`. Since 0.8.0 it is
+**for admins only**: the page checks `getViewer().isAdmin` on the server (anyone else gets "not found")
+and the link is shown to admins only. Everyone else sees "אהבתם? שתפו לחברים" (`ShareApp`), which
+always shares the production address, https://beer-deals.vercel.app.
 
 ## Non-negotiables
 
