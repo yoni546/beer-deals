@@ -89,3 +89,26 @@ export async function onboard(page: Page, name = "בדיקה", beers?: string[])
   await page.getByRole("button", { name: /קדימה/ }).click();
   await expect(page).toHaveURL(/\/$/);
 }
+
+/**
+ * Makes the browser's notification state deterministic. Headless Chromium builds
+ * disagree about whether a granted permission sticks, so tests state the world
+ * they need instead of inheriting one. Call before the first navigation.
+ */
+export async function stubBrowserPush(
+  page: Page,
+  options: { permission?: "granted" | "denied" | "default"; subscribe?: "refuse" | "none" } = {},
+) {
+  const permission = options.permission ?? "granted";
+  const refuse = options.subscribe === "refuse";
+  await page.addInitScript(
+    ({ permission, refuse }) => {
+      Object.defineProperty(Notification, "permission", { get: () => permission, configurable: true });
+      Notification.requestPermission = () => Promise.resolve(permission);
+      if (refuse) {
+        PushManager.prototype.subscribe = () => Promise.reject(new DOMException("push service unavailable", "AbortError"));
+      }
+    },
+    { permission, refuse },
+  );
+}

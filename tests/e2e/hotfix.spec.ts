@@ -6,6 +6,7 @@ import {
   onboard,
   resetDb,
   seedDeals,
+  stubBrowserPush,
 } from "./helpers";
 
 /**
@@ -101,19 +102,18 @@ test("B-06/B-07 · the last onboarding step stays on screen until the user moves
 });
 
 test.describe("notification settings", () => {
-  test.use({ permissions: ["notifications"] });
-
   test("B-04 · someone who never subscribed is not shown as subscribed", async ({ page }) => {
+    await stubBrowserPush(page, { permission: "granted", subscribe: "none" });
     await onboard(page);
     await page.goto("/settings");
-    await expect(page.getByText("קבלו התראה על מבצע חזק")).toBeVisible();
+    // Permission is granted and the stored preference used to default to "on":
+    // that must not read as "subscribed" when this device has no subscription.
+    await expect(page.getByRole("button", { name: /קבלו התראה/ })).toBeEnabled();
     await expect(page.getByText("התראות פעילות")).toHaveCount(0);
   });
 
   test("B-05 · a browser that refuses to subscribe gets a message, not a crashed page", async ({ page }) => {
-    await page.addInitScript(() => {
-      PushManager.prototype.subscribe = () => Promise.reject(new DOMException("push service unavailable", "AbortError"));
-    });
+    await stubBrowserPush(page, { permission: "granted", subscribe: "refuse" });
     await onboard(page);
     await page.goto("/settings");
 
