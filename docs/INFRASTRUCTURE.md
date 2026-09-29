@@ -87,6 +87,29 @@ from seconds to a few hundred milliseconds. (Moving the function next to a Tokyo
 makes the *first byte* travel Tokyo→Israel once, instead of the function crossing an ocean
 several times.)
 
+### 2026-09-29 (later): what changed, and the "before" numbers
+
+* **`vercel.json` now pins `"regions": ["hnd1"]`** (Tokyo). It takes effect on the next deployment of this branch
+  (after merge). Merge only after confirming production's region in the dashboard (Project Settings → General →
+  Region): the evidence is its database address inside AWS `ap-northeast-1`, not a dashboard read — the production
+  project belongs to a Supabase account this machine cannot open.
+* **Staging** (`qpjwnxptitnmtsznjvkw`) was created in `ap-northeast-1` so it behaves like production.
+* **Before** (live site, from Israel, `node scripts/measure-latency.mjs https://beer-deals.vercel.app --runs 5`,
+  function in `iad1`), median / min / max ms to first byte:
+
+  | page | median | min | max |
+  | --- | --- | --- | --- |
+  | `/whats-new` | 3702 | 1616 | 6881 |
+  | `/beer/goldstar` | 3987 | 2471 | 4739 |
+  | `/store/rami-levy` | 5328 | 2558 | 6231 |
+  | `/welcome` | 2083 | 1880 | 2168 |
+
+  A local production build in Israel against the Tokyo staging database took 2.3–3.7 s per page (same cause:
+  every page makes several sequential database calls across that distance).
+* **After:** not measured — it needs the deployment (owner). Run the same command after the deploy and add the table.
+* **In code:** Home now reads its settings in the same round trip as everything else (one sequential call fewer);
+  bottle photos are 26–87 KB and only favourite #1's is requested.
+
 ### The bigger decision (owner)
 Users are in Israel; a Tokyo database is ~200 ms away from them. Supabase cannot move a
 project between regions in place. If the region is confirmed as Tokyo, the durable fix is a

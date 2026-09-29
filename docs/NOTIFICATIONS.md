@@ -63,6 +63,21 @@ curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/notific
 
 The response is counts only (`events`, `sent`, `skipped`, `deferred`, `retried`, `failed`, `devicesRemoved`).
 
+## 3b. What is never announced (0.7.0)
+
+* An offer that is not for everyone — club, card or payment method, coupon, employees, app-only
+  (`conditions.audience` ≠ everyone, migration 0014): the trigger does not even queue it.
+* A pack outside the shown categories (malt drinks, cider).
+* The same chain promotion seen at several branches: one event (the dedupe key has no branch in it), and
+  the worker finds the offer through `offers_ranked` whichever branch's row the public feed shows.
+* A sample (invented) price, a price restored by a rollback, a regular price.
+
+Checked in `tests/feed-model.test.ts` and `tests/notifications-worker.test.ts` (a club offer on the
+person's own #1 beer is never queued; a multi-branch promotion is announced exactly once).
+
+On staging, the daily ingestion workflow rings the worker only after an import the database accepted in full
+(`run.mjs` exits non-zero otherwise). Staging has no deployed site yet, so its queued events wait.
+
 ## 4. Looking at what happened
 
 * **Admin → התראות** (super admin): the rules, and the last 50 attempts — kind, status, reason, devices reached
@@ -72,7 +87,10 @@ The response is counts only (`events`, `sent`, `skipped`, `deferred`, `retried`,
 * Reasons you will see: `cooldown`, `daily_cap`, `push_error`, `subscription_gone`; event outcomes
   `sent`, `below_threshold`, `over_price_cap`, `no_verified_saving`, `no_recipients`, `all_skipped`, `stale`, `expired`.
 
-## 5. Proving it on real devices (not done)
+## 5. Proving it on real devices (not done — BLOCKED BY DEVICE)
+
+No phone was connected to the machine this work ran on (no `adb`, no USB/remote device), and none of this can
+be simulated honestly. Everything up to the device is tested; this table is the remaining proof.
 
 For **each** device below, in order. Record date, OS/browser version, and pass/fail in the table.
 

@@ -1,44 +1,41 @@
 # Ingestion readiness
 
-**Verdict (2026-09-29, re-evaluated with the installed skill and a real dry run): NOT READY. Do not import
-supermarket data.** Of the 16 prerequisites from the product audit (§19): **4 READY, 7 PARTIAL, 4 BLOCKED,
-1 NOT REQUIRED yet** (automation, deliberately not started). What changed since 0.5.1: the skill
-`israeli-grocery-price-intelligence` is installed and was used on **real feed files from six chains**; the
-classifier, pack parser, barcode reconciliation and promotion reader now exist as a **dry run** that writes
-only a report (`docs/INGESTION-DRY-RUN.md`). Nothing touches any database.
+**Verdict (2026-09-29, release 0.7.0): READY FOR STAGING — the first real ingestion ran there. NOT cleared for
+production.** Of the 16 prerequisites from the product audit (§19): **10 READY, 4 PARTIAL, 2 BLOCKED**. The
+production write is blocked by things outside the repository (production database access, terms, a device), listed
+in `docs/FINAL-READINESS-REPORT.md`.
 
-Legend: **READY** = true in the repository and proved by a test · **PARTIAL** = built, but something essential is
-missing · **BLOCKED** = needs something only the owner (or legal) can provide · **NOT REQUIRED** = not needed before the
-first, manual, staging-only run.
+Legend: **READY** = true and proved (a test, or a rehearsal on staging with real data) · **PARTIAL** = built, but
+something essential is missing · **BLOCKED** = needs something only the owner (or legal) can provide.
 
 | # | Prerequisite (audit §19) | Status | Why |
 | --- | --- | --- | --- |
-| 1 | Staging database identical to production; ingestion never targets production first | **BLOCKED** | `docs/STAGING.md` is ready; the owner has to create the Supabase project. The dry run needs no database; the first real write does. |
-| 2 | The §11 model migrated, with generated types and passing tests | **PARTIAL** | Migrations 0007–0013 pass their tests; not applied to any hosted database (owner); `src/lib/db/types.ts` is hand-written. The dry run found **7 schema gaps** (listed in `docs/INGESTION-DRY-RUN.md`): mix-and-match promotions, feed publisher → store mapping, no source-product / alias table, chain-wide vs branch price, among others. |
-| 3 | Beer scope and classification rules | **PARTIAL** | **Built and tested on real rows** (`scripts/ingest/lib/normalize.mjs`, `tests/ingest.test.ts`): 573 beer rows found among 65,393; look-alikes rejected (נסטלה, גינסנג, a CORONA-branded wine, deposits, empty crates). Missing: the owner's scope decision on non-alcoholic / malt / cider / radler (51 rows held as out of scope). |
-| 4 | Product matching: barcode → alias → candidate + human review; never guessed | **PARTIAL** | Barcode logic built: only valid GTINs match across chains; 69 barcodes seen at 2+ chains; readings that agree fill each other's gaps; **4 barcodes read differently at different chains, and all their rows are held**. Missing: the alias table and the review queue (schema + admin screen). |
-| 5 | Chains and branches seeded; categories reclassified | **PARTIAL** | Chains seeded; branches not (they come from each chain's Stores file, which the skill covers; not yet fetched). Feed identities verified for 6 chains (§7); 8 of our 15 stores have no usable feed yet. |
-| 6 | Idempotency | **READY** | `unique (source_id, content_hash)`; one run per `(source_id, file_hash)` (`tests/ingestion-safety.test.ts`). The dry run de-duplicates on the feed's own key (chain, sub-chain, store, item code): 0 duplicates in the real files. |
-| 7 | Write-path isolation | **READY** (database) | Only `record_price(s)` writes prices, for admins and the service role (`tests/catalog.test.ts`). The dry run imports no Supabase client, reads no key and opens no connection (enforced by `tests/ingest.test.ts`). The writing runner does not exist yet (§5). |
-| 8 | Promotion semantics mapped; unknown types held | **PARTIAL** | Checked against real files: a promotion is publishable only when its description and the item's `DiscountedPrice` (the total for `MinQty` units) **agree; 151 of 155 do**, and the gap in "פקדון" descriptions is exactly ₪0.30 per container. 91 in-force beer promotions would publish; every other one is held. Missing: decisions on mix-and-match (75 promotions span several packs) and payment-method offers ("אשראי"); the skill's parser drops `DiscountedPrice` for this layout (§8). |
-| 9 | Deposit / VAT / unit-price rules decided | **PARTIAL** | Now evidenced: the skill documents prices as VAT-inclusive (18%); shelf prices exclude the deposit (a separate "פקדון" item); promotion totals include it. The owner has to decide how the app shows it. |
-| 10 | Sanity gates | **READY** | Database gates (0013, 0009) plus a dry-run gate: a price per litre outside ₪8–₪70 means the pack was misread. 3 real rows caught (truncated six-pack names priced ₪33.90–₪37.90, read as singles). |
-| 11 | Staleness policy | **READY** | 0009 + tests. The dry run uses the **file timestamp** as `observed_at`: the feed's `update_date` is the last price change and runs back to 2015. |
-| 12 | Dry-run diff; rollback by run id, rehearsed once | **PARTIAL** | **Dry run built** (`scripts/ingest/dry-run.mjs` → `docs/INGESTION-DRY-RUN.md`) and run on real files. Rollback built and tested on synthetic data. Missing: a diff against the *current database* (needs staging) and one real rollback rehearsal. |
-| 13 | Automation | **NOT REQUIRED** yet | By design: no GitHub Action and no schedule until 1–12 pass. |
-| 14 | Terms and attribution per chain | **BLOCKED** | Owner / legal. The feeds are public by law; each chain's publication terms and required attribution are not confirmed. |
-| 15 | Demo data purged; notification pipeline ready | **BLOCKED** | Owner: apply 0006 to production; run the real-device checklist (`docs/NOTIFICATIONS.md` §5). |
-| 16 | Tests with one real file per chain | **BLOCKED** (6 of 13 feed chains done) | Six real excerpts in `tests/fixtures/ingest/` (feeds of 2026-09-29, public price data, ~276 KB) drive `tests/ingest.test.ts`. Still missing for Super Yuda, Victory, Mahsanei HaShuk, Hatzi Hinam, King Store, AM:PM and Yeinot Bitan. |
+| 1 | Staging identical to production; ingestion never targets production first | **READY** | `beer-deals-staging` (`qpjwnxptitnmtsznjvkw`, Tokyo like production) with migrations 0001–0015 (`docs/STAGING.md`). `run.mjs` refuses the production project and reads credentials only from the git-ignored staging file. |
+| 2 | The §11 model migrated, with generated types and passing tests | **PARTIAL** | 0014–0015 close the seven feed/schema gaps; applied to staging; `tests/feed-model.test.ts` (22). Not applied to production (no access from here); `src/lib/db/types.ts` is hand-written. |
+| 3 | Beer scope and classification | **READY** | Owner decision 2026-09-29: beer, non-alcoholic, radler in; malt, cider out (`product_categories`). Classifier + variants on real rows (`tests/ingest.test.ts`). |
+| 4 | Product matching: barcode → alias → review; never guessed | **PARTIAL** | Barcode reconciliation across chains (truncated names refine, contradictions are held); `source_products` is the alias table and review queue (on staging: 140 matched, 269 in review, 462 ignored). Missing: an admin screen to work the review queue. |
+| 5 | Chains and branches seeded; categories reclassified | **READY** | Branches are created from each publisher's Stores file with the feed's own codes (`branches.feed_*`); retailer decided per branch (Yeinot Bitan inside Carrefour, AM:PM inside Dor Alon). Blocked chains in §7. |
+| 6 | Idempotency | **READY** | Re-running the same day wrote nothing (rehearsed on staging); per-row content hash; one run per file hash. |
+| 7 | Write-path isolation | **READY** | Only `record_price(s)` / `record_promotion_group` write; the runner uses the staging service key from its own secret; clients read only views. |
+| 8 | Promotion semantics mapped; unknown types held | **READY** | Published only when the description and `DiscountedPrice` agree (151/155); audience from ClubID codes and labels (only "everyone" is shown); multi-buy vs group vs price cut; validity in Israel time. Everything else is held with a reason. |
+| 9 | Deposit / VAT / unit price | **READY** | Owner decision: deposit modelled apart (`conditions.deposit`, "+ ₪X פיקדון"), never part of a saving; the reference and the offer are compared with the same deposit treatment (`offers_ranked`). Prices include VAT (the skill). Assumption on record: a promotion price without "פקדון" excludes the deposit like the shelf price. |
+| 10 | Sanity gates | **READY** | Database gates (0013/0009) + per-litre plausibility per pack + barcode agreement + a quality gate that fails the run (and skips notifications) when the database refuses anything. |
+| 11 | Staleness | **READY** | 0009; file time as `observed_at`. |
+| 12 | Dry-run diff; rollback by run id, rehearsed | **READY** | Dry run: `docs/INGESTION-DRY-RUN.md`. Real write: `docs/INGESTION-STAGING-REPORT.md`. Rollback rehearsed on staging with real data (13 rows rejected, shelf emptied, second rollback a no-op), which exposed and fixed a re-import bug (0015). |
+| 13 | Automation | **PARTIAL** | `.github/workflows/ingest-staging.yml` (daily, staging only, gated), secrets set; it runs once merged to `main`. Production ingestion is deliberately not automated. |
+| 14 | Terms and attribution per chain | **BLOCKED** | Owner / legal: each chain's terms for automated use of its published files, and what attribution the app must show. |
+| 15 | Demo data purged; notification pipeline ready | **BLOCKED** | Production: migration 0006 not applied (no access). Pipeline: built and tested, but not proven on a real device (none connected). |
+| 16 | Tests with a real file per chain | **PARTIAL** | Real excerpts for 8 publishers in `tests/fixtures/ingest/`; none for Super Yuda, Victory, Mahsanei HaShuk (no file obtainable — §7). |
 
 ## What unblocks what
 
 | Who | Action | Unblocks |
 | --- | --- | --- |
-| Owner | Create the staging Supabase project; apply migrations 0006–0013 to staging, then production | 1, 2, 12 (diff + rehearsal), 15 |
-| Owner | Decide: non-alcoholic / malt / cider / radler scope; mix-and-match; chain-wide vs branch price; how the deposit is shown; payment-method offers | 3, 8, 9, schema gaps |
-| Owner / legal | Each chain's publication terms and attribution | 14 |
-| Owner | Real-device notification checklist | 15 |
-| Engineering (next) | Alias table + review queue; feed publisher / sub-chain → store mapping; Stores files → branches; mix-and-match storage once decided; the correct Super Yuda feed code | 2, 4, 5, 8, 16 |
+| Owner | Give this project access to the production Supabase project (or run §1 there), after the go-ahead in `docs/FINAL-READINESS-REPORT.md` | 2, 15, the production import |
+| Owner / legal | Each chain's terms and attribution | 14 |
+| Owner | Real-device notification checklist (`docs/NOTIFICATIONS.md` §5) | 15 |
+| Owner | Super Yuda's feed account; confirm whether Victory and Mahsanei HaShuk still publish (Laibcatalog lists them but serves no files) | 16 |
+| Engineering (next) | Admin screen for the review queue (`source_products` where status = 'review') | 4 |
 
 ## 1. The first import, when the time comes
 
@@ -93,12 +90,14 @@ The runner uses the service-role key, kept only as a secret of the CI job that r
 public environment, never in a file, never in a client bundle. It can call only what the migrations grant the
 service role (`record_price(s)`, `start/finish/rollback_ingestion_run`, reads); everything else is closed to it too.
 
-## 6. Open decisions (owner)
+## 6. Decisions (owner, 2026-09-29) and what is still open
 
-* Include non-alcoholic beer? radler? (§2)
-* Does each chain's published shelf price include the bottle deposit? VAT? (prerequisite 9)
-* Which chains first? (Suggest one chain, one week, staging only.)
-* What must the app say about the source of a price, per chain? (prerequisite 14)
+Decided: non-alcoholic beer and radler are in, malt drinks and cider out; only promotions everyone can redeem are
+shown; mix-and-match is a group offer; prices are per branch and a chain shows "החל מ־" the lowest; the deposit is
+modelled apart and shown beside the price.
+
+Open: what the app must say about the source of a price, per chain (prerequisite 14); whether a promotion price
+without "פקדון" in its text includes the deposit (assumed not, like the shelf price — worth one question to a chain).
 
 ## 7. The installed skill and what the real feeds look like
 
@@ -119,22 +118,25 @@ kinds: Stores, Price / PriceFull, Promo / PromoFull; two file-name shapes; one f
 against the last full file; `UnitOfMeasure` is unreliable; it recommends an MCP server (`supermarket-prices`) that is not
 installed and not needed here.
 
-**Fetched 2026-09-29** (read-only, one store per chain, `scripts/ingest/fetch-sample.mjs`):
+**Fetched 2026-09-29** (read-only, one beer-selling branch per retailer, `scripts/ingest/fetch-sample.mjs`; publishers
+in `scripts/ingest/lib/publishers.mjs`):
 
-| Our store | Feed | Result |
+| Our store | Publisher / route | Result |
 | --- | --- | --- |
-| carrefour | direct, chain id 7290055700007 | OK |
-| shufersal | direct, 7290027600007 | OK |
-| rami-levy | Cerberus `RamiLevi`, 7290058140886 | OK |
-| yochananof | Cerberus `yohananof`, 7290803800003 | OK |
-| osher-ad | Cerberus `osherad`, 7290103152017 | OK |
-| tiv-taam | Cerberus `TivTaam`, 7290873255550 | OK |
-| super-yuda | Cerberus; the code `SuperYuda` is refused | **not fetched**: the correct code is unknown and was not guessed |
-| yeinot-bitan | a banner inside Carrefour's feed | needs the publisher → store mapping |
-| victory, mahsanei | Laibcatalog (unconfirmed in the skill) | not attempted |
-| hatzi-hinam, king-store | own site / Bina Projects | not attempted |
-| ampm | not in the skill | unknown |
-| liquor-store, makolet | categories, no feed | not applicable |
+| carrefour | Carrefour Israel, direct, 7290055700007 | **SUPPORTED** — ingested to staging |
+| yeinot-bitan | inside Carrefour's feed (store 080 "יינות ביתן טבעון", from its UTF-16 Stores file) | **SUPPORTED** — mapped per branch |
+| shufersal | direct, 7290027600007 | **SUPPORTED** |
+| rami-levy | Cerberus `RamiLevi`, 7290058140886 | **SUPPORTED** |
+| yochananof | Cerberus `yohananof`, 7290803800003 | **SUPPORTED** |
+| osher-ad | Cerberus `osherad`, 7290103152017 | **SUPPORTED** |
+| tiv-taam | Cerberus `TivTaam`, 7290873255550 | **SUPPORTED** |
+| ampm | inside Dor Alon's feed, Cerberus `doralon`, 7290492000005, sub-chain "AM:PM" | **SUPPORTED** |
+| hatzi-hinam | own site `shop.hazi-hinam.co.il/Prices`, 7290700100008 | **SUPPORTED** |
+| king-store | Bina Projects `kingstore.binaprojects.com`, 7290058108879 | reachable; **sells no beer** (0 of 48 branch files list any) |
+| victory | Laibcatalog, 7290696200003 | **BLOCKED**: the portal lists the chain but its search returns no files (checked 20–29/09/2026) |
+| mahsanei | Laibcatalog, 7290661400001 | **BLOCKED**: same |
+| super-yuda | Cerberus | **BLOCKED**: the code `SuperYuda` is refused with the empty password; the account is not documented; not guessed |
+| liquor-store, makolet | categories, no publisher | not applicable |
 
 **Field compatibility** (skill output → our model):
 

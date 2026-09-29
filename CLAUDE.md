@@ -83,15 +83,25 @@ update in full, earlier ones collapsed. That screen is fed only by `releases.jso
   picker, a manual override, an in-app light/dark switch, or any stored theme preference
   (`tests/design.test.ts` and `tests/e2e/favourite-one.spec.ts` fail if one appears). Beer
   identities are data in `src/design/themes.ts`, not forked components or per-beer stylesheets.
-- Bottle photos only with provenance, through `scripts/prepare-bottle.mjs`; never a logo or label
-  artwork drawn or copied; never a raw white-background product photo.
+- Bottle photos only with provenance, through `scripts/fetch-bottles.mjs` → `scripts/prepare-bottle.mjs`
+  (real product photos, shown as photographed; the owner allowed public product photography on
+  2026-09-29). Never redraw or alter label art; never a raw white-background photo.
 - Every route has designed empty and error states; loading is the top progress bar
   (`NavigationProgress`). **Do not add `loading.tsx`**: it stalls client-side navigation in
   production builds (`docs/LESSONS.md`, enforced by a test). Touch targets ≥ 44px; text ≥
   12px; contrast ≥ 4.5:1 (3:1 large).
 
-## Data ingestion (later phase)
+## Data ingestion
 
-- Never bulk-import without a dry-run diff, an `ingestion_run` id and a rollback path.
-- Nothing is imported until the prerequisites in `docs/PRODUCT-AUDIT-2026-09-29.md` §19
-  are demonstrably satisfied (`docs/INGESTION-READINESS.md` tracks them).
+- Pipeline: `scripts/ingest/fetch-sample.mjs` → `parse.mjs` (the installed
+  israeli-grocery-price-intelligence skill's parser; `lib/promo-supplement.mjs` adds only the one field
+  it drops) → `dry-run.mjs` (report) → `run.mjs --target staging` → `verify-staging.mjs`.
+  `lib/plan.mjs` is the single place the rules live; `tests/ingest.test.ts` runs them on real excerpts.
+- **Only offers everyone can redeem are published.** Club, card, coupon, employee, app-only: recorded,
+  held, never shown or announced (`conditions.audience`, `is_universal_offer`, migration 0014).
+- Prices are per branch; the retailer of a branch comes from the publisher's Stores file. Never invent a
+  chain price. Deposit travels beside the price. Mix-and-match is a `promotion_groups` row.
+- **STAGING only** until docs/FINAL-READINESS-REPORT.md says production is cleared. `run.mjs` refuses the
+  production project; credentials come only from the git-ignored `.env.staging.local`.
+- Never bulk-import without a dry-run diff, an `ingestion_run` id and a rollback path
+  (`rollback_ingestion_run`; a rolled-back file can be imported again, migration 0015).

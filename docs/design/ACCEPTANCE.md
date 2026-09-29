@@ -1,7 +1,7 @@
 # Audit acceptance criteria — where each stands (2026-09-29)
 
 The 35 criteria of `docs/PRODUCT-AUDIT-2026-09-29.md` §18, checked against the branch
-`rebuild/beer-deals-v1` at release 0.6.0. **Met** = proved by a named automated test in CI. **Partly** = built, but
+`rebuild/beer-deals-v1` at release 0.7.0. **Met** = proved by a named automated test in CI. **Partly** = built, but
 not exactly as worded or not fully covered. **Not met** = not done, with the reason. Nothing is marked met on the
 strength of a manual look alone.
 
@@ -21,13 +21,13 @@ strength of a manual look alone.
 | 12 | Favourites' offers in rank order A→D, then others | Met | `offer-logic.test.ts` (grouping/ranking); `redesign.spec › the four beers are keys in order` |
 | 13 | Deal rows are links; no dead ends | Met | `hotfix.spec › a line on the tape leads to its beer and its store` |
 | 14 | Beer page: SKU groups, price ↑/↓/value + per-litre, "מחירים רגילים" | Met | `redesign.spec › beer page…`, `offer-logic.test.ts` |
-| 15 | Store page: promotions first, regular prices second (searchable), ≤ 15 rows before "show all" | Partly | Folds after 6 beers; regular prices are a second view. The regular view has no search box. |
+| 15 | Store page: promotions first, regular prices second (searchable), ≤ 15 rows before "show all" | Partly | One page: "מבצעי בירה עכשיו" then "מחירי בירה רגילים" (`redesign.spec`), folds after 6 beers, jump links, one sort for both. The regular part has no search box of its own (Home search reaches a beer). |
 | 16 | No cross-pack comparison without unit normalisation | Met | `offer-logic.test.ts` (mixed packs) |
 | 17 | Freshness on Home, Beer, Store | Met | `Freshness` on all three; `redesign.spec` |
 | 18 | Reorder favourites by drag **and** buttons; swap; atomic save; #1 changes theme | Met | Drag by a grip (pointer events, `touch-action: none`), up/down buttons, remove/add, announced ranks, one atomic save; the app follows the new #1 without a reload (`favourite-one.spec › dragging…`, `› keyboard…`, `› changing #1 to Heineken…`). |
 | 19 | Theme automatic; follows the person across reload/devices; correct first paint, no flash | Met (rule changed) | The audit's "override" is **removed by product decision**: favourite #1 alone decides the look. It is stored with the favourites, so it follows the person; the server's HTML already carries the beer's stylesheet and bottle (`favourite-one.spec › … on the first paint` reads the raw HTML). |
 | 20 | ≥ 21 presets; contrast tests; presets ≥ ΔE 12 apart | Partly | 21 beer identities + the house look; contrast for every beer in both modes, plus a proof that all counter text keeps ≥ 4.5:1 over any bottle pixel (`design.test.ts`). Distinctness uses Oklab distance of accent + counter + label ≥ 8, not the audit's ΔE 12. |
-| 21 | No brand logos or label art | Met | None in `public/`; themes are colour data (`no-emoji.test.ts` also scans `public/`) |
+| 21 | No brand logos or label art | Met (rule changed) | **Owner decision 2026-09-29:** real product photos are used, shown exactly as photographed (background removed, nothing redrawn), provenance per file (`bottle-photos.test.ts › the real bottle photos on record`). Nothing is drawn or recreated from a label. |
 | 22 | Toggle reflects real state across the permission matrix; rejected `subscribe()` never reaches the error boundary | Met | `push-client.test.ts`, `hotfix.spec › notification settings` |
 | 23 | Push URL resolves to the intended page | Met | `push-message.test.ts`, `service-worker.test.ts`, beer page e2e |
 | 24 | Message text matches §13.3 incl. "במקום" only when verified | Met | `push-message.test.ts` |
@@ -38,10 +38,10 @@ strength of a manual look alone.
 | 29 | No control < 44×44 px; no text < 12 px | Met (public screens) | `quality.spec › no screen scrolls sideways, every control…` on 10 screens. The admin panel is not scanned. |
 | 30 | axe: 0 serious/critical on Home, Beer, Store, Settings in every theme | Partly | axe WCAG A/AA on 10 screens in light and dark; contrast rule in 5 themes (house, heineken, stella, guinness, tuborg-red) × 2 modes. Contrast is proved for **all** themes by computation (`design.test.ts`), not by axe. |
 | 31 | No horizontal overflow at 360/390/430/768; LTR-isolated numbers | Met | `quality.spec` at all four widths; `.num` isolation |
-| 32 | Performance: LCP p75 ≤ 2.5 s, TTFB ≤ 600 ms, function region == DB region, skeleton on every data route | **Not met** | Not measured. The database appears to be in Tokyo and the function in Virginia; the owner has not confirmed the region (`docs/INFRASTRUCTURE.md`). **Skeletons were tried and abandoned:** route-level `loading.tsx` stalls client navigation in this app's production build (`docs/LESSONS.md`); the loading state is a top progress bar. |
+| 32 | Performance: LCP p75 ≤ 2.5 s, TTFB ≤ 600 ms, function region == DB region, skeleton on every data route | **Not met** | Live site measured 2026-09-29: 2.8–5.8 s to first byte, function in `iad1` while the database is in Tokyo. `vercel.json` now pins `hnd1` (Tokyo) — takes effect on the next deploy; the "after" measurement needs that deploy (owner). Production's region is evidence-based (its IP is in AWS Tokyo), not dashboard-confirmed (`docs/INFRASTRUCTURE.md`). **Skeletons were tried and abandoned:** route-level `loading.tsx` stalls client navigation in this app's production build (`docs/LESSONS.md`); the loading state is a top progress bar. |
 | 33 | Loading, empty and error states designed for every route | Met (with #32's exception) | Progress bar; empty states in every list; `error.tsx`, `not-found.tsx`; `redesign.spec › an unknown beer…` |
 | 34 | No emoji as icons; Impeccable critique with no P0/P1; before/after screenshots | Met | `no-emoji.test.ts`; detector output `[]` (CLAUDE.md asks for it before a UI PR); `docs/design/CRITIQUE.md`; `docs/design/screens/` (after) and `docs/audit-2026-09-29/` (before) |
 | 35 | CI required checks on `main` | **Not met** (owner) | CI runs typecheck, lint, tests, build, Playwright + axe. Branch protection is a GitHub setting only the owner can change. |
 
 **Score:** 29 met · 3 partly · 3 not met (device matrix, performance, branch protection) — the three not-met
-items all need something outside the repository.
+items all need something outside the repository (a phone; a deployment; the repository owner's settings).

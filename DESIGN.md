@@ -118,19 +118,33 @@ component (`src/design/`):
   light mode deepens it). The range is the widest in which every counter text keeps ≥ 4.5:1 over *any*
   bottle pixel; `tests/design.test.ts` proves it for every beer in both modes, and that the range is
   wide enough for the bottle to be clearly visible.
-- **Photo or drawn.** A licensed product photo (`scripts/prepare-bottle.mjs`: white background removed
-  by an edge flood fill, the bottle's own pixels untouched, provenance mandatory in
-  `src/design/bottle-photos.json`) replaces the drawn bottle for that beer. Until then the bottle is drawn
-  from data: real silhouette (longneck, classic, wheat, belgian), glass, cap and label colours, no marks.
+- **The real bottle.** 19 beers show their own product photo — the bottle as sold in Israel, background
+  removed by an edge flood fill, the bottle's pixels untouched, 26–87 KB WebP, only favourite #1's ever
+  requested. `scripts/fetch-bottles.mjs` lists every source (17 retailer pack shots found by the barcode
+  the price feeds carry, 1 Wikimedia Commons photo) and `src/design/bottle-photos.json` records source URL,
+  licence, approval and barcode. Desperados and Bazelet have no usable photo yet and keep a bottle drawn
+  from data (silhouette, glass, cap and label colours, no marks) — never another beer's photo.
 - **The same bottle, small,** sits beside the beer's name on the favourite keys, beer strips, the headline
   deal, the beer list and the favourites editor, so a beer is recognised before its name is read.
 - **One layout for every beer.** Only the counter, the bottle and the accent change; spacing, type and
   components are identical. The neutral **house** look (no bottle) covers onboarding before a pick and any
   beer without an identity (Somersby, a cider, deliberately).
 
+## Deals, then regular prices
+
+A beer page and a chain page are two parts in this order, never mixed: **מבצעים עכשיו** (promotions everyone
+can use, pack by pack; "any N of these" group offers as one strip of their own) and **מחירים רגילים**. Jump
+links at the top reach either part; one sort (price ↑ / price ↓ / best verified saving, optionally per litre)
+orders both. Section headings are h2, pack or beer strips inside them h3.
+
+Every price line says where it was seen and what it excludes, in the tape's small secondary row:
+"בסניף X" or "ב־N סניפים", "החל מ־" before the figure when branches differ, and "+ ₪1.80 פיקדון". The price
+itself stays the big figure; per litre is secondary.
+
 ## Things not to do
 
-A theme picker or any other way to choose a look by hand; a raw white-background product photo;
+A theme picker or any other way to choose a look by hand; a raw white-background product photo, or any
+photo whose background could not be removed; a redrawn or "improved" label;
 rounded card stacks; gradient or glass surfaces; a beer emoji as a logo; brown-and-gold as a default;
 colour as the only signal; text under 12 px; a dark mode chosen by habit; tracked caps eyebrows; a new
 colour that is not a token.

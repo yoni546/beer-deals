@@ -6,9 +6,22 @@ without touching real users. Everything in the repository that can be prepared f
 it already is (migrations, seeds, CLI config, a checker); creating the project needs
 an account with a browser, so this file is the exact runbook.
 
-> **The minimum you must do by hand** (≈ 15 minutes): create one Supabase project, turn
-> on anonymous sign-ins, paste 4 values into Vercel. Sections 1 and 4. The rest is
-> commands.
+## Current state (2026-09-29): staging EXISTS
+
+| | |
+| --- | --- |
+| Project | `beer-deals-staging`, ref **`qpjwnxptitnmtsznjvkw`**, created with the Supabase CLI |
+| Account / organisation | the Supabase account this machine's CLI is logged into (organisation "GanzaxPhotography") — **not** the account that owns production (`itpyyexhmvosxcbcagvy`) |
+| Region | **`ap-northeast-1` (Tokyo)** — the same region production's database address points to, so staging measures what production does. (The Frankfurt move below remains the durable fix for Israeli users; see INFRASTRUCTURE.md.) |
+| Schema | migrations **0001–0015** applied (`supabase db push`) |
+| Auth | anonymous sign-ins on (`supabase config push`, site URL `http://127.0.0.1:3100` — no emails are sent) |
+| Data | the **first real ingestion** (9 chains, 10 branches) — `docs/INGESTION-STAGING-REPORT.md`; no sample seed |
+| Keys | only in the git-ignored `.env.staging.local` on the machine that created it (URL, anon, service role, DB password, its own VAPID pair and CRON_SECRET), and as GitHub secrets `STAGING_SUPABASE_URL` / `_ANON_KEY` / `_SERVICE_ROLE_KEY` |
+| App against it | `set -a; . ./.env.staging.local; set +a; NEXT_DIST_DIR=.next-staging npx next build && NEXT_DIST_DIR=.next-staging npx next start -p 3300` (then revert `tsconfig.json` / `next-env.d.ts`, which the build rewrites) |
+| Ingestion | `node scripts/ingest/fetch-sample.mjs && node scripts/ingest/parse.mjs && node scripts/ingest/run.mjs --target staging && node scripts/ingest/verify-staging.mjs`; daily: `.github/workflows/ingest-staging.yml` (from `main`) |
+| Not done | a **Vercel staging/preview deployment** (needs the Vercel account — §4), so the staging notification worker has no URL to ring yet |
+
+> **The minimum you must still do by hand:** §4 (Vercel preview → staging keys). Sections 1–3 are done.
 
 ## 0. Decisions already made
 

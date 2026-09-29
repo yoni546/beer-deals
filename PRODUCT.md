@@ -59,7 +59,8 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
   settings belong to a browser profile. *(Durability across devices is an open decision.)*
 - **Notifications:** Web Push. Android/desktop work in the browser; iPhones require the app to be
   installed to the Home Screen. Real-device delivery has not yet been demonstrated.
-- **Environments:** production (real users), staging (to be created), and a local fake for tests.
+- **Environments:** production (real users), staging (`qpjwnxptitnmtsznjvkw`, Tokyo, holding real feed data
+  from 9 chains since 2026-09-29), and a local fake for tests.
 
 ## Capabilities and Constraints
 
@@ -74,8 +75,22 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
   colours. There is **no theme picker and no manual override** — reordering the favourites is how
   the look changes, and it changes everywhere at once. Light or dark follows the phone's setting.
   A beer without an identity (or before onboarding) gets the neutral house look, never another
-  beer's. The bottle is a licensed product photo when one is on record, otherwise a drawn bottle in
-  the beer's glass and label colours with no logo, wordmark or label art.
+  beer's. The bottle is the real product photo — shown as photographed, background removed, never
+  redrawn — with its source on record (`src/design/bottle-photos.json`); a beer with no usable photo
+  keeps a drawn stand-in. Favourite #1 is also the only beer that may send a notification.
+- **What is sold (scope).** Beer, non-alcoholic beer and radler are shown; malt drinks and cider are
+  kept out for now. Categories are data (`product_categories`), switched on without code.
+- **Only offers everyone can use.** A promotion that needs a club, a specific card or payment method,
+  a coupon, an employer, an app account or any other condition is recorded for provenance and never
+  shown, ranked, searched or announced.
+- **Prices are per branch.** A chain row is the lowest current price among the branches seen, labelled
+  "החל מ־" when branches differ, or "בסניף X" when one branch was seen. There is no invented "chain
+  price". The feed's own chain / sub-chain / store codes are kept, so a Yeinot Bitan branch published in
+  Carrefour's feed is Yeinot Bitan's.
+- **Deposit.** Shelf prices exclude the bottle deposit (₪0.30 a container); it is shown beside the
+  price ("+ ₪1.80 פיקדון") and never counts as a saving.
+- **"Any N of these for ₪X"** is one group offer across several packs, shown as such — never a
+  per-pack price the chain did not publish.
 - **What's New:** a small, unobtrusive entry, the latest update, and recent history; every
   meaningful change ships a release entry (see `CLAUDE.md`).
 - Technical constraints that must be preserved: Row Level Security as the permission system;
@@ -93,11 +108,13 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
   modern and clearly about beer — but not childish, not pub-menu kitsch, not generic SaaS cards, not
   "gradient + glass cards = design", not "AI slop". The current brown/yellow look is to be replaced
   structurally, not recoloured.
-- Never reproduce beer brands' label art, logos or trade dress.
+- Never redraw, recreate or alter a beer's label art, logo or trade dress. Real product photos are
+  shown exactly as photographed (the owner's decision of 2026-09-29), with their source recorded.
 
 ## Evidence on Hand
 
-- No real deal or price data yet. Do not fabricate prices, savings, stores' offers or claims.
+- Real price data exists on **staging** only (first ingestion 2026-09-29, `docs/INGESTION-STAGING-REPORT.md`);
+  production has none yet. Do not fabricate prices, savings, stores' offers or claims.
 - 22 beers and 15 chains are seeded (`supabase/migrations/0004_seed.sql`), and an invented dev/staging
   catalogue exists (`supabase/seed/dev-catalog.sql`, flagged `is_sample`) for building and testing.
 - The audit, with screenshots of the previous UI: `docs/PRODUCT-AUDIT-2026-09-29.md`.
