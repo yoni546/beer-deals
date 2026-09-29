@@ -22,3 +22,6 @@ test-results
 playwright-report
 supabase/.temp
 supabase/.branches
+
+# Impeccable: the native engine is platform-specific and downloaded by `npx impeccable install`.
+.claude/skills/impeccable/scripts/bin/
