@@ -225,5 +225,101 @@
     "sourceUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Corona%20Extra%20beer%20bottle%20(2019).png?width=1600",
     "sourceName": "Wikimedia Commons",
     "addedOn": "2026-09-29"
+  },
+  "eagle": {
+    "src": "/bottles/eagle.webp",
+    "width": 257,
+    "height": 940,
+    "source": "https://img.rami-levy.co.il/product/7290006764096/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/7290006764096/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "7290006764096",
+    "addedOn": "2026-09-29"
+  },
+  "staropramen": {
+    "src": "/bottles/staropramen.webp",
+    "width": 258,
+    "height": 1009,
+    "source": "https://img.rami-levy.co.il/product/8593868000302/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/8593868000302/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "8593868000302",
+    "addedOn": "2026-09-29"
+  },
+  "chouffe": {
+    "src": "/bottles/chouffe.webp",
+    "width": 360,
+    "height": 937,
+    "source": "https://img.rami-levy.co.il/product/5410769100081/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/5410769100081/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "5410769100081",
+    "addedOn": "2026-09-29"
+  },
+  "kasteel": {
+    "src": "/bottles/kasteel.webp",
+    "width": 362,
+    "height": 948,
+    "source": "https://img.rami-levy.co.il/product/5411081003654/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/5411081003654/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "5411081003654",
+    "addedOn": "2026-09-29"
+  },
+  "hoegaarden": {
+    "src": "/bottles/hoegaarden.webp",
+    "width": 282,
+    "height": 1003,
+    "source": "https://img.rami-levy.co.il/product/7290019398295/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/7290019398295/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "7290019398295",
+    "addedOn": "2026-09-29"
+  },
+  "franziskaner": {
+    "src": "/bottles/franziskaner.webp",
+    "width": 238,
+    "height": 930,
+    "source": "https://img.rami-levy.co.il/product/4072700003649/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/4072700003649/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "4072700003649",
+    "addedOn": "2026-09-29"
+  },
+  "blue-moon": {
+    "src": "/bottles/blue-moon.webp",
+    "width": 253,
+    "height": 908,
+    "source": "https://img.rami-levy.co.il/product/5010038454831/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/5010038454831/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "5010038454831",
+    "addedOn": "2026-09-29"
+  },
+  "benediktiner": {
+    "src": "/bottles/benediktiner.webp",
+    "width": 244,
+    "height": 941,
+    "source": "https://img.rami-levy.co.il/product/4052197000017/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/4052197000017/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "4052197000017",
+    "addedOn": "2026-09-29"
   }
 }

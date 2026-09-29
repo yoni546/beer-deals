@@ -63,10 +63,22 @@ export const BOTTLES = {
   shapiro: rami("7290014056015"),
   alexander: rami("7290013430083"),
   negev: rami("7290013276124"),
+  // 0.8.0 (migration 0016)
+  eagle: rami("7290006764096"),
+  staropramen: rami("8593868000302"),
+  chouffe: rami("5410769100081"),
+  kasteel: rami("5411081003654"), // Kasteel Rouge, the one most chains carry
+  hoegaarden: rami("7290019398295"),
+  franziskaner: rami("4072700003649"),
+  "blue-moon": rami("5010038454831"),
+  benediktiner: rami("4052197000017"),
   corona: commons("Corona Extra beer bottle (2019).png", "CC BY-SA 4.0", "Bruce The Deus"),
   // desperados: no usable photo yet — the free ones are shot against walls and tables (the background
   //   cannot be removed without redrawing), and no Israeli retailer's catalogue lists it. Drawn stand-in.
   // bazelet: no barcode in any feed and no free photo. Drawn stand-in.
+  // krombacher, kronenbourg, miller: the retailer catalogues show only cans and multipacks (a single bottle
+  //   would have to be cut out of a pack shot, which alters the photo). Drawn stand-ins.
+  // estrella: the catalogue has no image for its barcodes (HTTP 403). Drawn stand-in.
 };
 
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(BOTTLES);

@@ -483,8 +483,9 @@ describe("one approved deal per shelf", () => {
     const adminId = await createUser(db, "admin9@example.com");
     await db.query("insert into public.admins (user_id, level) values ($1, 'admin')", [adminId]);
 
+    // A shop no other test has put a deal in (the rotation over seeded stores changes as chains are added).
     const shopId = (
-      await db.query<{ id: string }>("select id from public.stores where slug = 'king-store'")
+      await db.query<{ id: string }>("insert into public.stores (slug, name_he) values ('test-replacement-shop', 'חנות בדיקה') returning id")
     ).rows[0].id;
 
     const oldDeal = await insertDeal("pending", await createUser(db), shopId);

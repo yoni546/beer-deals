@@ -103,7 +103,15 @@ describe("the pack", () => {
 
   it("does not trust 'יחידות' as a volume, and never guesses a pack", () => {
     expect(parsePack(item("סומרסבי מנגו ליים", "1.00", "יחידות")).confidence).toBe("unresolved");
-    expect(parsePack(item("בירה בדוויזר שישייה", "330.00", "100 מיליליטר")).confidence).toBe("unresolved"); // 6 × ? — no size
+    expect(parsePack(item("בירה בדוויזר שישייה", "1.00", "יחידות")).confidence).toBe("unresolved"); // 6 × ? — no size
+  });
+
+  it("a pack word with ONE unit's size in Quantity (Rami Levy): 6 × that size, marked partial and explained", () => {
+    const p = parsePack(item("בירה בדוויזר שישייה", "330.00", "100 מיליליטר"));
+    expect(p).toMatchObject({ volume_ml: 330, pack_quantity: 6, confidence: "partial" });
+    expect(p.why).toContain("one unit");
+    // A non-standard Quantity is never stretched into a size.
+    expect(parsePack(item("בירה בדוויזר שישייה", "412.00", "100 מיליליטר")).confidence).toBe("unresolved");
   });
 
   it("a name cut short: derives the pack from the total only when one standard multipack makes it, and says so", () => {
@@ -276,7 +284,15 @@ describe("publishers and their branches", () => {
     expect(PUBLISHERS.carrefour.retailer({ store: "2", name: "קרפור מרקט אשקלון" })).toBe("carrefour");
     expect(PUBLISHERS["dor-alon"].retailer({ store: "401", subChainName: "AM:PM", name: "AM-PMדרך השלום" })).toBe("ampm");
     expect(PUBLISHERS["dor-alon"].retailer({ store: "12", subChainName: "אלונית מיני סופר", name: "אלונית" })).toBeNull();
-    expect(PUBLISHERS["super-yuda"].blocked).toMatch(/not guessed/i);
+    expect(PUBLISHERS.freshmarket.retailer({ store: "2", name: "פרשמרקט גליל ים" })).toBe("fresh-market");
+    expect(PUBLISHERS.freshmarket.retailer({ store: "5", name: "היפר דודו שוק" })).toBeNull(); // another banner on the same account
+  });
+
+  it("marks the chains that need a password as blocked, with the reason — never forced", () => {
+    for (const slug of ["super-yuda", "salach-dabach", "yellow"]) {
+      expect(PUBLISHERS[slug].blocked, slug).toMatch(/requires a password/);
+      expect(Object.keys(PUBLISHERS[slug]), slug).not.toContain("password");
+    }
   });
 
   it("reads a UTF-16 Stores file with a BOM (as Carrefour publishes it) and flat Cerberus-style ones", () => {

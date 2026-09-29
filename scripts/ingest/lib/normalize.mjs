@@ -48,6 +48,20 @@ export const BRANDS = [
   { slug: "negev", names: ["נגב"], alone: false },
   { slug: "bazelet", names: ["בזלת"], alone: false },
   { slug: "somersby", names: ["סומרסבי", "סאמרסבי", "somersby"], alone: true },
+  // 0.8.0 (migration 0016): the beers whose deals were being discarded because the catalogue did not
+  // carry them — each sold at four or more of the chains we read (docs/RETAILER-COVERAGE.md).
+  { slug: "krombacher", names: ["קרומבאכר", "קרומבכר", "קרובמאכר", "krombacher"], alone: true },
+  { slug: "eagle", names: ["איגל", "eagle"], alone: false },
+  { slug: "kronenbourg", names: ["קרוננבורג", "1664", "kronenbourg"], alone: false },
+  { slug: "miller", names: ["מילר", "miller"], alone: false },
+  { slug: "staropramen", names: ["סטארופרמן", "סטארופראמן", "סטרופרמן", "סטרופראמן", "סטרופארמן", "staropramen"], alone: true },
+  { slug: "chouffe", names: ["לה שוף", "מק שוף", "צרי שוף", "שוף", "chouffe"], alone: false },
+  { slug: "kasteel", names: ["קסטיל", "קסטל", "kasteel"], alone: false },
+  { slug: "hoegaarden", names: ["הוגרדן", "הוגארדן", "hoegaarden"], alone: true },
+  { slug: "franziskaner", names: ["פרנסיסקאנר", "פרנזיסקאנר", "franziskaner"], alone: true },
+  { slug: "estrella", names: ["אסטרייה", "אסטרייאה", "אסטרייה דאם", "estrella"], alone: false },
+  { slug: "blue-moon", names: ["בלו מון", "בלומון", "blue moon"], alone: false },
+  { slug: "benediktiner", names: ["בנדיקטינר", "בנדקטינר", "benediktiner"], alone: true },
 ];
 
 /** Manufacturer names that mean "this is a beer" when the product name is not explicit. */
@@ -95,17 +109,31 @@ export const VARIANTS = {
   weihen: { rules: [[/דונקל|dunkel/i, "דונקל"], [/ויטוס|vitus/i, "ויטוס"], [/קריסטל|kristall/i, "קריסטל"], [/פילס|pils/i, "פילס"], [/אוריגינל|original|הלס/i, "אוריגינל"]] },
   erdinger: { rules: [[/דונקל|dunkel/i, "דונקל"], [/קריסטל|kristall/i, "קריסטל"]] },
   leffe: { rules: [[/בראון|brune|brown/i, "בראון"], [/רובי|ruby/i, "רובי"], [/טריפל|tripel/i, "טריפל"], [/בלונד|blond/i, ""]] },
-  budweiser: { rules: [[/באדוור|בודוואר|budvar/i, "באדוור"]] },
+  budweiser: { rules: [[/באדוור|בודוואר|budvar/i, "באדוור"], [/דארק|dark/i, "דארק"]] },
   becks: { rules: [] },
   stella: { rules: [] },
   guinness: { rules: [] },
   desperados: { rules: [] },
   "tuborg-red": { rules: [] },
-  maccabee: { rules: [] },
+  // Maccabee 7.9% is a different beer from Maccabee (4.9%), sold side by side in the same packs.
+  maccabee: { rules: [[/7[.]9/, "7.9%"]] },
   malka: { required: true, rules: [[/בהיר|בלונד/, "בהירה"], [/אדמונית/, "אדמונית"], [/הינדי|אינדי|IPA/i, "הינדי"], [/חיטה/, "חיטה"], [/סטאוט|שחורה|כהה/, "סטאוט"]] },
   negev: { required: true, rules: [[/פאטה מורגנה/, "פאטה מורגנה"], [/אמבר|ענבר/, "אמבר"], [/פסיפלורה/, "פסיפלורה"], [/אלון|oak/i, "אלון"], [/פורטר|porter/i, "פורטר"], [/בלונד|blond/i, "בלונד"], [/IPA|אי פי איי/i, "IPA"]] },
   alexander: { required: true, rules: [[/בלונד|blond/i, "בלונד"], [/גרין|green/i, "גרין"], [/בלאק|black/i, "בלאק"], [/אמבר|ambree/i, "אמבר"], [/רובי|ruby/i, "רובי"], [/IPA|אי פי איי/i, "IPA"]] },
   shapiro: { required: true, rules: [[/פייל אייל|pale ale/i, "פייל אייל"], [/IPA|אי פי איי/i, "IPA"], [/סטאוט|stout|אוטמיל/i, "סטאוט"], [/חיטה|wheat/i, "חיטה"], [/אמבר|amber/i, "אמבר"]] },
+  krombacher: { rules: [[/חיטה|weizen/i, "חיטה"]] },
+  // Eagle Gold is the 6.3% "premium strong" can; the 7.8% is Eagle Strong.
+  eagle: { rules: [[/זהב|gold|6[.]3/i, "זהב"], [/חזקה|7[.]8/, "חזקה"]] },
+  kronenbourg: { rules: [[/רוזה|rose/i, "רוזה"]] }, // the main product in Israel is 1664 Blanc
+  miller: { rules: [[/בוק|bock/i, "בוק"]] },
+  staropramen: { rules: [] },
+  chouffe: { rules: [[/מק שוף|mc ?chouffe/i, "מק שוף"], [/צרי|cherry/i, "צ'רי"]] },
+  kasteel: { required: true, rules: [[/רוז|rouge/i, "רוז'"], [/רובוס|rubus/i, "רובוס"], [/טריפל|tripel/i, "טריפל"], [/כהה|donker/i, "כהה"], [/טרופיקל|tropical/i, "טרופיקל"], [/בריסטה|שוקולד|barista/i, "בריסטה"]] },
+  hoegaarden: { rules: [] },
+  franziskaner: { rules: [[/כהה|דונקל|dunkel/i, "דונקל"]] },
+  estrella: { rules: [] },
+  "blue-moon": { rules: [] },
+  benediktiner: { rules: [[/דונקל|כהה|dunkel/i, "דונקל"], [/לאגר|lager/i, "לאגר"]] }, // main: the wheat beer
   bazelet: { required: true, rules: [[/פילס|pils/i, "פילס"], [/אמבר|amber/i, "אמבר"], [/חיטה|wheat/i, "חיטה"], [/IPA/i, "IPA"], [/חלב|לאגר|lager/i, "לאגר"]] },
 };
 
@@ -127,7 +155,8 @@ export function variantOf(beer, name, category) {
   if (category === "non_alcoholic") variant = [variant, "0.0"].filter(Boolean).join(" ");
   if (category === "radler") {
     const flavour = (text.match(/(?:שנדי|רדלר)\s+(אפרסק|ליים|לימון ליים|לימון|אשכולית|תפוז)/) ?? [])[1];
-    variant = ["שנדי", flavour].filter(Boolean).join(" ");
+    // "מכבי שנדי ליים" and "מכבי שנדי לימון ליים" are one product (the same barcode at three chains).
+    variant = ["שנדי", flavour === "ליים" ? "לימון ליים" : flavour].filter(Boolean).join(" ");
     found = true;
   }
   return { variant, known: found || !spec.required };
@@ -227,8 +256,12 @@ export function parsePack(item) {
   // Quantity is a volume only when its unit says so ("קילוגרם" is a common mislabel of litres);
   // "יחידות" counts shelf units and says nothing about volume.
   const q = Number(item.quantity);
-  const volumeUnit = /ליטר|מל|מיליליטר|קילוגרם|גרם|קג/.test(clean(item.unit_of_measure));
-  const total = volumeUnit && Number.isFinite(q) && q > 0 ? (q >= 50 ? q : q * 1000) : null;
+  // Hatzi Hinam leaves the unit empty and writes the millilitres ("500", "330"): with NO unit at all, a
+  // number that is exactly a standard single size is read as that size; anything else stays unknown.
+  const noUnit = clean(item.unit_of_measure) === "";
+  const volumeUnit = /ליטר|מל|מיליליטר|קילוגרם|גרם|קג/.test(clean(item.unit_of_measure)) || (noUnit && STANDARD_ML.includes(q));
+  let perUnitQuantity = false;
+  let total = volumeUnit && Number.isFinite(q) && q > 0 ? (q >= 50 ? q : q * 1000) : null;
   if (unit && !count && total) {
     const ratio = total / unit;
     if (Math.abs(ratio - Math.round(ratio)) < 0.03 && Math.round(ratio) >= 1 && Math.round(ratio) <= 30) count = Math.round(ratio);
@@ -236,6 +269,13 @@ export function parsePack(item) {
   if (!unit && total && count) {
     const per = total / count;
     if (STANDARD_ML.some((s) => Math.abs(s - per) <= 2)) unit = STANDARD_ML.find((s) => Math.abs(s - per) <= 2);
+    // Some chains put the volume of ONE unit in Quantity ("בירה בדוויזר שישייה", Quantity 330 per 100 ml):
+    // a pack word plus a standard single size that no multipack total could be.
+    else if (count > 1 && STANDARD_ML.includes(Math.round(total))) {
+      unit = Math.round(total);
+      total = unit * count;
+      perUnitQuantity = true;
+    }
   }
   if (unit && !count && total && Math.abs(total - unit) < 2) count = 1;
   // No size in the name, no pack word, and the total is one single-serve size: one can or bottle.
@@ -261,8 +301,9 @@ export function parsePack(item) {
   if (!container) why.push("container unknown");
   if (unit && count && total && !consistent) why.push(`name says ${count}×${unit} ml but Quantity says ${total} ml`);
   if (derived) why.push(`pack derived from the total volume ${total} ml`);
+  if (perUnitQuantity) why.push(`Quantity ${unit} ml read as the size of one unit of the ${count}-pack`);
 
-  const confidence = unit && count && consistent ? (container && !derived ? "confident" : "partial") : "unresolved";
+  const confidence = unit && count && consistent ? (container && !derived && !perUnitQuantity ? "confident" : "partial") : "unresolved";
   return { container, volume_ml: unit, pack_quantity: count, returnable, confidence, why: why.join("; ") };
 }
 

@@ -93,14 +93,15 @@ describe("favourite #1 is the app — the locked product rule", () => {
 });
 
 describe("every beer has an identity and a bottle", () => {
-  const seed = readFileSync(join(ROOT, "supabase", "migrations", "0004_seed.sql"), "utf8");
+  // The catalogue: the original 22 (0004) and the twelve added in 0.8.0 (0016).
+  const seed = ["0004_seed.sql", "0016_more_beers_and_chains.sql"].map((file) => readFileSync(join(ROOT, "supabase", "migrations", file), "utf8")).join("\n");
   // (SQL escapes an apostrophe by doubling it — "Beck''s" — hence the `''` alternative.)
   const slugs = [...seed.matchAll(/^\s*\('([a-z0-9-]+)',\s*'(?:[^']|'')*',\s*'(?:[^']|'')*',\s*'#/gm)].map((match) => match[1]);
   /** Deliberately without an identity: a cider, shown in the neutral look. */
   const WITHOUT = ["somersby"];
 
   it("covers every seeded beer except the ones deliberately left neutral", () => {
-    expect(slugs.length).toBe(22);
+    expect(slugs.length).toBe(34);
     for (const slug of slugs.filter((s) => !WITHOUT.includes(s))) {
       expect(identityFor(slug).slug, `no identity for ${slug}`).toBe(slug);
       expect(getThemeForBeer(slug).background.kind, `no bottle for ${slug}`).not.toBe("none");

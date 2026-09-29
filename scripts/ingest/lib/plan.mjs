@@ -99,6 +99,7 @@ export function loadDay(dir) {
  */
 export function buildPlan(units, now = Date.now()) {
   const readings = [];
+  const packless = [];
   const unresolved = [];
   const invalid = [];
   const outOfScope = [];
@@ -161,8 +162,11 @@ export function buildPlan(units, now = Date.now()) {
       };
       if (!price.ok) hold(price.reason, invalid);
       else if (!known) hold(`which ${verdict.beer} beer? the name names no known variant`);
-      else if (pack.confidence === "unresolved") hold(pack.why);
-      else {
+      else if (pack.confidence === "unresolved") {
+        // The barcode may still say which pack it is (below, once every branch has been read).
+        if (isGtin(item.item_code)) packless.push({ u, item, sample, verdict, variant, pack, hold });
+        else hold(pack.why);
+      } else {
         const reading = {
           unit: u,
           item,
@@ -180,6 +184,28 @@ export function buildPlan(units, now = Date.now()) {
     perUnit.push({ unit: u, stats, beerCodes });
   }
 
+  // Pass 1b — a row whose own text does not say the pack ("בירה קרלסברג שישייה", Quantity "2") takes the
+  // pack that every other reading of the SAME barcode agrees on (a barcode is one physical product), and
+  // only when the price is believable for that pack. No reading elsewhere, or readings that disagree → held.
+  for (const { u, item, sample, verdict, variant, pack, hold } of packless) {
+    const others = readings.filter((r) => r.code === item.item_code);
+    const shapes = new Set(others.map((r) => `${r.volume_ml}×${r.pack_quantity}`));
+    if (shapes.size !== 1) {
+      hold(pack.why);
+      continue;
+    }
+    const from = others[0];
+    const adopted = { ...pack, volume_ml: from.volume_ml, pack_quantity: from.pack_quantity, container: pack.container ?? from.container, confidence: "partial", why: `pack read from the same barcode at ${[...new Set(others.map((r) => r.retailer))].join(", ")}` };
+    const price = checkPrice(item, adopted);
+    if (!price.ok) {
+      hold(`${pack.why}; the same barcode elsewhere is ${from.pack_quantity}×${from.volume_ml} ml, but ${price.reason}`);
+      continue;
+    }
+    const reading = { unit: u, item, ...sample, beer: verdict.beer, category: verdict.category, variant, ...adopted, agorot: price.agorot };
+    readings.push(reading);
+    perUnit.find((p) => p.unit === u).beerCodes.set(item.item_code, reading);
+  }
+
   // Pass 2 — one barcode, one product (across all branches and chains).
   const barcodes = reconcileBarcodes(readings.map((r) => ({ ...r, chain: r.retailer })));
   const accepted = [];
@@ -193,13 +219,18 @@ export function buildPlan(units, now = Date.now()) {
     if (verdict?.container && !r.container) r.container = verdict.container;
     // A short (truncated) name takes the specific identity the full names of the same barcode agree on.
     if (verdict?.agree) Object.assign(r, { beer: verdict.beer, variant: verdict.variant, category: verdict.category });
-    // A pack whose container is still unknown, or was derived from a total, is not published.
-    if (!r.container || r.confidence !== "confident") {
-      const why = !r.container ? "container unknown" : r.why;
-      unresolved.push({ ...r, unit: undefined, item: undefined, why });
-      noteProduct(r.unit, r.item, "review", why);
-      continue;
+    // Count and volume are what make a pack (and are always shown); the container is a detail several
+    // chains never write on multipacks ("בירה גולדסטאר שישייה", names cut at 20 characters). Until
+    // 0.8.0 an unknown container HELD the row — which dropped every Rami Levy six-pack and, through
+    // them, 26 of its 34 beer promotions. Now it is published as "container not stated" ('other'),
+    // never guessed; a barcode seen at another chain with a full name fills it in (above). A pack
+    // derived from the feed's total volume is kept only when exactly one standard multipack makes
+    // that total (parsePack guarantees it) and the price per litre is plausible (checkPrice).
+    if (!r.container) {
+      r.container = "other";
+      r.containerKnown = false;
     }
+    r.confidence = "confident";
     accepted.push(r);
   }
 
@@ -212,6 +243,12 @@ export function buildPlan(units, now = Date.now()) {
   const final = [];
   for (const group of byBranchSku.values()) {
     const codes = new Set(group.map((r) => r.code));
+    // The same pack listed under two codes at the SAME price (a re-barcoded or promo pack) is one
+    // product: keep one listing. Different prices mean the name hides a difference — hold them.
+    if (codes.size > 1 && new Set(group.map((r) => r.agorot)).size === 1) {
+      final.push(group.sort((a, b) => a.code.localeCompare(b.code))[0]);
+      continue;
+    }
     if (codes.size > 1) {
       for (const r of group) {
         const why = `${codes.size} different items at this branch read as the same pack (${[...codes].join(", ")}) — an unlisted variant`;
@@ -299,8 +336,21 @@ export function buildPlan(units, now = Date.now()) {
         log.outcome = "held: none of its items is a pack we could read";
         continue;
       }
-      const reasons = [read.reason, unknownItems ? `${unknownItems} of its items are packs we could not read` : ""].filter(Boolean);
-      const status = read.hold || unknownItems ? "held" : "live";
+      // One statement of the price (the description OR DiscountedPrice) is confirmed by a second one: the
+      // same branch's shelf price of every item it covers. The promotion must be a real saving on each —
+      // below the shelf price, and not by more than 70% (a larger "saving" is a misread). Yochananof, for
+      // one, never writes the price in the description; without this every one of its offers was held.
+      const perUnitPromo = read.kind === "multi_buy" ? read.total_agorot / read.qty : read.price_agorot;
+      const shelfConfirms =
+        read.audience === "everyone" &&
+        read.hold &&
+        /only$/.test(read.basis) &&
+        covered.filter(Boolean).every((r) => perUnitPromo < r.agorot && perUnitPromo >= r.agorot * 0.3);
+      if (shelfConfirms) Object.assign(read, { hold: false, reason: "", basis: `${read.basis} + the branch's shelf price` });
+      // Items we could not read are left out, not guessed: the offer is published for the packs we did read
+      // (what it says about them is true either way) and the omission is recorded.
+      const reasons = [read.reason].filter(Boolean);
+      const status = read.hold ? "held" : "live";
       const sample = covered.find(Boolean);
       const deposit = depositFor(sample);
       const depositNote = { agorot: deposit, included: false, basis: read.depositInDescription ? "the description quotes the price without the deposit; DiscountedPrice included it" : "assumed charged on top, like the shelf price" };
@@ -312,23 +362,25 @@ export function buildPlan(units, now = Date.now()) {
         valid_from: iso(start),
         valid_to: iso(end),
         status,
-        raw: { promotion_id: promo.promotion_id, description: promo.description, club_id_raw: promo.club_id_raw, reward_types: [...new Set(promo.items.map((i) => i.reward_type))], basis: read.basis, ...(status === "held" ? { held_reason: reasons.join("; ") } : {}) },
+        raw: { promotion_id: promo.promotion_id, description: promo.description, club_id_raw: promo.club_id_raw, reward_types: [...new Set(promo.items.map((i) => i.reward_type))], basis: read.basis, ...(unknownItems ? { items_left_out: unknownItems } : {}), ...(status === "held" ? { held_reason: reasons.join("; ") } : {}) },
       };
       if (read.audience === "everyone" && status === "held") stats.promo.held++;
 
-      if (skuSet.length === 1) {
-        const sku = skuSet[0];
+      // One pack, or one price for each of several packs ("קרלסברג/טובורג שישייה ב־29.90": each six-pack
+      // costs 29.90 — no mixing involved): a promotion per pack. Several packs that must be MIXED to reach
+      // a quantity are a group (below).
+      if (skuSet.length === 1 || read.kind === "price_cut") {
         const qty = read.kind === "multi_buy" ? read.qty : 1;
         const total = read.kind === "multi_buy" ? read.total_agorot : read.price_agorot;
-        // The price must still be believable for the pack.
         const perUnit = Math.ceil(total / qty);
-        const check = checkPrice({ price: perUnit / 100, is_weighted: false }, sample);
-        if (!check.ok) {
+        // The price must still be believable for every pack it names.
+        const failed = skuSet.map((sku) => checkPrice({ price: perUnit / 100, is_weighted: false }, covered.find((r) => r && skuKey(r) === sku))).find((c) => !c.ok);
+        if (failed) {
           stats.promo.held++;
-          log.outcome = `held: ${check.reason}`;
+          log.outcome = `held: ${failed.reason}`;
           continue;
         }
-        promotions.push({
+        for (const sku of skuSet) promotions.push({
           ...common,
           sku,
           kind: "promotion",
@@ -340,17 +392,12 @@ export function buildPlan(units, now = Date.now()) {
             ...(read.kind === "multi_buy" ? { multi_buy: { qty, total_agorot: total }, min_qty: qty } : {}),
             note_he: clean(promo.description),
           },
-          natural_key: `${u.publisher}:${promo.promotion_id}`,
+          natural_key: skuSet.length === 1 ? `${u.publisher}:${promo.promotion_id}` : `${u.publisher}:${promo.promotion_id}:${sku}`,
           content_hash: sha(u.publisher, u.branch.feed_store_code, promo.promotion_id, sku, total, qty, promo.start, promo.end),
         });
         log.outcome = status === "live" ? (read.audience === "everyone" ? "published" : "restricted") : `held: ${reasons.join("; ")}`;
         if (status === "live") stats.promo.published++;
       } else {
-        if (read.kind !== "multi_buy") {
-          stats.promo.held++;
-          log.outcome = "held: one price across several packs without a quantity";
-          continue;
-        }
         groups.push({
           ...common,
           skus: skuSet,

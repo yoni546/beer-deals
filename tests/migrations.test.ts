@@ -12,7 +12,7 @@ describe("supabase/RUN_THIS_IN_SUPABASE.sql", () => {
   it("can build the whole schema from scratch", async () => {
     const db = await freshDatabase();
     const { rows } = await db.query<{ n: number }>("select count(*)::int as n from public.beers");
-    expect(rows[0].n).toBe(22);
+    expect(rows[0].n).toBe(34); // 22 (0004) + 12 (0016)
   });
 });
 

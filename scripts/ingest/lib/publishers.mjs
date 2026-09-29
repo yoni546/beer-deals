@@ -47,14 +47,42 @@ export const PUBLISHERS = {
   mahsanei: { source: "feed-mahsanei", chainCode: "7290661400001", platform: "laib", retailer: () => "mahsanei" },
   "hatzi-hinam": { source: "feed-hatzi-hinam", chainCode: "7290700100008", platform: "hatzi-hinam", retailer: () => "hatzi-hinam" },
   "king-store": { source: "feed-king-store", chainCode: "7290058108879", platform: "bina", host: "kingstore.binaprojects.com", retailer: () => "king-store" },
+  // 0.8.0: chains found on the same Cerberus portal (public account, empty password), verified 2026-09-29.
+  keshet: { source: "feed-keshet", chainCode: "7290785400000", platform: "cerberus", code: "Keshet", retailer: () => "keshet-taamim" },
+  freshmarket: {
+    source: "feed-freshmarket",
+    chainCode: "7290876100000",
+    platform: "cerberus",
+    code: "freshmarket",
+    // The account also carries other banners (Hyper Dudu, Mahsanei Mazon): only branches named Fresh Market are ours.
+    retailer: (b) => (/פרשמרקט|fresh\s*market/i.test(b.name ?? "") ? "fresh-market" : null),
+  },
+  "stop-market": { source: "feed-stop-market", chainCode: "7290639000004", platform: "cerberus", code: "Stop_Market", retailer: () => "stop-market" },
+  politzer: { source: "feed-politzer", chainCode: "7291059100008", platform: "cerberus", code: "politzer", retailer: () => "politzer" },
+  // Publishers that exist but cannot be read without credentials we do not have. Never guessed, never forced.
   "super-yuda": {
     source: "",
-    chainCode: "",
+    chainCode: "7290058148776",
     platform: "cerberus",
-    code: "SuperYuda",
+    code: "yuda_ho",
     retailer: () => "super-yuda",
-    blocked:
-      "Super Yuda publishes on Cerberus, but the chain code 'SuperYuda' is refused with the empty password every other chain uses, and the skill does not document its account. Not guessed.",
+    blocked: "Super Yuda's Cerberus account (yuda_ho) requires a password; the public empty-password login is refused. Needs the chain's published credentials.",
+  },
+  "salach-dabach": {
+    source: "",
+    chainCode: "7290526500006",
+    platform: "cerberus",
+    code: "SalachD",
+    retailer: () => "salach-dabach",
+    blocked: "Salach Dabach's Cerberus account (SalachD) requires a password; the public empty-password login is refused.",
+  },
+  yellow: {
+    source: "",
+    chainCode: "7290644700005",
+    platform: "cerberus",
+    code: "Paz_bo",
+    retailer: () => "yellow",
+    blocked: "Paz Yellow's Cerberus account (Paz_bo) requires a password; the public empty-password login is refused.",
   },
 };
 

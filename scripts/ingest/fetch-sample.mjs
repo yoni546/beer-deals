@@ -163,32 +163,16 @@ const platforms = {
   },
 
   async laib(publisher) {
+    // Laib Catalog (Victory, Mahsanei HaShuk). Until 0.8.0 this read the site's ASP.NET search form, which
+    // answers an automated POST with an empty table — so Victory never had a single row. The page itself
+    // is fed by a public JSON API: getfiles lists every file of the chain (name, type, branch, time) and
+    // /webapi/<chain>/<file> serves it.
     const code = PUBLISHERS[publisher].chainCode;
-    const base = "https://laibcatalog.co.il/NBCompetitionRegulations.aspx";
-    // An ASP.NET form: GET for the view state and session, then POST the search per file kind.
-    const first = await fetch(base, { headers: { "user-agent": UA } });
-    const cookie = (first.headers.getSetCookie?.() ?? []).map((c) => c.split(";")[0]).join("; ");
-    const html = await first.text();
-    const field = (n) => (html.match(new RegExp(`name="${n}"[^>]*value="([^"]*)"`)) ?? [])[1] ?? "";
-    const listing = [];
-    for (const fileType of ["storesfull", "pricefull", "promofull"]) {
-      const res = await fetch(base, {
-        method: "POST",
-        headers: { "user-agent": UA, cookie, referer: base, "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          __VIEWSTATE: field("__VIEWSTATE"), __VIEWSTATEGENERATOR: field("__VIEWSTATEGENERATOR"), __EVENTVALIDATION: field("__EVENTVALIDATION"),
-          "ctl00$MainContent$chain": code, "ctl00$MainContent$subChain": "-1", "ctl00$MainContent$branch": "-1",
-          "ctl00$MainContent$txtDate": new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Jerusalem" }),
-          "ctl00$MainContent$fileType": fileType, "ctl00$MainContent$btnSearch": "חיפוש",
-        }),
-      });
-      for (const [, href] of (await res.text()).matchAll(/href='(CompetitionRegulationsFiles[^']+\.(?:gz|xml))'/g)) {
-        const path = href.replace(/\\/g, "/");
-        listing.push({ name: path.split("/").pop().replace(/\.xml\.gz$/, ".gz"), url: `https://laibcatalog.co.il/${path}` });
-      }
-    }
-    if (listing.length === 0) throw new Error(`laibcatalog.co.il lists chain ${code} but returned no files for it today`);
-    return takeFromListing(publisher, listing);
+    const res = await fetch(`https://laibcatalog.co.il/webapi/api/getfiles?edi=${code}`, { headers: { "user-agent": UA, accept: "application/json" } });
+    if (!res.ok) throw new Error(`laibcatalog getfiles for ${code}: HTTP ${res.status}`);
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error(`laibcatalog.co.il lists no files for chain ${code}`);
+    return takeFromListing(publisher, rows.map((row) => ({ name: row.fileName, url: `https://laibcatalog.co.il/webapi/${code}/${row.fileName}` })));
   },
 
   async "hatzi-hinam"(publisher) {
