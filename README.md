@@ -7,6 +7,7 @@ Send one link. The person opens it, picks their name and four beers, and is
 looking at deals. No sign-up, no password, no app store.
 
 - **Setup:** [docs/setup.md](docs/setup.md)
+- **Joining an existing project:** [docs/for-collaborators.md](docs/for-collaborators.md)
 - **Stack:** Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase ·
   Web Push
 
