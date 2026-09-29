@@ -1,0 +1,516 @@
+{
+  "schemaVersion": "1.0",
+  "skill": "israeli-grocery-price-intelligence",
+  "generated_at": "2026-08-26T23:03:02Z",
+  "claims": [
+    {
+      "claim_id": "price-transparency-law",
+      "claim": "Chok HaMazon (shkifut mechirim), the food price-transparency law and the regulations under it, obliges a 'large retailer' (kimonai gadol) to publish on a website the list of all its stores, all food products and their prices sold in those stores, and all in-store promotions. Enforcement sits with the Consumer Protection and Fair Trade Authority, which publishes the retailer feed links.",
+      "source_url": "https://www.gov.il/he/pages/cpfta_prices_regulations",
+      "raw_snippet": "החוק והתקנות מכוחו, מחייבים קמעונאי גדול לפרסם באתר אינטרנט את רשימת כל חנויותיו, את כל מוצרי המזון ומחיריהם הנמכרים בחנויות ומכלול המבצעים הקיימים בחנות.",
+      "fetched_at": "2026-08-09T00:00:00Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "vat-rate-2025",
+      "claim": "Israeli VAT is 18% since 1 Jan 2025 (raised from 17%); a proposed 19% rise for Jan 2026 was rejected and VAT stays 18% for 2026",
+      "source_url": "https://he.wikipedia.org/wiki/מס_ערך_מוסף",
+      "raw_snippet": "שיעור המע\"מ בישראל הוא 18% מ-1 בינואר 2025 (הועלה מ-17%); הצעה להעלות ל-19% בינואר 2026 נדחתה",
+      "fetched_at": "2026-06-16T21:55:00Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "barcode-prefix-729",
+      "claim": "Israeli product barcodes use the 729 GS1 country prefix; store-brand items often use internal codes starting with 2",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_GS1_country_codes",
+      "raw_snippet": "Arabia 629 United Arab Emirates 630 Qatar 631 Namibia [ 4 ] 632 Rwanda 640–649 Finland 680–681 China 690–699 China 700–709 Norway 729 Israel 730–739 Sweden 740 Guatemala 741 El Salvador 742 Honduras 743 Nicaragua 744 Costa Rica 745 Panama 746 Dominican Republic 750 Mexico 754–755 Canada 759 Venezuela 760–769 Switzerland and Liechtenstein 770–771 Colombia 773 Uruguay 775 Peru 777 Bolivia 778–779 Argentina 780 Chile 784 Paraguay 786 Ecuador 789–790 Brazil 800–839 Italy , San Marino and Vatican City 840–849 Spain and Andorra 85",
+      "fetched_at": "2026-08-18",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ],
+      "verified_via": "cited page fetched and confirmed to contain \"729\"; snippet replaced with the page's own wording around it",
+      "verified_at": "2026-08-18"
+    },
+    {
+      "claim_id": "publishing-platforms-and-consumer-apps",
+      "claim": "The Consumer Protection and Fair Trade Authority publishes an official list of price-comparison apps meeting its requirements, which includes PriceZ (pricez.co.il), MySupermarket (mysupermarket.co.il) and CHP (chp.co.il). Covers these references: https://www.pricez.co.il/ https://itunes.apple.com/il/app/pricez/id475190969?ls=1&mt=8 https://play.google.com/store/apps/details?id=il.co.PriceZ.android https://www.mysupermarket.co.il http://64560.api-01.com/serve? https://play.google.com/store/apps/details?id=com.mysupermarket.il https://chp.co.il",
+      "source_url": "https://www.gov.il/he/pages/cpfta_apps",
+      "raw_snippet": "לנוחיות הציבור מצורפת בזאת רשימת האפליקציות להשוואת מחירים העומדות בדרישות הרשות.",
+      "fetched_at": "2026-08-18",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "gov.il consumer-protection page rendered in a browser",
+      "verified_at": "2026-08-18"
+    },
+    {
+      "claim_id": "chain-ownership-facts",
+      "claim": "Carrefour Israel (ChainID 7290055700007) publishes one Stores file covering several banners in parallel, including Carrefour, Be'ir and Yeinot Bitan branded stores",
+      "source_url": "https://prices.carrefour.co.il/20260827/Stores7290055700007-000-20260827-000100.xml",
+      "raw_snippet": "<StoreName>יינות ביתן טבעון</StoreName><Address>קק\"ל 16 קרית טבעון</Address>",
+      "fetched_at": "2026-08-26T22:43:25Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:43:25Z"
+    },
+    {
+      "claim_id": "promo-reward-types",
+      "claim": "Cerberus PromoFull promotions carry RewardType directly on the Promotion element (code 1 shown); across the 232 promotions in this sampled file MinQty appeared on 229 while MaxQty and MinPurchaseAmnt appeared on none",
+      "source_url": "https://url.publishedprices.co.il/file/d/PromoFull7290058140886-708-202608270010.gz",
+      "raw_snippet": "<PromotionEndHour>23:59:00</PromotionEndHour>\n      <RewardType>1</RewardType>\n      <AllowMultipleDiscounts>1<",
+      "fetched_at": "2026-08-26T22:58:14Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:42:33Z"
+    },
+    {
+      "claim_id": "illustrative-example-figures",
+      "claim": "The Examples section uses hypothetical scenario prices and percentages (not live quoted prices) to illustrate comparison and optimization output",
+      "source_url": "internal-illustrative-example",
+      "raw_snippet": "Illustrative example figures (hypothetical): 5.90 NIS, 6.10 NIS, 6.50 NIS, 5.00 NIS, 2-for-10, 285 NIS, 310 NIS, 295 NIS, 262 NIS, 195 NIS, 67 NIS, 23 NIS, 18 NIS, 8.40 NIS; Hebrew forms 5.90 ש\"ח, 6.10 ש\"ח, 6.50 ש\"ח, 5.00 ש\"ח, 285 ש\"ח, 310 ש\"ח, 295 ש\"ח, 262 ש\"ח, 195 ש\"ח, 67 ש\"ח, 23 ש\"ח, 18 ש\"ח, 8.40 ש\"ח; cost-share 32%; price-change alert threshold 10%; weighted-item math example 12 NIS, 11 NIS, 3 NIS and 12 ש\"ח, 11 ש\"ח; product descriptor Tnuva 3% milk",
+      "fetched_at": "2026-06-16T21:55:00Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "community-scraper",
+      "claim": "il-supermarket-scraper is a pip-installable community client that downloads the published data for the supermarket chains listed on the gov.il site",
+      "source_url": "https://github.com/OpenIsraeliSupermarkets/israeli-supermarket-scarpers",
+      "raw_snippet": "il_supermarket_scarper can be installed using pip: python3 -m pip install il-supermarket-scraper",
+      "fetched_at": "2026-08-26T22:58:14Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ]
+    },
+    {
+      "claim_id": "url-prices-shufersal",
+      "claim": "Shufersal publishes its price files at prices.shufersal.co.il, a price-transparency site listing every branch",
+      "source_url": "https://prices.shufersal.co.il",
+      "raw_snippet": "שופרסל אתר שקיפות מחירים אתר שקיפות מחירים All 1 - שלי ת\"א- בן יהודה 2 - שלי ירושלים- אגרון 3 - שלי גבעתיים- סירקין",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "url-prices-carrefour",
+      "claim": "Carrefour Israel publishes its price files at prices.carrefour.co.il, with Price, PriceFull, Promo, PromoFull and Stores categories per branch",
+      "source_url": "https://prices.carrefour.co.il",
+      "raw_snippet": "Carrefour - אתר שקיפות מחירים אתר שקיפות מחירים קטגוריה Price PriceFull Promo PromoFull Stores",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "cerberus-login-path",
+      "claim": "url.publishedprices.co.il runs a Cerberus web client whose sign-in page is at /login",
+      "source_url": "https://url.publishedprices.co.il/login",
+      "raw_snippet": "Cerberus Web Client Toggle navigation Cerberus Home Clear List Activity Center Not currently logged in Sign In Home Welcome to Public Published Prices Server Created by NCR L.T.D",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "cerberus-dir-path",
+      "claim": "The Cerberus directory-listing endpoint /file/json/dir exists and returns a 302 redirect when the client is not authenticated",
+      "source_url": "https://url.publishedprices.co.il/file/json/dir",
+      "raw_snippet": "<!DOCTYPE html><html><head><title>302 Redirected</title></head><body><h1>302 Redirected</h1></body></html>",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "cerberus-file-download-path",
+      "claim": "Cerberus serves individual price files from /file/d/<filename>; the path resolves and returns a 302 redirect when the client is not authenticated",
+      "source_url": "https://url.publishedprices.co.il/file/d/PriceFull7290058140886-001-202605120300.gz",
+      "raw_snippet": "<!DOCTYPE html><html><head><title>302 Redirected</title></head><body><h1>302 Redirected</h1></body></html>",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "cerberus-login-user-path",
+      "claim": "The Cerberus login form posts to /login/user; a POST there returns the Cerberus Web Client login page",
+      "source_url": "https://url.publishedprices.co.il/login/user",
+      "raw_snippet": "Cerberus Web Client Toggle navigation Cerberus Home Clear List Activity Center Not currently logged in Sign In Home Welcome to Public Published Prices Server Created by NCR L.T.D",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "url-savy",
+      "claim": "savy.co.il is an Israeli supermarket price-comparison consumer site built on the published price feeds",
+      "source_url": "https://www.savy.co.il",
+      "raw_snippet": "Savy | השוואת מחירי סופרמרקט בישראל | 25+ רשתות כניסה כמה אתם באמת משלמים? 30+ רשתות · 8.5 מיליון מחירים · מתעדכן יומיומית · 2,000 חנויות",
+      "fetched_at": "2026-08-11",
+      "verified_at": "2026-08-11",
+      "verified_via": "curl",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "food-competition-law-text",
+      "claim": "The Promotion of Competition in the Food Sector Law text is published on Wikisource (primary statute text, replacing an encyclopedia citation).",
+      "source_url": "https://he.wikisource.org/wiki/חוק_קידום_התחרות_בענף_המזון",
+      "raw_snippet": "חוק קידום התחרות בענף המזון ) חוק קידום התחרות בענפי המזון והפארם מ",
+      "fetched_at": "2026-08-11",
+      "verified_via": "curl",
+      "verified_at": "2026-08-11",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "vat-18-ita-directive",
+      "claim": "Israel's standard VAT rate rose from 17% to 18% effective 1 January 2025 per ITA Interpretation Directive 01/2025.",
+      "source_url": "https://www.gov.il/BlobFolder/dynamiccollectorresultitem/represent-info-051224-2/he/vat_represent-info-051224-2.pdf",
+      "raw_snippet": "הוראת פרשנות מס' - 01/2025העלאת שיעור המע\"מ מ 17%ל 18%",
+      "fetched_at": "2026-08-11",
+      "verified_via": "pdf",
+      "verified_at": "2026-08-11",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    },
+    {
+      "claim_id": "cerberus-dir-post-only",
+      "claim": "Cerberus /file/json/dir accepts POST only; a GET returns HTTP 200 with an empty aaData and an explanatory error key",
+      "source_url": "https://url.publishedprices.co.il/file/json/dir",
+      "raw_snippet": "{\"aaData\":[],\"error\":\"Invalid request method used for this operation.\",\"iTotalDisplayRecords\":0,\"iTotalRecords\":0,\"sEcho\":0}",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "cerberus-stale-csrf",
+      "claim": "A POST to /file/json/dir carrying a csrftoken minted before login is rejected with a CSRF error rather than data",
+      "source_url": "https://url.publishedprices.co.il/file/json/dir",
+      "raw_snippet": "{\"aaData\":[],\"error\":\"CSRF security check failed\",\"iTotalDisplayRecords\":0,\"iTotalRecords\":0,\"sEcho\":1}",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "cerberus-filename-shape",
+      "claim": "Cerberus price files are named <Prefix><ChainId>-<StoreId>-<yyyyMMddHHmm>.gz, not .xml.gz; Rami Levy chain id is 7290058140886",
+      "source_url": "https://url.publishedprices.co.il/file/json/dir",
+      "raw_snippet": "\"fname\": \"PriceFull7290058140886-708-202608270010.gz\", \"ftime\": \"08/27/2026 00:09\"",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "shufersal-filename-shape",
+      "claim": "Shufersal and Carrefour price files carry an extra SubChainId segment and split date/time: <Prefix><ChainId>-<SubChainId>-<StoreId>-<yyyyMMdd>-<HHmmss>.gz",
+      "source_url": "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0",
+      "raw_snippet": "PriceFull7290027600007-001-001-20260826-030000.gz",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "shufersal-signed-urls",
+      "claim": "Shufersal serves price files as expiring signed Azure Blob URLs listed via FileObject/UpdateCategory, not as stable portal paths",
+      "source_url": "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0",
+      "raw_snippet": "https://pricesprodpublic.blob.core.windows.net/price/",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "shufersal-dialect-fields",
+      "claim": "Shufersal and Carrefour PriceFull items use ManufactureName and PriceUpdateTime, where Cerberus feeds use ManufacturerName and PriceUpdateDate",
+      "source_url": "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0",
+      "raw_snippet": "ManufactureName",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md",
+        "scripts/parse_price_xml.py"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "no-itemnm-field",
+      "claim": "Rami Levy PriceFull uses ItemName for every item; the previously documented ItemNm field does not exist in the feed",
+      "source_url": "https://url.publishedprices.co.il/file/d/PriceFull7290058140886-708-202608270010.gz",
+      "raw_snippet": "ItemName",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "references/chain-feeds.md",
+        "scripts/parse_price_xml.py"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "clubid-dialect-split",
+      "claim": "Club id is a nested integer at Clubs/ClubId on Cerberus feeds but a flat string beginning with the code on Shufersal feeds",
+      "source_url": "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=4&storeId=0",
+      "raw_snippet": "0 - כלל הלקוחות",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "shufersal-promo-nesting",
+      "claim": "In the Shufersal dialect RewardType, MinQty, MaxQty and DiscountRate sit on PromotionItem inside Groups/Group, not on the Promotion element",
+      "source_url": "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=4&storeId=0",
+      "raw_snippet": "<Groups>",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "carrefour-date-path",
+      "claim": "Carrefour inlines its file list in the portal HTML with a yyyyMMdd path; downloads resolve at /<path>/<filename> and a wrong filename returns 404",
+      "source_url": "https://prices.carrefour.co.il/20260827/",
+      "raw_snippet": "{\"name\":\"PriceFull7290055700007-001-416-20260827-000012.gz\",\"size\":946160,\"modified\":\"00:01 27-08-2026\"}",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "superpharm-own-portal",
+      "claim": "Super-Pharm publishes its price files on its own portal rather than through Cerberus",
+      "source_url": "http://prices.super-pharm.co.il/",
+      "raw_snippet": "PriceTransparency",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "goodpharm-binaprojects",
+      "claim": "Good Pharm publishes through the Bina Projects platform rather than through Cerberus",
+      "source_url": "https://goodpharm.binaprojects.com/Main.aspx",
+      "raw_snippet": "חוק המזון",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "hazihinam-own-site",
+      "claim": "Hazi Hinam serves a full price-file table on its own site",
+      "source_url": "https://shop.hazi-hinam.co.il/Prices",
+      "raw_snippet": "קבצי מחירים",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "matrixcatalog-nxdomain",
+      "claim": "The legacy matrixcatalog.co.il host no longer resolves in DNS as of 2026-08-27",
+      "source_url": "https://matrixcatalog.co.il/NBCompetitionRegulations.aspx",
+      "raw_snippet": "Could not resolve host: matrixcatalog.co.il",
+      "fetched_at": "2026-08-26T22:25:43Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:25:43Z"
+    },
+    {
+      "claim_id": "cerberus-download-path",
+      "claim": "Cerberus serves an individual price file from /file/d/<filename> to an authenticated session; the response is gzipped XML",
+      "source_url": "https://url.publishedprices.co.il/file/d/PriceFull7290058140886-708-202608270010.gz",
+      "raw_snippet": "gzip compressed data, was \"PriceFull7290058140886-708-202608270010.xml\"",
+      "fetched_at": "2026-08-26T22:26:11Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:26:11Z"
+    },
+    {
+      "claim_id": "cerberus-file-page-path",
+      "claim": "Cerberus renders the post-login file browser at /file, and that page carries the csrftoken the directory listing requires",
+      "source_url": "https://url.publishedprices.co.il/file",
+      "raw_snippet": "<meta name=\"csrftoken\" content=",
+      "fetched_at": "2026-08-26T22:26:11Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:26:11Z"
+    },
+    {
+      "claim_id": "laibcatalog-unconfirmed",
+      "claim": "laibcatalog.co.il is the Nibit successor targeted by the community scraper for Victory and Mahsani A'Shuk; it resolved in DNS but refused connections from our probe on 2026-08-27, so its state is unconfirmed",
+      "source_url": "https://github.com/OpenIsraeliSupermarkets",
+      "raw_snippet": "scraper for victory new source using laibcatalog.co.il API",
+      "fetched_at": "2026-08-26T22:26:11Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T22:26:11Z"
+    },
+    {
+      "claim_id": "weighted-unit-not-always-kg",
+      "claim": "For weighted items ItemPrice is priced per the declared UnitOfMeasure, which is not always a kilogram: on a live Carrefour PriceFull 174 of 560 weighted items declared '100 גרם'",
+      "source_url": "https://prices.carrefour.co.il/20260827/PriceFull7290055700007-001-416-20260827-000012.gz",
+      "raw_snippet": "<UnitOfMeasure>100 גרם</UnitOfMeasure>",
+      "fetched_at": "2026-08-26T23:03:02Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "scripts/parse_price_xml.py",
+        "references/chain-feeds.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T23:03:02Z"
+    },
+    {
+      "claim_id": "stores-file-utf16",
+      "claim": "Feed files are not reliably UTF-8: a live Carrefour Stores file is UTF-16 little-endian with a BOM and no XML declaration",
+      "source_url": "https://prices.carrefour.co.il/20260827/Stores7290055700007-000-20260827-000100.xml",
+      "raw_snippet": "<StoreName>יינות ביתן טבעון</StoreName>",
+      "fetched_at": "2026-08-26T23:03:02Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md",
+        "references/chain-feeds.md",
+        "scripts/parse_price_xml.py"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T23:03:02Z"
+    },
+    {
+      "claim_id": "item-status-field",
+      "claim": "PriceFull items carry an ItemStatus field that must be checked before treating a row as a live purchasable price",
+      "source_url": "https://url.publishedprices.co.il/file/d/PriceFull7290058140886-708-202608270010.gz",
+      "raw_snippet": "<ItemStatus>1</ItemStatus>",
+      "fetched_at": "2026-08-26T23:03:02Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ],
+      "verified_via": "browser",
+      "verified_at": "2026-08-26T23:03:02Z"
+    },
+    {
+      "claim_id": "price-control-dairy",
+      "claim": "Israel operates statutory price control (פיקוח מחירים) covering controlled dairy products, so capped staples show little cross-chain spread; we could not retrieve a current authoritative product list",
+      "source_url": "https://he.wikipedia.org/wiki/%D7%A4%D7%99%D7%A7%D7%95%D7%97_%D7%9E%D7%97%D7%99%D7%A8%D7%99%D7%9D",
+      "raw_snippet": "הפיקוח על מחירי מוצרי חלב",
+      "fetched_at": "2026-08-26T23:03:02Z",
+      "appears_in": [
+        "SKILL.md",
+        "SKILL_HE.md"
+      ]
+    }
+  ]
+}
