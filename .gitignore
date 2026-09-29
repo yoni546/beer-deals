@@ -25,3 +25,6 @@ supabase/.branches
 
 # Impeccable: the native engine is platform-specific and downloaded by `npx impeccable install`.
 .claude/skills/impeccable/scripts/bin/
+
+# Supermarket feed files fetched for ingestion dry runs (public data, large, re-fetchable)
+.ingest-cache/
