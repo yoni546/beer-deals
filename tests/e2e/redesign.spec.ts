@@ -126,7 +126,8 @@ test("Beer page: every pack is its own strip and a chain's 6×500 price never si
 
   const small = strip(dealsPart(page), "6 × 330 מ״ל · פחית");
   await expect(small).toContainText("₪25.00");
-  await expect(small).toContainText("₪29.90");
+  // Shufersal's ₪29.90 on this pack is a club price: not for everyone, so never shown (0014).
+  await expect(small).not.toContainText("₪29.90");
   await expect(small).not.toContainText("₪40.00");
 
   const mid = strip(dealsPart(page), "6 × 500 מ״ל · פחית");

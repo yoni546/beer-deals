@@ -65,8 +65,8 @@ export const sql = async <T = Record<string, unknown>>(query: string, params: un
 export const NO_IDENTITY_BEER = "בירת בדיקה";
 export async function addBeerWithoutIdentity() {
   await exec(
-    `insert into public.beers (slug, name_he, name_en, theme_base, theme_surface, theme_accent, theme_ink, sort_order, brand_id, category)
-     select 'test-no-identity', '${NO_IDENTITY_BEER}', 'Test beer', '#111111', '#222222', '#cccccc', '#ffffff', 99, brand_id, 'beer'
+    `insert into public.beers (slug, name_he, name_en, theme_base, theme_surface, theme_accent, theme_ink, sort_order, brand_id, variant, category)
+     select 'test-no-identity', '${NO_IDENTITY_BEER}', 'Test beer', '#111111', '#222222', '#cccccc', '#ffffff', 99, brand_id, 'test', 'beer'
        from public.beers where slug = 'goldstar'
      on conflict (slug) do nothing;`,
   );
