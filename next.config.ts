@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  // The dev-server build badge sits over the bottom tab bar on a phone-sized window and eats taps.
+  devIndicators: false,
   // e2e builds go to their own folder so they never fight a running `next dev`.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {

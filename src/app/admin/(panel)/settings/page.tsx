@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminSection } from "@/components/admin/AdminUi";
 import { NotificationSettings } from "@/components/admin/NotificationSettings";
 import { EmptyState } from "@/components/Chrome";
 import { getSettings } from "@/lib/queries";
@@ -13,13 +14,12 @@ export default async function AdminSettingsPage() {
   const settings = await getSettings();
 
   return (
-    <section>
-      <h2 className="mb-3 text-sm font-black opacity-70">מתי שולחים התראה</h2>
+    <AdminSection title="מתי שולחים התראה">
       {settings ? (
         <NotificationSettings settings={settings} />
       ) : (
         <EmptyState>לא נמצאו הגדרות.</EmptyState>
       )}
-    </section>
+    </AdminSection>
   );
 }

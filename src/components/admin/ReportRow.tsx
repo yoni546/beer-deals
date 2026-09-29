@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Notice } from "@/components/Chrome";
 import { resolveReport, setDealStatus } from "@/lib/actions/admin";
 import { CATEGORY_LABEL_ONE } from "@/lib/categories";
 import { formatPrice } from "@/lib/money";
@@ -16,36 +17,34 @@ import type { DealReport } from "@/lib/db/types";
  * removal.
  */
 export function ReportRow({ report }: { report: DealReport }) {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const deal = report.deals;
 
   function run(work: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
       const result = await work();
-      setMessage(result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה."));
+      setMessage({ ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") });
     });
   }
 
-  const button = "rounded-xl px-3 py-2 text-xs font-bold ring-1 ring-white/10 disabled:opacity-40";
-
   return (
-    <article className="rounded-2xl bg-[color:var(--surface)] p-4 ring-1 ring-white/10">
-      <p className="text-xs opacity-55">דווח שהמבצע נגמר</p>
+    <article className="px-4 py-4">
+      <p className="text-sm text-ink-2">דווח שהמבצע נגמר</p>
 
       {deal ? (
-        <p className="mt-1 font-bold">
+        <p className="mt-1 text-base leading-snug font-bold text-ink">
           {deal.beers?.name_he} · {CATEGORY_LABEL_ONE[deal.category]}{" "}
-          <span className="num">{formatPrice(deal.deal_price_agorot)}</span> ·{" "}
+          <span className="num text-price">{formatPrice(deal.deal_price_agorot)}</span> ·{" "}
           {deal.stores?.name_he}
         </p>
       ) : (
-        <p className="mt-1 font-bold opacity-60">המבצע כבר לא קיים</p>
+        <p className="mt-1 text-base font-bold text-ink-2">המבצע כבר לא קיים</p>
       )}
 
-      {report.reason && <p className="mt-1 text-xs opacity-60">{report.reason}</p>}
+      {report.reason && <p className="mt-1 text-sm leading-relaxed text-ink-2">{report.reason}</p>}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-2">
         {deal && deal.status === "approved" && (
           <button
             type="button"
@@ -57,7 +56,7 @@ export function ReportRow({ report }: { report: DealReport }) {
                 return resolveReport(report.id, "resolved");
               })
             }
-            className={`${button} bg-[color:var(--accent)] text-[color:var(--base)]`}
+            className="btn btn-danger py-2"
           >
             להסיר את המבצע
           </button>
@@ -66,13 +65,17 @@ export function ReportRow({ report }: { report: DealReport }) {
           type="button"
           disabled={pending}
           onClick={() => run(() => resolveReport(report.id, "dismissed"))}
-          className={button}
+          className="btn btn-quiet py-2 text-center"
         >
           המבצע עדיין תקף — סגירת הדיווח
         </button>
       </div>
 
-      {message && <p className="mt-2 text-xs opacity-70">{message}</p>}
+      {message && (
+        <div className="mt-3">
+          <Notice tone={message.ok ? "info" : "error"}>{message.text}</Notice>
+        </div>
+      )}
     </article>
   );
 }

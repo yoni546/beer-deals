@@ -6,11 +6,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
 
 const preferences = z.object({
-  firstName: z
-    .string()
-    .trim()
-    .min(1, "איך קוראים לכם?")
-    .max(40, "השם ארוך מדי."),
+  // Optional: an empty name is stored as "no name yet" (save_preferences does the nullif).
+  firstName: z.string().trim().max(40, "השם ארוך מדי."),
   beerIds: z
     .array(z.uuid())
     .length(4, "בחרו בדיוק ארבע בירות, לפי הסדר.")
@@ -28,7 +25,7 @@ const preferences = z.object({
  */
 async function persistPreferences(formData: FormData): Promise<ActionResult> {
   const parsed = preferences.safeParse({
-    firstName: formData.get("firstName"),
+    firstName: String(formData.get("firstName") ?? ""),
     beerIds: String(formData.get("beerIds") ?? "").split(",").filter(Boolean),
   });
 

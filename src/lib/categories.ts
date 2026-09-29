@@ -16,12 +16,6 @@ export const CATEGORY_LABEL_ONE: Record<DealCategory, string> = {
   single: "בודד",
 };
 
-export const CATEGORY_EMOJI: Record<DealCategory, string> = {
-  sixpack: "🍻",
-  case: "📦",
-  single: "🍺",
-};
-
 /**
  * Prices are never compared across categories, so an unrecognised category
  * falls back to a fixed default rather than to "all" — a mixed list would

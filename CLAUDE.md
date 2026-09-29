@@ -74,10 +74,14 @@ update in full, earlier ones collapsed. That screen is fed only by `releases.jso
 
 ## Design
 
-- Use semantic tokens and shared components (see the design system once it lands:
-  `DESIGN.md`, `src/design/`); no ad-hoc hex values, no emoji as icons.
+- Use semantic tokens and shared components (the design system: `DESIGN.md`,
+  `src/design/`, `src/components/ui/`); no ad-hoc hex values, no emoji as icons.
+  Before a UI pull request run `./.claude/skills/impeccable/scripts/impeccable detect --json src`
+  (it must print `[]`).
 - Themes are data presets, not forked components or per-beer stylesheets.
-- Every route has designed loading, empty and error states. Touch targets ≥ 44px; text ≥
+- Every route has designed empty and error states; loading is the top progress bar
+  (`NavigationProgress`). **Do not add `loading.tsx`**: it stalls client-side navigation in
+  production builds (`docs/LESSONS.md`, enforced by a test). Touch targets ≥ 44px; text ≥
   12px; contrast ≥ 4.5:1 (3:1 large).
 
 ## Data ingestion (later phase)

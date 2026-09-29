@@ -1,3 +1,4 @@
+import { AdminList, AdminSection } from "@/components/admin/AdminUi";
 import { AdminDealRow } from "@/components/admin/DealActions";
 import { EmptyState } from "@/components/Chrome";
 import { getDealsByStatus } from "@/lib/admin-queries";
@@ -40,18 +41,18 @@ export default async function AdminWeeklyPage() {
     ranked.length > 0 && isPreferredAndStrong(ranked[0]?.beers?.slug, ranked[0]?.discount_percent);
 
   return (
-    <section>
-      <h2 className="mb-1 text-sm font-black opacity-70">🏆 מבצע השבוע</h2>
-      <p className="mb-3 text-xs opacity-50">
-        {hasPreferredCandidate && preferredName
+    <AdminSection
+      title="מבצע השבוע"
+      note={
+        hasPreferredCandidate && preferredName
           ? `יש מבצע חזק על ${preferredName} (${minDiscount}% ומעלה) — הוא מוצג ראשון, אבל הבחירה שלכם.`
-          : "המבצעים מסודרים לפי גובה ההנחה. הבחירה ידנית."}
-      </p>
-
+          : "המבצעים מסודרים לפי גובה ההנחה. הבחירה ידנית."
+      }
+    >
       {ranked.length === 0 ? (
         <EmptyState>אין מבצעים מאושרים לבחירה.</EmptyState>
       ) : (
-        <div className="space-y-2.5">
+        <AdminList>
           {ranked.map((deal) => (
             <AdminDealRow
               key={deal.id}
@@ -62,8 +63,8 @@ export default async function AdminWeeklyPage() {
               isWeekly={settings?.weekly_deal_id === deal.id}
             />
           ))}
-        </div>
+        </AdminList>
       )}
-    </section>
+    </AdminSection>
   );
 }

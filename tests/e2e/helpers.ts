@@ -31,6 +31,29 @@ export async function seedCatalog() {
   await exec(["set app.allow_demo_seed = 'yes';", readFileSync(file, "utf8")].join(String.fromCharCode(10)));
 }
 
+/**
+ * The dev catalogue as a production-mode server sees REAL data: every price re-attributed to
+ * the 'admin' source, exactly as an administrator's or a chain feed's would be. Beers listed in
+ * `sample` keep the 'sample-data' source, so specs can prove that invented prices stay hidden.
+ */
+export async function seedRealCatalog(options: { sample?: string[] } = {}) {
+  await seedCatalog();
+  const sampleBeers = (options.sample ?? []).map((slug) => `'${slug.replace(/[^a-z0-9-]/g, "")}'`).join(", ") || "''";
+  // The ledger is append-only (that is the point of it), so a test that wants different
+  // provenance switches the guard off for one statement, on a throw-away database.
+  await exec(
+    `alter table public.price_observations disable trigger user;
+     update public.price_observations o
+        set source_id = (select id from public.sources where slug = 'admin'),
+            -- the seed labels its promotions as samples; real ones would not carry that note
+            conditions = o.conditions - 'note_he'
+      where o.sku_id not in (
+        select k.id from public.skus k join public.beers b on b.id = k.beer_id where b.slug in (${sampleBeers})
+      );
+     alter table public.price_observations enable trigger user;`,
+  );
+}
+
 export const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>
   ((await post("/__test/sql", { sql: query, params })) as { rows: T[] }).rows;
 

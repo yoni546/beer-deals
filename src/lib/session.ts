@@ -44,7 +44,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   const [profileResult, favoritesResult, adminResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, first_name, primary_beer_id, notifications_enabled, onboarded_at")
+      .select("id, first_name, primary_beer_id, notifications_enabled, onboarded_at, theme_override, appearance")
       .eq("id", user.id)
       .maybeSingle(),
     supabase

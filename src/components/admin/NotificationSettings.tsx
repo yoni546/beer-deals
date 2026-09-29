@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { Notice } from "@/components/Chrome";
+import { Tape } from "@/components/ui/Tape";
 import { updateNotificationSettings } from "@/lib/actions/admin";
 import { IDLE } from "@/lib/actions/result";
 import { formatAgorot } from "@/lib/money";
@@ -16,68 +18,65 @@ import type { AppSettings } from "@/lib/db/types";
 export function NotificationSettings({ settings }: { settings: AppSettings }) {
   const [state, submit, pending] = useActionState(updateNotificationSettings, IDLE);
 
-  const field = "w-full rounded-2xl bg-[color:var(--surface)] px-4 py-3 text-sm ring-1 ring-white/10 outline-none";
+  const field = "field num text-right";
+  const label = "mb-1.5 block text-base font-bold text-ink";
 
   return (
-    <form action={submit} className="space-y-4">
-      <div>
-        <label htmlFor="minDiscount" className="mb-1 block text-sm font-bold">
-          הנחה מינימלית להתראה (%)
-        </label>
-        <input
-          id="minDiscount"
-          name="minDiscount"
-          type="number"
-          min={0}
-          max={100}
-          defaultValue={settings.notify_min_discount_percent}
-          className={`${field} num`}
-        />
-      </div>
+    <Tape className="px-5 py-6">
+      <form action={submit} className="space-y-5">
+        <div>
+          <label htmlFor="minDiscount" className={label}>
+            הנחה מינימלית להתראה (%)
+          </label>
+          <input
+            id="minDiscount"
+            name="minDiscount"
+            type="number"
+            min={0}
+            max={100}
+            defaultValue={settings.notify_min_discount_percent}
+            className={field}
+          />
+        </div>
 
-      <div>
-        <label htmlFor="maxPrice" className="mb-1 block text-sm font-bold">
-          מחיר מקסימלי להתראה (₪)
-        </label>
-        <input
-          id="maxPrice"
-          name="maxPrice"
-          inputMode="decimal"
-          defaultValue={formatAgorot(settings.notify_max_price_agorot)}
-          className={`${field} num`}
-        />
-      </div>
+        <div>
+          <label htmlFor="maxPrice" className={label}>
+            מחיר מקסימלי להתראה (₪)
+          </label>
+          <input
+            id="maxPrice"
+            name="maxPrice"
+            inputMode="decimal"
+            defaultValue={formatAgorot(settings.notify_max_price_agorot)}
+            className={field}
+          />
+        </div>
 
-      <div>
-        <label htmlFor="cooldownHours" className="mb-1 block text-sm font-bold">
-          מרווח מינימלי בין התראות לאותו משתמש (שעות)
-        </label>
-        <input
-          id="cooldownHours"
-          name="cooldownHours"
-          type="number"
-          min={0}
-          defaultValue={settings.notify_cooldown_hours}
-          className={`${field} num`}
-        />
-      </div>
+        <div>
+          <label htmlFor="cooldownHours" className={label}>
+            מרווח מינימלי בין התראות לאותו משתמש (שעות)
+          </label>
+          <input
+            id="cooldownHours"
+            name="cooldownHours"
+            type="number"
+            min={0}
+            defaultValue={settings.notify_cooldown_hours}
+            className={field}
+          />
+        </div>
 
-      <p className="text-xs opacity-50">
-        התראה נשלחת רק אם המבצע עומד בשני התנאים, ורק למי שזו הבירה הראשית שלו.
-      </p>
+        <p className="text-sm leading-relaxed text-ink-2">
+          התראה נשלחת רק אם המבצע עומד בשני התנאים, ורק למי שזו הבירה הראשית שלו.
+        </p>
 
-      {!state.ok && <p className="text-sm text-red-300">{state.error}</p>}
-      {state.ok && state.message && (
-        <p className="text-sm text-[color:var(--accent)]">{state.message}</p>
-      )}
+        {!state.ok && <Notice>{state.error}</Notice>}
+        {state.ok && state.message && <Notice tone="info">{state.message}</Notice>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-sm font-bold text-[color:var(--base)] disabled:opacity-40"
-      >
-        {pending ? "שומרים…" : "שמירה"}
-      </button>
-    </form>
+        <button type="submit" disabled={pending} className="btn w-full">
+          {pending ? "שומרים…" : "שמירה"}
+        </button>
+      </form>
+    </Tape>
   );
 }

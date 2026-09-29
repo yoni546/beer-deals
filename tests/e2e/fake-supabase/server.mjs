@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { handleRest, httpError, loadSchema, runExclusive } from "./postgrest.mjs";
+import { handleRest, loadSchema, runExclusive } from "./postgrest.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 export const ANON_KEY = "fake-anon-key";

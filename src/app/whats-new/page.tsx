@@ -1,5 +1,7 @@
 import { Screen, TopBar } from "@/components/Chrome";
 import { MarkReleaseSeen } from "@/components/MarkReleaseSeen";
+import { ChevronDownIcon } from "@/components/ui/icons";
+import { Tape } from "@/components/ui/Tape";
 import { visibleReleases, type Release } from "@/lib/releases";
 
 export const metadata = { title: "מה חדש" };
@@ -12,10 +14,10 @@ function ReleaseDate({ date }: { date: string }) {
 
 function Bullets({ release }: { release: Release }) {
   return (
-    <ul className="space-y-2 text-sm leading-relaxed">
+    <ul className="space-y-2.5 text-base leading-relaxed text-ink">
       {release.highlights_he.map((line) => (
-        <li key={line} className="flex gap-2">
-          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--accent)]" />
+        <li key={line} className="flex gap-3">
+          <span aria-hidden className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-deal" />
           <span>{line}</span>
         </li>
       ))}
@@ -38,43 +40,51 @@ export default function WhatsNewPage() {
         <>
           <MarkReleaseSeen version={latest.version} />
 
-          <section aria-labelledby="latest-title" className="rounded-2xl bg-[color:var(--surface)] p-5 ring-1 ring-white/10">
-            <p className="text-xs opacity-60">
+          <Tape className="px-5 py-6" aria-labelledby="latest-title" printIn>
+            <p className="text-sm text-ink-2">
               גרסה <span className="num">{latest.version}</span> · <ReleaseDate date={latest.date} />
             </p>
-            <h2 id="latest-title" className="mt-1 mb-4 text-lg font-black">
+            <h2 id="latest-title" className="mt-1 text-xl font-bold text-ink">
               {latest.title_he}
             </h2>
+            <div aria-hidden className="tear my-4" />
             <Bullets release={latest} />
-          </section>
+          </Tape>
 
           {earlier.length > 0 && (
             <section className="mt-8" aria-labelledby="earlier-title">
-              <h2 id="earlier-title" className="mb-3 text-sm font-black opacity-70">
+              <h2 id="earlier-title" className="mb-2 text-sm font-semibold text-on-ground-2">
                 עדכונים קודמים
               </h2>
-              <div className="space-y-2">
-                {earlier.map((release) => (
-                  <details key={release.version} className="rounded-2xl bg-[color:var(--surface)] ring-1 ring-white/10">
-                    <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-bold">
-                      <span>{release.title_he}</span>
-                      <span className="shrink-0 text-xs font-normal opacity-60">
-                        <span className="num">{release.version}</span> · <ReleaseDate date={release.date} />
-                      </span>
-                    </summary>
-                    <div className="px-4 pb-4">
-                      <Bullets release={release} />
-                    </div>
-                  </details>
-                ))}
-              </div>
+              <Tape as="div">
+                <div className="divide-y divide-dotted divide-paper-line">
+                  {earlier.map((release) => (
+                    <details key={release.version} className="group">
+                      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:hidden [&::-webkit-details-marker]:hidden">
+                        <span className="text-base font-bold text-ink">{release.title_he}</span>
+                        <span className="flex shrink-0 items-center gap-2 text-sm text-ink-2">
+                          <span>
+                            <span className="num">{release.version}</span> · <ReleaseDate date={release.date} />
+                          </span>
+                          <span aria-hidden className="transition-transform group-open:rotate-180">
+                            <ChevronDownIcon size={18} />
+                          </span>
+                        </span>
+                      </summary>
+                      <div className="px-4 pb-4">
+                        <Bullets release={release} />
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </Tape>
             </section>
           )}
         </>
       ) : (
-        <p className="rounded-2xl bg-[color:var(--surface)]/60 px-4 py-8 text-center text-sm opacity-55">
-          עוד אין עדכונים להציג.
-        </p>
+        <Tape className="px-5 py-8 text-center">
+          <p className="text-base font-bold text-ink">עוד אין עדכונים להציג</p>
+        </Tape>
       )}
     </Screen>
   );

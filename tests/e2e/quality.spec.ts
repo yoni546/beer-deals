@@ -1,0 +1,127 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { onboard, resetDb, seedRealCatalog, sql } from "./helpers";
+
+/**
+ * The quality floor for every screen, checked in a real browser at both phone widths:
+ *   - nothing scrolls sideways,
+ *   - every control is at least 44 × 44 CSS px,
+ *   - no text is smaller than 12px,
+ *   - axe finds no WCAG 2.x A/AA violation (contrast, names, roles, labels…), in light and
+ *     dark, and in several of the beer themes.
+ * (Contrast is also proven exhaustively, for every theme, in tests/design.test.ts.)
+ */
+const SCREENS = [
+  "/",
+  "/beer",
+  "/store",
+  "/beer/goldstar",
+  "/beer/goldstar?view=regular",
+  "/store/rami-levy",
+  "/store/rami-levy?mine=1",
+  "/settings",
+  "/submit",
+  "/whats-new",
+];
+
+test.beforeAll(async () => {
+  await resetDb();
+  await seedRealCatalog();
+});
+
+type Finding = string;
+
+/** Runs in the page. Returns human-readable descriptions of everything that breaks the floor. */
+async function floorViolations(page: Page): Promise<Finding[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const describe = (el: Element, why: string) => {
+      const r = el.getBoundingClientRect();
+      const text = (el.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+      return `${why}: <${el.tagName.toLowerCase()}> "${text}" ${Math.round(r.width)}×${Math.round(r.height)}`;
+    };
+    const visible = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 || r.height <= 1) return false; // sr-only and collapsed
+      const style = getComputedStyle(el);
+      return style.visibility !== "hidden" && style.display !== "none";
+    };
+
+    if (document.documentElement.scrollWidth > window.innerWidth + 1) {
+      out.push(`sideways scroll: page is ${document.documentElement.scrollWidth}px wide in a ${window.innerWidth}px window`);
+    }
+
+    const controls = document.querySelectorAll(
+      "a[href], button, summary, select, textarea, [role=button], input:not([type=hidden]):not([type=radio]):not([type=checkbox])",
+    );
+    for (const el of controls) {
+      if (!visible(el)) continue;
+      if (el.closest("nextjs-portal, [data-nextjs-toast]")) continue; // the dev-server overlay is not ours
+      if (el.closest("details:not([open])") && el.tagName !== "SUMMARY") continue;
+      const r = el.getBoundingClientRect();
+      if (r.height < 43.5 || r.width < 43.5) out.push(describe(el, "touch target under 44px"));
+    }
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const seen = new Set<Element>();
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement;
+      if (!el || seen.has(el) || !(node.textContent ?? "").trim() || !visible(el)) continue;
+      seen.add(el);
+      if (el.closest("nextjs-portal, script, style")) continue;
+      const size = parseFloat(getComputedStyle(el).fontSize);
+      if (size < 11.99) out.push(describe(el, `text at ${size}px`));
+    }
+    return out;
+  });
+}
+
+test("no screen scrolls sideways, every control is a real touch target, no text is under 12px", async ({ page }) => {
+  await onboard(page);
+  for (const route of SCREENS) {
+    await page.goto(route);
+    await page.waitForLoadState("networkidle");
+    expect(await floorViolations(page), route).toEqual([]);
+  }
+});
+
+test("the unread dot and the details toggles are still touch targets when they are open", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/beer/goldstar");
+  for (const summary of await page.locator("article summary").all()) await summary.click();
+  expect(await floorViolations(page)).toEqual([]);
+});
+
+async function axe(page: Page, route: string, label: string) {
+  await page.goto(route);
+  await page.waitForLoadState("networkidle");
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  const brief = results.violations.map((v) => `${v.id} (${v.nodes.length}): ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`);
+  expect(brief, `${label} ${route}`).toEqual([]);
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`axe: no WCAG A/AA violations on any screen (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await onboard(page);
+    for (const route of SCREENS) await axe(page, route, scheme);
+  });
+}
+
+// One beer from each look the theme generator produces, plus the neutral house look.
+for (const theme of ["house", "heineken", "stella", "guinness", "tuborg-red"]) {
+  test(`axe: contrast holds in the ${theme} theme, light and dark`, async ({ page }) => {
+    await onboard(page);
+    await sql("update public.profiles set theme_override = $1", [theme]);
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const route of ["/", "/beer/goldstar", "/settings"]) {
+        await page.goto(route);
+        await expect(page.locator("body")).toHaveAttribute("data-theme", theme);
+        const results = await new AxeBuilder({ page }).withRules(["color-contrast"]).analyze();
+        const brief = results.violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.any[0]?.message ?? ""}`));
+        expect(brief, `${theme}/${scheme} ${route}`).toEqual([]);
+      }
+    }
+  });
+}

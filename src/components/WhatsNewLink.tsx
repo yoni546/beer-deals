@@ -38,10 +38,10 @@ export function WhatsNewLink({
   return (
     <Link
       href="/whats-new"
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium opacity-75 hover:opacity-100 focus-visible:opacity-100 ${className}`}
+      className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold underline underline-offset-4 ${className}`}
     >
       {unseen && (
-        <span aria-hidden className="h-2 w-2 rounded-full bg-[color:var(--accent)]" data-testid="whats-new-dot" />
+        <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-deal" data-testid="whats-new-dot" />
       )}
       מה חדש
       {unseen && <span className="sr-only"> — יש עדכון חדש</span>}

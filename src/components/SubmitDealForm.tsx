@@ -1,10 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Notice } from "@/components/Chrome";
+import { CameraIcon, CheckIcon } from "@/components/ui/icons";
+import { Saving } from "@/components/ui/Price";
+import { Tape } from "@/components/ui/Tape";
 import { submitDeal } from "@/lib/actions/deals";
 import { IDLE } from "@/lib/actions/result";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { CATEGORY_EMOJI, CATEGORY_LABEL, DEAL_CATEGORIES } from "@/lib/categories";
+import { CATEGORY_LABEL, DEAL_CATEGORIES } from "@/lib/categories";
 import { discountPercent, shekelsToAgorot } from "@/lib/money";
 import type { Beer, Store } from "@/lib/db/types";
 
@@ -50,10 +54,12 @@ export function SubmitDealForm({
     const path = `${userId}/${crypto.randomUUID()}.${extension}`;
 
     const supabase = supabaseBrowser();
-    const { error } = await supabase.storage.from("deal-images").upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+    const { error } = await supabase.storage
+      .from("deal-images")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
     if (error) {
       setUploadError("לא הצלחנו להעלות את התמונה. אפשר לשלוח גם בלעדיה.");
@@ -68,165 +74,202 @@ export function SubmitDealForm({
 
   if (state.ok && state.message) {
     return (
-      <div className="rounded-2xl bg-[color:var(--surface)] p-6 text-center ring-1 ring-white/10">
-        <p className="text-3xl">🍺</p>
-        <p className="mt-2 font-bold">{state.message}</p>
-        <p className="mt-1 text-sm opacity-60">
-          מבצע חדש לא מתפרסם אוטומטית — מישהו מאיתנו בודק אותו קודם.
+      <Tape className="px-5 py-8 text-center">
+        <span
+          aria-hidden
+          className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-deal text-on-deal"
+        >
+          <CheckIcon size={22} />
+        </span>
+        <p className="mt-3 text-lg font-bold text-ink">{state.message}</p>
+        <p className="mt-1 text-sm leading-relaxed text-ink-2">
+          מבצע חדש לא מתפרסם אוטומטית. מישהו מאיתנו בודק אותו קודם.
         </p>
-      </div>
+      </Tape>
     );
   }
 
-  const field =
-    "w-full rounded-2xl bg-[color:var(--surface)] px-4 py-3.5 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-[color:var(--accent)]";
+  const field = "field";
+  const label = "mb-1.5 block text-base font-bold text-ink";
 
   return (
-    <form action={submit} className="space-y-4">
-      <div>
-        <label htmlFor="beerId" className="mb-1.5 block text-sm font-bold">
-          איזו בירה?
-        </label>
-        <select id="beerId" name="beerId" required defaultValue="" className={field}>
-          <option value="" disabled>
-            בחרו בירה
-          </option>
-          {beers.map((beer) => (
-            <option key={beer.id} value={beer.id}>
-              {beer.name_he}
+    <form action={submit}>
+      <Tape className="space-y-5 px-5 py-6">
+        <div>
+          <label htmlFor="beerId" className={label}>
+            איזו בירה?
+          </label>
+          <select
+            id="beerId"
+            name="beerId"
+            required
+            defaultValue=""
+            className={field}
+          >
+            <option value="" disabled>
+              בחרו בירה
             </option>
-          ))}
-        </select>
-      </div>
+            {beers.map((beer) => (
+              <option key={beer.id} value={beer.id}>
+                {beer.name_he}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <fieldset>
-        <legend className="mb-1.5 text-sm font-bold">איזה מארז?</legend>
-        <div className="flex gap-1.5">
-          {DEAL_CATEGORIES.map((category, index) => (
-            <label
-              key={category}
-              className="flex-1 cursor-pointer rounded-2xl bg-[color:var(--surface)] px-2 py-3 text-center text-sm font-bold ring-1 ring-white/10 has-checked:bg-[color:var(--accent)] has-checked:text-[color:var(--base)]"
-            >
-              <input
-                type="radio"
-                name="category"
-                value={category}
-                defaultChecked={index === 0}
-                className="sr-only"
-              />
-              <span aria-hidden className="ml-1">
-                {CATEGORY_EMOJI[category]}
-              </span>
-              {CATEGORY_LABEL[category]}
+        <fieldset>
+          <legend className={label}>איזה מארז?</legend>
+          <div className="flex gap-2">
+            {DEAL_CATEGORIES.map((category, index) => (
+              <label
+                key={category}
+                className="group flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-paper-line px-2 py-3 text-center text-sm font-semibold text-ink has-checked:border-ink has-checked:bg-ink has-checked:text-paper has-focus-visible:outline-3 has-focus-visible:outline-focus"
+              >
+                <input
+                  type="radio"
+                  name="category"
+                  value={category}
+                  defaultChecked={index === 0}
+                  className="sr-only"
+                />
+                <span aria-hidden className="hidden group-has-checked:inline">
+                  <CheckIcon size={16} />
+                </span>
+                {CATEGORY_LABEL[category]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label htmlFor="dealPrice" className={label}>
+              מחיר במבצע ₪
             </label>
-          ))}
+            <input
+              id="dealPrice"
+              name="dealPrice"
+              required
+              inputMode="decimal"
+              placeholder="24.90"
+              value={dealPrice}
+              onChange={(event) => setDealPrice(event.target.value)}
+              className={`${field} num text-right`}
+            />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="regularPrice" className={label}>
+              מחיר רגיל ₪
+            </label>
+            <input
+              id="regularPrice"
+              name="regularPrice"
+              required
+              inputMode="decimal"
+              placeholder="39.90"
+              value={regularPrice}
+              onChange={(event) => setRegularPrice(event.target.value)}
+              className={`${field} num text-right`}
+            />
+          </div>
         </div>
-      </fieldset>
 
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label htmlFor="dealPrice" className="mb-1.5 block text-sm font-bold">
-            מחיר במבצע ₪
+        {preview !== null && (
+          <p className="rounded-xl bg-paper-2 px-4 py-3 text-center text-sm text-ink">
+            <Saving
+              pct={preview}
+              className="me-1 rounded-md bg-deal px-2 py-1 font-bold text-on-deal"
+            />{" "}
+            הנחה. מחושב אוטומטית
+          </p>
+        )}
+
+        <div>
+          <label htmlFor="storeId" className={label}>
+            איפה?
           </label>
-          <input
-            id="dealPrice"
-            name="dealPrice"
+          <select
+            id="storeId"
+            name="storeId"
             required
-            inputMode="decimal"
-            placeholder="24.90"
-            value={dealPrice}
-            onChange={(event) => setDealPrice(event.target.value)}
-            className={`${field} num text-right`}
-          />
-        </div>
-        <div className="flex-1">
-          <label htmlFor="regularPrice" className="mb-1.5 block text-sm font-bold">
-            מחיר רגיל ₪
-          </label>
-          <input
-            id="regularPrice"
-            name="regularPrice"
-            required
-            inputMode="decimal"
-            placeholder="39.90"
-            value={regularPrice}
-            onChange={(event) => setRegularPrice(event.target.value)}
-            className={`${field} num text-right`}
-          />
-        </div>
-      </div>
-
-      {preview !== null && (
-        <p className="text-center text-sm font-bold text-[color:var(--accent)]">
-          <span className="num">{preview}%-</span> הנחה — מחושב אוטומטית
-        </p>
-      )}
-
-      <div>
-        <label htmlFor="storeId" className="mb-1.5 block text-sm font-bold">
-          איפה?
-        </label>
-        <select id="storeId" name="storeId" required defaultValue="" className={field}>
-          <option value="" disabled>
-            בחרו סופר / מכולת
-          </option>
-          {stores.map((store) => (
-            <option key={store.id} value={store.id}>
-              {store.name_he}
+            defaultValue=""
+            className={field}
+          >
+            <option value="" disabled>
+              בחרו סופר / מכולת
             </option>
-          ))}
-        </select>
-      </div>
+            {stores.map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name_he}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label htmlFor="notes" className="mb-1.5 block text-sm font-bold">
-          משהו להוסיף? <span className="font-normal opacity-50">(רשות)</span>
-        </label>
-        <input
-          id="notes"
-          name="notes"
-          maxLength={280}
-          placeholder="עד יום שישי, במועדון הלקוחות…"
-          className={field}
-        />
-      </div>
+        <div>
+          <label htmlFor="notes" className={label}>
+            משהו להוסיף? <span className="font-normal text-ink-2">(רשות)</span>
+          </label>
+          <input
+            id="notes"
+            name="notes"
+            maxLength={280}
+            placeholder="עד יום שישי, במועדון הלקוחות…"
+            className={field}
+          />
+        </div>
 
-      <div>
-        <label htmlFor="image" className="mb-1.5 block text-sm font-bold">
-          תמונה של המדבקה <span className="font-normal opacity-50">(רשות)</span>
-        </label>
-        <input
-          id="image"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          disabled={!userId || uploading}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void upload(file);
-          }}
-          className="w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-[color:var(--surface)] file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-[color:var(--ink)]"
-        />
-        {uploading && <p className="mt-1 text-xs opacity-60">מעלים…</p>}
-        {imageUrl && <p className="mt-1 text-xs opacity-60">התמונה נשמרה ✓</p>}
-        {uploadError && <p className="mt-1 text-xs text-red-300">{uploadError}</p>}
-      </div>
+        <div>
+          <label htmlFor="image" className={label}>
+            תמונה של המדבקה{" "}
+            <span className="font-normal text-ink-2">(רשות)</span>
+          </label>
+          {/* The browser's own file control speaks the browser's language ("Choose File"), so the
+              real input is visually hidden and this label is the button. It stays keyboard-focusable. */}
+          <input
+            id="image"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={!userId || uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void upload(file);
+            }}
+            className="peer sr-only"
+          />
+          <label
+            htmlFor="image"
+            className="btn btn-quiet cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-50 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus"
+          >
+            <CameraIcon size={20} />
+            {imageUrl ? "החלפת תמונה" : "צילום או בחירת תמונה"}
+          </label>
+          {uploading && <p className="mt-1 text-sm text-ink-2">מעלים…</p>}
+          {imageUrl && <p className="mt-1 text-sm text-ink-2">התמונה נשמרה.</p>}
+          {uploadError && (
+            <div className="mt-2">
+              <Notice>{uploadError}</Notice>
+            </div>
+          )}
+        </div>
 
-      <input type="hidden" name="imageUrl" value={imageUrl} />
+        <input type="hidden" name="imageUrl" value={imageUrl} />
 
-      {!state.ok && <p className="text-sm text-red-300">{state.error}</p>}
+        {!state.ok && <Notice>{state.error}</Notice>}
 
-      <button
-        type="submit"
-        disabled={pending || uploading}
-        className="w-full rounded-2xl bg-[color:var(--accent)] px-4 py-4 font-black text-[color:var(--base)] disabled:opacity-40"
-      >
-        {pending ? "שולחים…" : "שליחה לאישור"}
-      </button>
+        <button
+          type="submit"
+          disabled={pending || uploading}
+          className="btn w-full"
+        >
+          {pending ? "שולחים…" : "שליחה לאישור"}
+        </button>
 
-      <p className="text-center text-xs opacity-50">
-        המבצע לא מתפרסם אוטומטית. הוא עובר בדיקה קודם.
-      </p>
+        <p className="text-center text-sm text-ink-2">
+          המבצע לא מתפרסם אוטומטית. הוא עובר בדיקה קודם.
+        </p>
+      </Tape>
     </form>
   );
 }

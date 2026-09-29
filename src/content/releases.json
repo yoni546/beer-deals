@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-09-29",
+    "title_he": "מראה חדש ומסכים חדשים",
+    "highlights_he": [
+      "עיצוב חדש מהיסוד: כל מבצע הוא שורה על רצועת קבלה, עם שם, מחיר גדול ואחוז הנחה שנבדק.",
+      "סרגל ניווט תחתון: מבצעים, בירות, סופרים והגדרות, תמיד במרחק לחיצה.",
+      "האפליקציה לובשת את הצבעים של הבירה הראשית שלכם. בהגדרות אפשר לבחור מראה אחר, ובהיר או כהה.",
+      "דף בירה עם מבצעים ומחירים רגילים בנפרד, לכל אריזה בנפרד, ודף סופר עם \"הבירות שלי\".",
+      "מיון לפי משתלם, מחיר או מחיר לליטר, וסינון לפי סוג אריזה. אפשר גם לסדר מחדש את ארבע הבירות."
+    ],
+    "kind": [
+      "feature",
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Design system \"The Tape\" (DESIGN.md, PRODUCT.md, src/design/{color,themes}.ts): OKLCH theme generator with guaranteed contrast and enforced distinctness, 22 beer themes + house look, per-request stylesheet injection, profiles.theme_override/appearance (migration 0011).",
+      "All public screens rebuilt on offers_feed / regular_prices_feed; new pure logic in src/lib/{offer-logic,format,search,urls}.ts (Hebrew-aware search, pack grouping, verified-saving ranking, URL-carried sort/filter state).",
+      "Admin area restyled onto the same tokens (no behaviour change). Legacy DealCard/Picker/CategoryTabs/PreferencesEditor and the legacy deal queries removed.",
+      "Quality gates in CI: Playwright at 390x844 and 430x932 checks touch targets >= 44px, text >= 12px, no sideways scroll, and axe WCAG A/AA in light, dark and five themes."
+    ]
+  },
+  {
     "version": "0.3.1",
     "date": "2026-09-29",
     "title_he": "הכנה לסביבת בדיקות נפרדת",

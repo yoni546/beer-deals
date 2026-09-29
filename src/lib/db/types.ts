@@ -30,6 +30,9 @@ export type Profile = {
   primary_beer_id: string | null;
   notifications_enabled: boolean;
   onboarded_at: string | null;
+  /** A theme slug the person chose in Settings; null = follow favourite #1. */
+  theme_override: string | null;
+  appearance: "system" | "light" | "dark";
 };
 
 /** A row of public.deals_public — an approved deal with its beer and store. */
@@ -157,4 +160,26 @@ export type Offer = {
   observed_at: string | null;
   is_sample: boolean;
   notes: string | null;
+};
+
+/** One row of `regular_prices_feed`: the latest regular (non-promotional) price of a pack at a chain. */
+export type RegularPrice = {
+  observation_id: number;
+  sku_id: string;
+  beer_id: string;
+  beer_slug: string;
+  beer_name: string;
+  container: ContainerType;
+  volume_ml: number;
+  pack_quantity: number;
+  pack_label: string;
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  price_agorot: number;
+  unit_price_per_liter_agorot: number;
+  observed_at: string;
+  is_sample: boolean;
+  trust: ReferenceTrust;
+  is_stale: boolean;
 };

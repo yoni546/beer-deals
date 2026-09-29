@@ -1,4 +1,5 @@
 import { AdminDealRow } from "@/components/admin/DealActions";
+import { AdminList, AdminSection } from "@/components/admin/AdminUi";
 import { EmptyState } from "@/components/Chrome";
 import { getDealsByStatus } from "@/lib/admin-queries";
 import { getBeers, getStores } from "@/lib/queries";
@@ -17,34 +18,41 @@ export default async function AdminQueuePage() {
   ]);
 
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="mb-3 text-sm font-black opacity-70">
-          ממתינים לאישור {pending.length > 0 && `(${pending.length})`}
-        </h2>
+    <div className="space-y-10">
+      <AdminSection
+        title={
+          <>
+            ממתינים לאישור{" "}
+            {pending.length > 0 && (
+              <>
+                (<span className="num">{pending.length}</span>)
+              </>
+            )}
+          </>
+        }
+      >
         {pending.length === 0 ? (
           <EmptyState>אין מבצעים שממתינים לאישור.</EmptyState>
         ) : (
-          <div className="space-y-2.5">
+          <AdminList>
             {pending.map((deal) => (
               <AdminDealRow key={deal.id} deal={deal} beers={beers} stores={stores} />
             ))}
-          </div>
+          </AdminList>
         )}
-      </section>
+      </AdminSection>
 
-      <section>
-        <h2 className="mb-3 text-sm font-black opacity-70">מבצעים מאושרים</h2>
+      <AdminSection title="מבצעים מאושרים">
         {approved.length === 0 ? (
           <EmptyState>אין מבצעים מאושרים כרגע.</EmptyState>
         ) : (
-          <div className="space-y-2.5">
+          <AdminList>
             {approved.map((deal) => (
               <AdminDealRow key={deal.id} deal={deal} beers={beers} stores={stores} canFeature />
             ))}
-          </div>
+          </AdminList>
         )}
-      </section>
+      </AdminSection>
     </div>
   );
 }

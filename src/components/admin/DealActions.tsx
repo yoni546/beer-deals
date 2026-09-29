@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Notice } from "@/components/Chrome";
+import { SparkIcon } from "@/components/ui/icons";
+import { Price, Saving } from "@/components/ui/Price";
 import { approveDeal, setDealStatus, setWeeklyDeal, updateDeal } from "@/lib/actions/admin";
 import { CATEGORY_LABEL, CATEGORY_LABEL_ONE, DEAL_CATEGORIES } from "@/lib/categories";
 import { formatAgorot, formatPrice } from "@/lib/money";
@@ -20,6 +23,11 @@ const STATUS_LABEL: Record<DealStatus, string> = {
  * record of who approved it and when; taking it off the shelf should not erase
  * that. Real deletion exists but is reserved for a super admin and is not
  * surfaced here.
+ *
+ * A row is a line on the tape: beer and status, then "pack · chain ········ price",
+ * then the regular price and the saving the database computed. A deal that is
+ * still waiting for a decision is hatched as well as labelled — unverified data
+ * is marked in words and pattern, never colour alone.
  */
 export function AdminDealRow({
   deal,
@@ -35,60 +43,60 @@ export function AdminDealRow({
   canFeature?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function run(work: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
       const result = await work();
-      setMessage(result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה."));
+      setMessage({ ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") });
     });
   }
 
-  const button = "rounded-xl px-3 py-2 text-xs font-bold ring-1 ring-white/10 disabled:opacity-40";
-  const field = "w-full rounded-xl bg-black/20 px-3 py-2 text-sm ring-1 ring-white/10 outline-none";
+  const fieldId = (name: string) => `deal-${deal.id}-${name}`;
 
   return (
-    <article className="rounded-2xl bg-[color:var(--surface)] p-4 ring-1 ring-white/10">
+    <article className="px-4 py-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-bold">{deal.beers?.name_he ?? "—"}</p>
-          <p className="text-sm opacity-70">
-            {CATEGORY_LABEL_ONE[deal.category]} ·{" "}
-            <span className="num">{formatPrice(deal.deal_price_agorot)}</span> ·{" "}
-            {deal.stores?.name_he ?? "—"}
-          </p>
-          <p className="text-xs opacity-50">
-            רגיל <span className="num">{formatPrice(deal.regular_price_agorot)}</span> ·{" "}
-            <span className="num">{deal.discount_percent}%-</span>
-          </p>
-        </div>
-        <span className="shrink-0 rounded-lg bg-black/25 px-2 py-1 text-[11px] font-bold opacity-70">
+        <p className="min-w-0 flex-1 truncate text-base font-bold text-ink">{deal.beers?.name_he ?? "—"}</p>
+        <span
+          className={`shrink-0 rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink ${
+            deal.status === "pending" ? "hatch" : ""
+          }`}
+        >
           {STATUS_LABEL[deal.status]}
         </span>
       </div>
 
-      {deal.notes && <p className="mt-2 text-xs opacity-60">{deal.notes}</p>}
+      <div className="mt-1 flex items-baseline gap-2">
+        <p className="min-w-0 text-sm text-ink-2">
+          {CATEGORY_LABEL_ONE[deal.category]} · {deal.stores?.name_he ?? "—"}
+        </p>
+        <span aria-hidden className="leader-fill" />
+        <Price agorot={deal.deal_price_agorot} size="sm" className="shrink-0 text-price" />
+      </div>
+
+      <p className="mt-0.5 text-sm text-ink-2">
+        רגיל <span className="num">{formatPrice(deal.regular_price_agorot)}</span> ·{" "}
+        <Saving pct={deal.discount_percent} className="font-semibold text-ink" />
+      </p>
+
+      {deal.notes && <p className="mt-2 text-sm leading-relaxed text-ink-2">{deal.notes}</p>}
 
       {deal.image_url && (
         <a
           href={deal.image_url}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block text-xs underline opacity-60"
+          className="mt-1 flex min-h-11 items-center text-sm text-ink underline underline-offset-4"
         >
           צפייה בתמונה שצורפה
         </a>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-2">
         {deal.status !== "approved" && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(() => approveDeal(deal.id))}
-            className={`${button} bg-[color:var(--accent)] text-[color:var(--base)]`}
-          >
+          <button type="button" disabled={pending} onClick={() => run(() => approveDeal(deal.id))} className="btn">
             אישור
           </button>
         )}
@@ -97,7 +105,7 @@ export function AdminDealRow({
             type="button"
             disabled={pending}
             onClick={() => run(() => setDealStatus(deal.id, "rejected"))}
-            className={button}
+            className="btn btn-danger"
           >
             דחייה
           </button>
@@ -107,12 +115,17 @@ export function AdminDealRow({
             type="button"
             disabled={pending}
             onClick={() => run(() => setDealStatus(deal.id, "inactive"))}
-            className={button}
+            className="btn btn-danger"
           >
             הסרה מהאתר
           </button>
         )}
-        <button type="button" onClick={() => setEditing((value) => !value)} className={button}>
+        <button
+          type="button"
+          aria-expanded={editing}
+          onClick={() => setEditing((value) => !value)}
+          className="btn btn-quiet"
+        >
           {editing ? "ביטול עריכה" : "עריכה"}
         </button>
         {canFeature && deal.status === "approved" && (
@@ -120,9 +133,10 @@ export function AdminDealRow({
             type="button"
             disabled={pending}
             onClick={() => run(() => setWeeklyDeal(isWeekly ? null : deal.id))}
-            className={button}
+            className="btn btn-quiet"
           >
-            {isWeekly ? "הסרה ממבצע השבוע" : "🏆 מבצע השבוע"}
+            <SparkIcon size={18} />
+            {isWeekly ? "הסרה ממבצע השבוע" : "מבצע השבוע"}
           </button>
         )}
       </div>
@@ -130,63 +144,100 @@ export function AdminDealRow({
       {editing && (
         <form
           action={(formData) => run(() => updateDeal(deal.id, formData))}
-          className="mt-3 space-y-2 border-t border-white/10 pt-3"
+          className="tear mt-4 space-y-3 pt-4"
         >
-          <select name="beerId" defaultValue={deal.beer_id} aria-label="בירה" className={field}>
-            {beers.map((beer) => (
-              <option key={beer.id} value={beer.id}>
-                {beer.name_he}
-              </option>
-            ))}
-          </select>
-          <select name="storeId" defaultValue={deal.store_id} aria-label="חנות" className={field}>
-            {stores.map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.name_he}
-              </option>
-            ))}
-          </select>
-          <select name="category" defaultValue={deal.category} aria-label="מארז" className={field}>
-            {DEAL_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABEL[category]}
-              </option>
-            ))}
-          </select>
-          <div className="flex gap-2">
-            <input
-              name="dealPrice"
-              inputMode="decimal"
-              defaultValue={formatAgorot(deal.deal_price_agorot)}
-              aria-label="מחיר במבצע"
-              className={`${field} num`}
-            />
-            <input
-              name="regularPrice"
-              inputMode="decimal"
-              defaultValue={formatAgorot(deal.regular_price_agorot)}
-              aria-label="מחיר רגיל"
-              className={`${field} num`}
-            />
+          <FieldRow id={fieldId("beer")} label="בירה">
+            <select id={fieldId("beer")} name="beerId" defaultValue={deal.beer_id} aria-label="בירה" className="field">
+              {beers.map((beer) => (
+                <option key={beer.id} value={beer.id}>
+                  {beer.name_he}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
+          <FieldRow id={fieldId("store")} label="חנות">
+            <select id={fieldId("store")} name="storeId" defaultValue={deal.store_id} aria-label="חנות" className="field">
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.name_he}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
+          <FieldRow id={fieldId("category")} label="מארז">
+            <select id={fieldId("category")} name="category" defaultValue={deal.category} aria-label="מארז" className="field">
+              {DEAL_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {CATEGORY_LABEL[category]}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
+          <div className="flex gap-3">
+            <FieldRow id={fieldId("dealPrice")} label="מחיר במבצע" className="flex-1">
+              <input
+                id={fieldId("dealPrice")}
+                name="dealPrice"
+                inputMode="decimal"
+                defaultValue={formatAgorot(deal.deal_price_agorot)}
+                aria-label="מחיר במבצע"
+                className="field num text-right"
+              />
+            </FieldRow>
+            <FieldRow id={fieldId("regularPrice")} label="מחיר רגיל" className="flex-1">
+              <input
+                id={fieldId("regularPrice")}
+                name="regularPrice"
+                inputMode="decimal"
+                defaultValue={formatAgorot(deal.regular_price_agorot)}
+                aria-label="מחיר רגיל"
+                className="field num text-right"
+              />
+            </FieldRow>
           </div>
-          <input
-            name="notes"
-            defaultValue={deal.notes ?? ""}
-            placeholder="הערה"
-            aria-label="הערה"
-            className={field}
-          />
-          <button
-            type="submit"
-            disabled={pending}
-            className={`${button} bg-[color:var(--accent)] text-[color:var(--base)]`}
-          >
+          <FieldRow id={fieldId("notes")} label="הערה">
+            <input
+              id={fieldId("notes")}
+              name="notes"
+              defaultValue={deal.notes ?? ""}
+              placeholder="הערה"
+              aria-label="הערה"
+              className="field"
+            />
+          </FieldRow>
+          <button type="submit" disabled={pending} className="btn w-full">
             שמירת שינויים
           </button>
         </form>
       )}
 
-      {message && <p className="mt-2 text-xs opacity-70">{message}</p>}
+      {message && (
+        <div className="mt-3">
+          <Notice tone={message.ok ? "info" : "error"}>{message.text}</Notice>
+        </div>
+      )}
     </article>
+  );
+}
+
+/** A visible label over a field; the field keeps its aria-label too. */
+function FieldRow({
+  id,
+  label,
+  className = "",
+  children,
+}: {
+  id: string;
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1 block text-sm font-semibold text-ink">
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }

@@ -164,47 +164,49 @@ describe("server → client component boundary", () => {
 });
 
 describe("the boundary checker itself (it must not pass by doing nothing)", () => {
+  // ListingSearch is a real Client Component on disk (the checker resolves imports against the file system);
+  // its source is supplied here so the tests stay independent of what it currently contains.
   const modules: Record<string, string> = {
-    [join(SRC, "components", "Picker.tsx")]: `"use client";\nexport function Picker(props: object) { return null; }`,
+    [join(SRC, "components", "ListingSearch.tsx")]: `"use client";\nexport function ListingSearch(props: object) { return null; }`,
     [join(SRC, "lib", "actions", "do.ts")]: `"use server";\nexport async function save() {}`,
   };
   const read = (path: string) => modules[path] ?? null;
   const page = join(SRC, "app", "beer", "page.tsx");
 
   it("catches the exact bug that broke /beer and /store", () => {
-    const bad = `import { Picker } from "@/components/Picker";
-      export default function Page() { return <Picker items={[]} hrefFor={(slug) => \`/beer/\${slug}\`} />; }`;
+    const bad = `import { ListingSearch } from "@/components/ListingSearch";
+      export default function Page() { return <ListingSearch items={[]} hrefFor={(slug) => \`/beer/\${slug}\`} />; }`;
     const found = findBoundaryViolations(page, bad, read);
     expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ component: "Picker", prop: "hrefFor" });
+    expect(found[0]).toMatchObject({ component: "ListingSearch", prop: "hrefFor" });
   });
 
   it("catches a local function, a function hidden in an object, and a render prop", () => {
-    const bad = `import { Picker } from "@/components/Picker";
+    const bad = `import { ListingSearch } from "@/components/ListingSearch";
       function build() { return "x"; }
       export default function Page() {
         return (<>
-          <Picker cb={build} />
-          <Picker config={{ onPick: () => 1 }} />
-          <Picker>{() => null}</Picker>
+          <ListingSearch cb={build} />
+          <ListingSearch config={{ onPick: () => 1 }} />
+          <ListingSearch>{() => null}</ListingSearch>
         </>);
       }`;
     expect(findBoundaryViolations(page, bad, read).map((v) => v.prop).sort()).toEqual(["cb", "children", "config"]);
   });
 
   it("allows data, mapped data, Server Actions and client-to-client props", () => {
-    const good = `import { Picker } from "@/components/Picker";
+    const good = `import { ListingSearch } from "@/components/ListingSearch";
       import { save } from "@/lib/actions/do";
       export default function Page({ beers }: { beers: { slug: string }[] }) {
         return (<>
-          <Picker basePath="/beer" items={beers.map((b) => ({ slug: b.slug }))} />
-          <Picker onSave={save} />
-          <Picker onInline={async () => { "use server"; }} />
+          <ListingSearch basePath="/beer" items={beers.map((b) => ({ slug: b.slug }))} />
+          <ListingSearch onSave={save} />
+          <ListingSearch onInline={async () => { "use server"; }} />
         </>);
       }`;
     expect(findBoundaryViolations(page, good, read)).toEqual([]);
 
-    const clientFile = `"use client";\nimport { Picker } from "@/components/Picker";\nexport const X = () => <Picker cb={() => 1} />;`;
+    const clientFile = `"use client";\nimport { ListingSearch } from "@/components/ListingSearch";\nexport const X = () => <ListingSearch cb={() => 1} />;`;
     expect(findBoundaryViolations(page, clientFile, read)).toEqual([]);
   });
 });

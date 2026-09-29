@@ -97,18 +97,24 @@ everything above on every pull request.
 src/
   middleware.ts        anonymous session + token refresh
   app/                 screens; /admin is the moderation side; /whats-new is the release history
-  components/          deal card, pickers, onboarding, install prompt
+  components/          offer lines and strips, hero, listing search, settings editors, onboarding
+  components/ui/       the design system's parts: Tape, Price, Chip, TabBar, icons, progress bar
+  design/              colour maths and the beer themes (data, with guaranteed contrast)
   content/releases.json  the release record: what's-new screen + CHANGELOG.md come from it
   lib/
     money.ts           agorot, and the string-based conversion
-    categories.ts      the three worlds
+    offers.ts          reads of the offers_feed / regular_prices_feed views
+    offer-logic.ts     grouping, sorting, headline pick (pure, tested)
+    search.ts          Hebrew-aware search
+    categories.ts      the three legacy pack categories (deal submissions)
     session.ts         who is asking, in one round trip
-    queries.ts         every public read
+    queries.ts         catalogue and settings reads
     actions/           server actions — each one calls a checked RPC
     push/              who gets woken up, and the message they see
 supabase/migrations/   the schema, the write API, and RLS
 supabase/seed/         sample data for dev/staging ONLY (production refuses to show it)
 tests/                 security rules against the real migrations; components; release rule
 tests/e2e/             Playwright specs + a fake Supabase (real migrations on PGlite)
-docs/                  setup, collaborators, INFRASTRUCTURE.md, the 2026-09-29 product audit
+docs/                  setup, collaborators, INFRASTRUCTURE.md, LESSONS.md, the 2026-09-29 product audit
+DESIGN.md, PRODUCT.md  the design system ("The Tape") and who the product is for
 ```

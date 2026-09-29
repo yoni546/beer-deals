@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { InstallIcon } from "@/components/ui/icons";
+import { Tape } from "@/components/ui/Tape";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -28,7 +30,7 @@ function isIos(): boolean {
  * never will, so there the only honest thing to do is show the three steps and
  * point at the share button.
  */
-export function InstallPrompt({ compact = false }: { compact?: boolean }) {
+export function InstallPrompt({ compact = false, onPaper = false }: { compact?: boolean; /** Already on a strip of paper (onboarding): no second strip, ink instead of counter text. */ onPaper?: boolean }) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [platform, setPlatform] = useState<"pending" | "installed" | "ios" | "other">("pending");
 
@@ -66,30 +68,35 @@ export function InstallPrompt({ compact = false }: { compact?: boolean }) {
           await deferred.userChoice;
           setDeferred(null);
         }}
-        className="w-full rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-center text-sm font-bold text-[color:var(--base)]"
+        className="btn w-full"
       >
-        📲 התקינו את האפליקציה במסך הבית
+        <InstallIcon size={20} />
+        התקינו את האפליקציה במסך הבית
       </button>
     );
   }
 
   if (platform === "ios") {
-    return (
-      <div className="rounded-2xl bg-[color:var(--surface)] p-4 text-sm ring-1 ring-white/10">
-        <p className="font-bold">📲 להוסיף למסך הבית באייפון</p>
-        <ol className="mt-2 list-decimal space-y-1 pr-5 opacity-75">
+    const steps = (
+      <>
+        <p className="flex items-center gap-2 font-bold text-ink">
+          <InstallIcon size={20} />
+          להוסיף למסך הבית באייפון
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 ps-5 text-ink-2">
           <li>לחצו על כפתור השיתוף בסרגל התחתון של ספארי</li>
           <li>גללו ובחרו &quot;הוספה למסך הבית&quot;</li>
-          <li>לחצו &quot;הוספה&quot; — וזהו</li>
+          <li>לחצו &quot;הוספה&quot;, וזהו</li>
         </ol>
-      </div>
+      </>
     );
+    return onPaper ? <div className="text-sm">{steps}</div> : <Tape className="p-4 text-sm">{steps}</Tape>;
   }
 
   // Chromium without the event yet (or a browser that never fires it).
   if (compact) return null;
   return (
-    <p className="text-center text-xs opacity-50">
+    <p className={`text-sm ${onPaper ? "text-ink-2" : "text-on-ground-2"}`}>
       אפשר להוסיף את האפליקציה למסך הבית דרך תפריט הדפדפן.
     </p>
   );

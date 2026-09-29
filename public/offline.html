@@ -3,30 +3,68 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>אין חיבור</title>
     <style>
+      /* The house look (neutral counter, one strip of paper). This page cannot load the
+         app's theme, so it carries its own two colours and follows the device's mode. */
+      :root {
+        --ground: #e9dccc;
+        --on-ground: #1a1208;
+        --paper: #fbf8f2;
+        --ink: #1f1a12;
+        --ink-2: #5a5142;
+        --line: #cfc4b3;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ground: #1c150c;
+          --on-ground: #f3ead9;
+          --paper: #f6f1e7;
+        }
+      }
       body {
         margin: 0;
         min-height: 100dvh;
         display: grid;
         place-content: center;
-        gap: 8px;
-        text-align: center;
         padding: 24px;
-        background: #17130b;
-        color: #faf6ee;
+        background: var(--ground);
+        color: var(--on-ground);
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      p { margin: 0; opacity: 0.7; font-size: 15px; }
-      h1 { margin: 0; font-size: 20px; }
-      .beer { font-size: 44px; }
+      .strip {
+        max-width: 22rem;
+        padding: 28px 24px;
+        text-align: center;
+        background: var(--paper);
+        color: var(--ink);
+        box-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
+      }
+      h1 { margin: 0; font-size: 22px; }
+      hr { width: 4rem; border: 0; border-top: 2px dotted var(--line); margin: 14px auto; }
+      p { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.6; }
+      button {
+        margin-top: 18px;
+        min-height: 44px;
+        padding: 0 22px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--paper);
+        font: inherit;
+        font-weight: 700;
+      }
     </style>
   </head>
   <body>
-    <p class="beer">🍺</p>
-    <h1>אין חיבור לאינטרנט</h1>
-    <!-- Deliberately no cached prices here. A price shown offline is a price
-         that may have expired, and this app is used standing in a shop. -->
-    <p>המחירים משתנים, אז אנחנו לא שומרים אותם במכשיר. נסו שוב כשיש רשת.</p>
+    <main class="strip">
+      <h1>אין חיבור לאינטרנט</h1>
+      <hr />
+      <!-- Deliberately no cached prices here. A price shown offline is a price
+           that may have expired, and this app is used standing in a shop. -->
+      <p>המחירים משתנים, אז אנחנו לא שומרים אותם במכשיר. נסו שוב כשיש רשת.</p>
+      <button type="button" onclick="location.reload()">ניסיון נוסף</button>
+    </main>
   </body>
 </html>

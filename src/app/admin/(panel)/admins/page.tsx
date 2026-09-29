@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminSection } from "@/components/admin/AdminUi";
 import { AdminRoster } from "@/components/admin/AdminRoster";
 import { getAdminRoster } from "@/lib/admin-queries";
 import { getViewer } from "@/lib/session";
@@ -13,9 +14,8 @@ export default async function AdminsPage() {
   const roster = await getAdminRoster();
 
   return (
-    <section>
-      <h2 className="mb-3 text-sm font-black opacity-70">מנהלים</h2>
+    <AdminSection title="מנהלים">
       <AdminRoster roster={roster} currentUserId={viewer.userId ?? ""} />
-    </section>
+    </AdminSection>
   );
 }
