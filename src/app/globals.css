@@ -51,7 +51,8 @@ body {
   position: relative;
   min-height: 100dvh;
   font-family: var(--font-sans);
-  background: var(--ground);
+  /* No background here: <html> paints the counter, so the layers behind the content (the light,
+     the bottle) sit between the counter and the page instead of under an opaque body. */
   color: var(--on-ground);
   overscroll-behavior-y: none;
 }
@@ -174,6 +175,39 @@ select,
   .tear {
     border-top: 2px dashed var(--paper-line);
   }
+}
+
+/* -------------------------------------------------------------- the bottle */
+
+/* Favourite #1's bottle stands on the counter, behind everything, fixed while the paper scrolls.
+   Its colours pass through a tone filter (see src/design/bottles.ts) that keeps every text on the
+   counter readable over any part of it; the vignette and the reading-side scrim add depth only. */
+.bottle-stage {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bottle-art {
+  position: absolute;
+  height: calc(var(--bottle-scale, 1) * 100svh);
+  width: auto;
+  aspect-ratio: 200 / 820;
+  /* Beside the phone-width column on a wide screen; cropped off the left edge on a phone. */
+  left: calc(max(0px, 50vw - 15rem) + var(--bottle-x, -12) * 1vw);
+  top: calc(var(--bottle-top, -45) * 1svh);
+  transform: rotate(var(--bottle-rotate, -7deg));
+  transform-origin: 50% 60%;
+  object-fit: contain;
+}
+.bottle-stage[data-bottle]:not([data-bottle="none"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(130% 90% at 18% 72%, transparent 45%, var(--scrim) 100%),
+    linear-gradient(to left, var(--scrim) 0%, transparent 60%);
 }
 
 /* ------------------------------------------------------------ fields and buttons */

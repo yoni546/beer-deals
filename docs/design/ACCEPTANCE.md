@@ -1,7 +1,7 @@
 # Audit acceptance criteria — where each stands (2026-09-29)
 
 The 35 criteria of `docs/PRODUCT-AUDIT-2026-09-29.md` §18, checked against the branch
-`rebuild/beer-deals-v1` at release 0.5.2. **Met** = proved by a named automated test in CI. **Partly** = built, but
+`rebuild/beer-deals-v1` at release 0.6.0. **Met** = proved by a named automated test in CI. **Partly** = built, but
 not exactly as worded or not fully covered. **Not met** = not done, with the reason. Nothing is marked met on the
 strength of a manual look alone.
 
@@ -24,9 +24,9 @@ strength of a manual look alone.
 | 15 | Store page: promotions first, regular prices second (searchable), ≤ 15 rows before "show all" | Partly | Folds after 6 beers; regular prices are a second view. The regular view has no search box. |
 | 16 | No cross-pack comparison without unit normalisation | Met | `offer-logic.test.ts` (mixed packs) |
 | 17 | Freshness on Home, Beer, Store | Met | `Freshness` on all three; `redesign.spec` |
-| 18 | Reorder favourites by drag **and** buttons; swap; atomic save; #1 changes theme | Partly | Up/down buttons, remove/add, one atomic save (`save_preferences`), theme follows #1 (`redesign.spec › settings`). **No drag-and-drop** — a drag competes with scrolling on a phone and cannot be done with a screen reader. |
-| 19 | Theme automatic by default; override persists across reload/devices; correct first paint, no flash | Partly | Stored on the profile, injected server-side in `<head>` (`redesign.spec › a manual look…`). No automated screenshot-diff for the first paint. |
-| 20 | ≥ 21 presets; contrast tests; presets ≥ ΔE 12 apart | Partly | 22 beer looks + a house look; contrast asserted for every theme in both modes (`design.test.ts`). Distinctness is enforced with a different metric (Oklab distance of accent + ground ≥ 8), not the audit's ΔE 12 on the mean of three colours. |
+| 18 | Reorder favourites by drag **and** buttons; swap; atomic save; #1 changes theme | Met | Drag by a grip (pointer events, `touch-action: none`), up/down buttons, remove/add, announced ranks, one atomic save; the app follows the new #1 without a reload (`favourite-one.spec › dragging…`, `› keyboard…`, `› changing #1 to Heineken…`). |
+| 19 | Theme automatic; follows the person across reload/devices; correct first paint, no flash | Met (rule changed) | The audit's "override" is **removed by product decision**: favourite #1 alone decides the look. It is stored with the favourites, so it follows the person; the server's HTML already carries the beer's stylesheet and bottle (`favourite-one.spec › … on the first paint` reads the raw HTML). |
+| 20 | ≥ 21 presets; contrast tests; presets ≥ ΔE 12 apart | Partly | 21 beer identities + the house look; contrast for every beer in both modes, plus a proof that all counter text keeps ≥ 4.5:1 over any bottle pixel (`design.test.ts`). Distinctness uses Oklab distance of accent + counter + label ≥ 8, not the audit's ΔE 12. |
 | 21 | No brand logos or label art | Met | None in `public/`; themes are colour data (`no-emoji.test.ts` also scans `public/`) |
 | 22 | Toggle reflects real state across the permission matrix; rejected `subscribe()` never reaches the error boundary | Met | `push-client.test.ts`, `hotfix.spec › notification settings` |
 | 23 | Push URL resolves to the intended page | Met | `push-message.test.ts`, `service-worker.test.ts`, beer page e2e |
@@ -43,5 +43,5 @@ strength of a manual look alone.
 | 34 | No emoji as icons; Impeccable critique with no P0/P1; before/after screenshots | Met | `no-emoji.test.ts`; detector output `[]` (CLAUDE.md asks for it before a UI PR); `docs/design/CRITIQUE.md`; `docs/design/screens/` (after) and `docs/audit-2026-09-29/` (before) |
 | 35 | CI required checks on `main` | **Not met** (owner) | CI runs typecheck, lint, tests, build, Playwright + axe. Branch protection is a GitHub setting only the owner can change. |
 
-**Score:** 27 met · 5 partly · 3 not met (device matrix, performance, branch protection) — the three not-met
+**Score:** 29 met · 3 partly · 3 not met (device matrix, performance, branch protection) — the three not-met
 items all need something outside the repository.

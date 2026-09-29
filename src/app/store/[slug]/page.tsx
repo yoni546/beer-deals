@@ -91,6 +91,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
       <Strip
         key={item.beerId}
         title={item.name}
+        beerSlug={item.slug}
         href={`/beer/${item.slug}`}
         aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
         offers={item.offers}

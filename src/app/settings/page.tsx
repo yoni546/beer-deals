@@ -4,10 +4,8 @@ import { Screen, TopBar } from "@/components/Chrome";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PushToggle } from "@/components/PushToggle";
-import { ThemePicker } from "@/components/ThemePicker";
 import { Tape } from "@/components/ui/Tape";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
-import type { Appearance } from "@/design/themes";
 import { publicEnv } from "@/lib/env";
 import { getBeers } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
@@ -37,16 +35,6 @@ export default async function SettingsPage() {
             vapidPublicKey={publicEnv.vapidPublicKey}
             enabled={viewer.profile?.notifications_enabled ?? false}
             primaryBeerName={viewer.primaryBeer?.name_he ?? null}
-          />
-        </Section>
-
-        <Section title="מראה">
-          <ThemePicker
-            override={viewer.profile?.theme_override ?? null}
-            appearance={(viewer.profile?.appearance ?? "system") as Appearance}
-            primarySlug={viewer.primaryBeer?.slug ?? null}
-            primaryName={viewer.primaryBeer?.name_he ?? null}
-            beerNames={Object.fromEntries(beers.map((beer) => [beer.slug, beer.name_he]))}
           />
         </Section>
 

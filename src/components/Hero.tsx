@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
+import { BeerMark } from "@/components/ui/Bottle";
 import { Tape } from "@/components/ui/Tape";
 import type { Hero as HeroPick } from "@/lib/offer-logic";
 import { conditionChips, packText, validUntilHe } from "@/lib/format";
@@ -26,7 +27,10 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
 
   return (
     <Tape printIn className="relative px-5 py-5" aria-labelledby="hero-title">
-      <p className="text-sm font-semibold text-ink-2">{label}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-ink-2">{label}</p>
+        <BeerMark slug={offer.beer_slug} height={56} className="-mt-1 shrink-0" />
+      </div>
 
       <h2 id="hero-title" className="mt-1 text-[1.75rem] leading-tight font-bold text-ink">
         <Link href={`/beer/${offer.beer_slug}`} className="inline-flex min-h-11 items-center after:absolute after:inset-0 after:content-['']">

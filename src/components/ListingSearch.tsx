@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SearchIcon, CloseIcon } from "@/components/ui/icons";
+import { BeerMark } from "@/components/ui/Bottle";
 import { Saving } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import { search } from "@/lib/search";
@@ -18,6 +19,8 @@ export type ListingItem = {
   bestValuePct: number | null;
   /** 1–4 for one of the person's ranked beers. */
   rank?: number | null;
+  /** Show the beer's bottle beside its name (beer lists only). */
+  beerSlug?: string;
 };
 
 /**
@@ -124,6 +127,7 @@ function Rows({ items, basePath, heading }: { items: ListingItem[]; basePath: st
                   {item.rank}
                 </span>
               ) : null}
+              {item.beerSlug && <BeerMark slug={item.beerSlug} height={32} className="shrink-0" />}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold text-ink">
                   {item.rank ? <span className="sr-only">מקום {item.rank}: </span> : null}

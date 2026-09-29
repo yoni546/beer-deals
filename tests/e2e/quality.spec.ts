@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedRealCatalog, sql } from "./helpers";
+import { onboard, resetDb, seedRealCatalog } from "./helpers";
 
 /**
  * The quality floor for every screen, checked in a real browser at both phone widths:
@@ -122,11 +122,11 @@ for (const scheme of ["light", "dark"] as const) {
   });
 }
 
-// One beer from each look the theme generator produces, plus the neutral house look.
-for (const theme of ["house", "heineken", "stella", "guinness", "tuborg-red"]) {
-  test(`axe: contrast holds in the ${theme} theme, light and dark`, async ({ page }) => {
-    await onboard(page);
-    await sql("update public.profiles set theme_override = $1", [theme]);
+// A spread of beers (as favourite #1 — the only way a look is chosen), plus the neutral house look.
+const OTHERS = ["גולדסטאר", "מכבי", "קורונה"];
+for (const [theme, name] of [["house", "סאמרסבי"], ["heineken", "היינקן"], ["stella", "סטלה ארטואה"], ["guinness", "גינס"], ["tuborg-red", "טובורג אדום"]] as const) {
+  test(`axe: contrast holds with ${theme} as favourite #1, light and dark`, async ({ page }) => {
+    await onboard(page, "בדיקה", [name, ...OTHERS]);
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       for (const route of ["/", "/beer/goldstar", "/settings"]) {

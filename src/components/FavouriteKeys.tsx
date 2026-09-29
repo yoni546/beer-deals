@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BeerMark } from "@/components/ui/Bottle";
 import { Saving } from "@/components/ui/Price";
 import type { Beer } from "@/lib/db/types";
 import type { BeerSummary } from "@/lib/offer-logic";
@@ -39,6 +40,7 @@ export function FavouriteKeys({
                 </span>
                 <span className="sr-only">מקום {index + 1}: </span>
                 {lead && <span>ראשית</span>}
+                <BeerMark slug={beer.slug} height={30} className="ms-auto -mt-1" />
               </span>
               <span className="line-clamp-2 text-[0.95rem] leading-tight font-bold text-ink">{beer.name_he}</span>
               <span className={`text-xs ${has ? "font-semibold text-price" : "text-ink-2"}`}>

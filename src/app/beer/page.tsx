@@ -32,6 +32,7 @@ export default async function BeersPage() {
           count: bySlug.get(beer.slug)?.count ?? 0,
           bestValuePct: bySlug.get(beer.slug)?.bestValuePct ?? null,
           rank: rank.get(beer.id) ?? null,
+          beerSlug: beer.slug,
         }))}
       />
     </Screen>

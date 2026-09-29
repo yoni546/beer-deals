@@ -17,3 +17,11 @@ the audit that led to it is [`docs/PRODUCT-AUDIT-2026-09-29.md`](../PRODUCT-AUDI
 
 Regenerate them with the local fake backend and a dev server (see `docs/for-collaborators.md`);
 the badge in the corner is the "DEVELOPMENT" marker that never renders in production.
+
+## Favourite #1 is the app (release 0.6.0) — `screens/favourite-one/`
+
+Captured at 390×844 and 430×932 (device scale 1), from the local fake backend. File names are
+`<beer as #1>-<width>-<light|dark>-<view>.png`. `_comparison-home-dark.png` / `_comparison-home-light.png` show
+Home for Goldstar, Heineken, Carlsberg, Maccabee and Somersby (no identity → the neutral look) side by side.
+The full matrix (5 beers × 8 views × 2 sizes × 2 modes, 160 images) was reviewed during the work; these are a
+representative subset. The bottles are **drawn stand-ins**, not product photos.

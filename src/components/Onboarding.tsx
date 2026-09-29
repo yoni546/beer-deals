@@ -4,7 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { Notice } from "@/components/Chrome";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { Tape } from "@/components/ui/Tape";
-import { resolveTheme, swatches, themeFor, themeStyleSheet } from "@/design/themes";
+import { BeerMark, BottleBackdrop } from "@/components/ui/Bottle";
+import { getThemeForBeer, themeStyleSheet } from "@/design/themes";
 import { completeOnboarding } from "@/lib/actions/profile";
 import { IDLE } from "@/lib/actions/result";
 import type { Beer } from "@/lib/db/types";
@@ -19,9 +20,9 @@ import { hardNavigate } from "@/lib/navigation";
  * same information with none of that cost. The four slots at the top show the ranking as
  * text, so it is read rather than remembered.
  *
- * The first beer you pick repaints the page in its colours straight away: that is what
- * "the app takes its look from your number one" means, shown instead of explained. The
- * saved profile does the same thing on every later visit, from the server.
+ * The first beer you pick becomes the app straight away — its bottle stands on the counter and
+ * the page takes its colours. That is the product rule ("favourite #1 is the app") shown instead
+ * of explained. The saved profile does the same thing on every later visit, from the server.
  *
  * The last step appears only once the save has actually succeeded (a failure stays on the
  * ranking step, next to its error message), and it stays until the person presses the
@@ -39,9 +40,12 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
   const saved = state.ok && Boolean(state.message);
   const visibleStep = saved ? 3 : step;
 
+  // Before anything is saved the server still renders the neutral look, so the preview is local:
+  // the stylesheet is swapped here and the bottle is drawn by this component.
+  const preview = getThemeForBeer(primary?.slug);
   useEffect(() => {
     const style = document.getElementById("theme");
-    if (style) style.textContent = themeStyleSheet(resolveTheme({ primaryBeerSlug: primary?.slug }), "system");
+    if (style) style.textContent = themeStyleSheet(getThemeForBeer(primary?.slug));
   }, [primary?.slug]);
 
   function toggle(beer: Beer) {
@@ -56,6 +60,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col px-5 pt-8 pb-6">
+      {primary && <BottleBackdrop key={primary.slug} preset={preview} />}
       <header className="mb-6">
         <p className="text-sm font-semibold text-on-ground-2" aria-hidden>
           שלב <span className="num">{visibleStep}</span> מתוך <span className="num">3</span>
@@ -91,7 +96,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
           <div className="mb-4">
             <h2 className="text-xl font-bold text-on-ground">ארבע הבירות האהובות עליכם</h2>
             <p className="mt-1 text-sm leading-relaxed text-on-ground-2">
-              לפי הסדר. הראשונה היא הבירה הראשית: היא קובעת את המראה של האפליקציה, ורק עליה נשלח התראות.
+              לפי הסדר. הראשונה היא הבירה הראשית: הבקבוק והצבעים שלה הופכים לאפליקציה שלכם, ורק עליה נשלח התראות.
             </p>
           </div>
 
@@ -122,7 +127,6 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             {beers.map((beer) => {
               const rank = picked.findIndex((b) => b.id === beer.id);
               const chosen = rank !== -1;
-              const dots = swatches(themeFor(beer.slug), "light");
               return (
                 <li key={beer.id}>
                   <button
@@ -133,10 +137,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
                       chosen ? "outline-[3px] outline-offset-0 outline-accent [outline-style:solid]" : ""
                     }`}
                   >
-                    <span aria-hidden className="flex shrink-0 overflow-hidden rounded-full ring-1 ring-paper-line">
-                      <span className="h-6 w-3" style={{ background: dots.ground }} />
-                      <span className="h-6 w-3" style={{ background: dots.accent }} />
-                    </span>
+                    <BeerMark slug={beer.slug} height={36} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{beer.name_he}</span>
                     {chosen && (
                       <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-deal text-xs font-bold text-on-deal">

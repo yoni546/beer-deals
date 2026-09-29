@@ -69,8 +69,13 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
 - Sort by price low→high, price high→low, and deal value; compare per pack and per litre.
 - A canonical model of brand · variant · container · volume_ml · pack_quantity · chain · branch ·
   regular price · promotion (conditions, dates) · source · observed_at. See `docs/DATA-MODEL.md`.
-- **Theme:** follows favourite #1 automatically, with a manual override in Settings. Themes evoke
-  each beer's identity **without** copying label art, logos or trade dress.
+- **Favourite #1 is the app (permanent rule).** The beer a person ranks first *is* their app: its
+  bottle stands on the counter behind everything and the palette is derived from that beer's own
+  colours. There is **no theme picker and no manual override** — reordering the favourites is how
+  the look changes, and it changes everywhere at once. Light or dark follows the phone's setting.
+  A beer without an identity (or before onboarding) gets the neutral house look, never another
+  beer's. The bottle is a licensed product photo when one is on record, otherwise a drawn bottle in
+  the beer's glass and label colours with no logo, wordmark or label art.
 - **What's New:** a small, unobtrusive entry, the latest update, and recent history; every
   meaningful change ships a release entry (see `CLAUDE.md`).
 - Technical constraints that must be preserved: Row Level Security as the permission system;

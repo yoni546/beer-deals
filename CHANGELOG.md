@@ -6,6 +6,22 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.6.0 — 2026-09-29
+
+**הבירה הראשונה שלכם היא האפליקציה** · Design, Feature
+
+- המראה של האפליקציה נקבע לפי הבירה מספר 1 שלכם: הבקבוק שלה עומד ברקע, והצבעים באים ממנה.
+- רוצים מראה אחר? משנים את סדר הבירות. בחירת מראה ידנית הוסרה, וגם הבחירה בין בהיר לכהה, שנקבעת עכשיו לפי הטלפון.
+- בהגדרות אפשר לגרור בירה כדי לשנות את הסדר. הכפתורים למעלה ולמטה נשארו.
+- ליד כל בירה מופיע הבקבוק שלה בקטן, כדי לזהות אותה במבט.
+
+Internal:
+
+- Permanent rule: favourite #1 → BEER_IDENTITIES → bottle → tokens via getThemeForBeer(slug) only. Removed ThemePicker, saveAppearance, profiles.theme_override/appearance (dropped from the never-applied draft of 0011; STAGING.md has the cleanup for any DB built from it), resolveTheme/ALL_THEMES/isThemeSlug/swatches.
+- Bottle backdrop: drawn bottles (no marks) or a licensed photo (scripts/prepare-bottle.mjs, provenance in src/design/bottle-photos.json). An SVG tone filter maps every pixel into [lo, hi] so all counter text keeps >= 4.5:1 over any bottle pixel (proved per beer and mode in tests/design.test.ts); depth-of-field blur; vignette + scrim.
+- Identities re-derived from each beer's colours (21 beers; Somersby deliberately neutral). Drag-to-reorder by a grip (pointer events, touch-action: none) with announced ranks; up/down buttons kept. BeerMark beside names.
+- Tests: design (rule, readability proof, fallback, no override API/schema), bottle-photos, e2e favourite-one.spec (Goldstar → Heineken, drag, keyboard, no picker, device-driven mode, fallback, no flash via server HTML).
+
 ## 0.5.2 — 2026-09-29
 
 **שיפורים קטנים בחיפוש ובהגדרות** · Design

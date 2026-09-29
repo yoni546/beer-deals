@@ -125,6 +125,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <Strip
                 key={group.beerId}
                 title={group.name}
+                beerSlug={group.slug}
                 href={`/beer/${group.slug}`}
                 aside={`${group.offers.length} ${group.offers.length === 1 ? "מבצע" : "מבצעים"}`}
                 offers={group.offers}

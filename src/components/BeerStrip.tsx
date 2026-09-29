@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { OfferLine, type LineLead } from "@/components/OfferLine";
+import { BeerMark } from "@/components/ui/Bottle";
 import { ChevronLeftIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import type { Offer } from "@/lib/db/types";
@@ -20,6 +21,7 @@ export function Strip({
   moreHref,
   printIn = false,
   headingLevel = "h2",
+  beerSlug,
 }: {
   title: string;
   href?: string;
@@ -31,6 +33,8 @@ export function Strip({
   moreHref?: string;
   printIn?: boolean;
   headingLevel?: "h2" | "h3";
+  /** When the strip is about one beer: its bottle beside the heading. */
+  beerSlug?: string;
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
@@ -39,7 +43,8 @@ export function Strip({
   return (
     <Tape printIn={printIn} className="pb-1">
       <div className="flex items-center justify-between gap-3 px-4 pt-2">
-        <Heading className="min-w-0 truncate text-lg leading-tight font-bold text-ink">
+        {beerSlug && <BeerMark slug={beerSlug} height={30} className="shrink-0 self-center" />}
+        <Heading className="min-w-0 flex-1 truncate text-lg leading-tight font-bold text-ink">
           {href ? (
             <Link href={href} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
               {title}

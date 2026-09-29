@@ -31,8 +31,6 @@ export type Profile = {
   notifications_enabled: boolean;
   onboarded_at: string | null;
   /** A theme slug the person chose in Settings; null = follow favourite #1. */
-  theme_override: string | null;
-  appearance: "system" | "light" | "dark";
 };
 
 /** A row of public.deals_public — an approved deal with its beer and store. */

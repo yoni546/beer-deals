@@ -51,7 +51,9 @@ Strategy: **Committed.** The *counter* is the beer's colour and carries most of 
 the *paper* is near-neutral and carries all reading. Colour is generated, not hand-picked per
 component (`src/design/`):
 
-- **Primitives** per beer, in OKLCH: ground hue/chroma, accent hue/chroma, atmosphere direction.
+- **Primitives** per beer (`BEER_IDENTITIES` in `src/design/themes.ts`), in OKLCH: counter
+  hue/chroma, accent hue/chroma, light direction — taken from the beer's own colours — plus its
+  **bottle** (silhouette, glass, cap, neck foil, label colours) and where the bottle stands.
 - **Semantic tokens** (identical names in every theme, both modes):
   `ground · ground-2 · ground-line · on-ground · on-ground-2 · accent · glow` (the counter),
   `paper · paper-2 · paper-line · ink · ink-2 · price · deal · on-deal` (the tape),
@@ -59,12 +61,12 @@ component (`src/design/`):
 - **Guaranteed contrast.** The generator moves lightness until each text role passes: text on
   paper ≥ 4.5:1, price ink on paper ≥ 5:1, text on the counter ≥ 4.5:1, deal chip ≥ 4.5:1, focus
   ring ≥ 3:1 on both. A theme that cannot pass does not build (`tests/design.test.ts`).
-- **Light and dark** are both generated from the same primitives; the OS setting chooses unless the
-  user overrides it in Settings.
-- **Distinct on purpose.** No two beer themes may sit closer than a set OKLab distance on the
-  counter and accent (`tests/design.test.ts`) — the old presets had ten amber accents.
-- **No beer trade dress.** Themes are moods (lit glass, green bottle, black body, hazy wheat), not
-  label palettes; nothing is sampled from any brand.
+- **Light and dark** are both generated from the same primitives; the phone's setting chooses.
+  There is no in-app switch.
+- **Distinct on purpose.** No two beers may sit closer than a set OKLab distance on counter, accent
+  and label (`tests/design.test.ts`).
+- **Identity, not trade dress.** A beer's colours are its own (Goldstar's black and gold, Heineken's
+  green and red), but no logo, wordmark or label artwork is ever drawn or copied.
 
 ## Typography
 
@@ -102,16 +104,33 @@ component (`src/design/`):
 - **Motion.** One authored moment: the print-in of a strip on first paint (whole line-heights, a
   single overshoot). Everything else is instant. Fully disabled under `prefers-reduced-motion`.
 
-## Themes: the beer's atmosphere
+## Favourite #1 is the app: the bottle on the counter
 
-Only the *counter* changes. A light source (top, side, or low) casts a soft glow of the beer's accent
-onto the counter; a second, deeper band anchors the bottom. Layout, spacing, type and components are
-identical across all 22 themes plus a neutral **house** theme (before onboarding). Selection:
-`manual override → favourite #1 → house`. Beer pages borrow their own beer's atmosphere for the header
-band only.
+**Permanent rule:** `favourite #1 → beer identity → bottle on the counter → colour tokens`, through
+`getThemeForBeer(favourite #1)` and nothing else. No picker, no override (a test fails if one appears).
+
+- **The bottle** stands on the counter behind the tape: fixed while the paper scrolls over it, off-centre
+  at the left (the end of a right-to-left line, where the least text sits), its neck, shoulder and label
+  in the open counter beside the right-aligned title, cropped by the screen edge, with a vignette and a
+  reading-side scrim for depth and a depth-of-field blur so no label detail competes with text.
+- **Readability by construction.** Before display the bottle passes through a tone filter that maps
+  every colour channel into [lo, hi] (a gamma curve: dark mode lifts the glass off the black counter,
+  light mode deepens it). The range is the widest in which every counter text keeps ≥ 4.5:1 over *any*
+  bottle pixel; `tests/design.test.ts` proves it for every beer in both modes, and that the range is
+  wide enough for the bottle to be clearly visible.
+- **Photo or drawn.** A licensed product photo (`scripts/prepare-bottle.mjs`: white background removed
+  by an edge flood fill, the bottle's own pixels untouched, provenance mandatory in
+  `src/design/bottle-photos.json`) replaces the drawn bottle for that beer. Until then the bottle is drawn
+  from data: real silhouette (longneck, classic, wheat, belgian), glass, cap and label colours, no marks.
+- **The same bottle, small,** sits beside the beer's name on the favourite keys, beer strips, the headline
+  deal, the beer list and the favourites editor, so a beer is recognised before its name is read.
+- **One layout for every beer.** Only the counter, the bottle and the accent change; spacing, type and
+  components are identical. The neutral **house** look (no bottle) covers onboarding before a pick and any
+  beer without an identity (Somersby, a cider, deliberately).
 
 ## Things not to do
 
-Rounded card stacks; gradient or glass surfaces; a beer emoji as a logo; brown-and-gold as a default;
+A theme picker or any other way to choose a look by hand; a raw white-background product photo;
+rounded card stacks; gradient or glass surfaces; a beer emoji as a logo; brown-and-gold as a default;
 colour as the only signal; text under 12 px; a dark mode chosen by habit; tracked caps eyebrows; a new
 colour that is not a token.

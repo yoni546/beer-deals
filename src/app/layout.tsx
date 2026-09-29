@@ -3,7 +3,8 @@ import { Barlow_Condensed, Rubik } from "next/font/google";
 import "./globals.css";
 import { getViewer } from "@/lib/session";
 import { publicEnv } from "@/lib/env";
-import { chromeColors, resolveTheme, themeStyleSheet, type Appearance } from "@/design/themes";
+import { chromeColors, getThemeForBeer, themeStyleSheet } from "@/design/themes";
+import { BottleBackdrop } from "@/components/ui/Bottle";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 import { NavigationProgress } from "@/components/ui/NavigationProgress";
@@ -37,15 +38,13 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 };
 
-/** The person's theme: their manual choice, else favourite #1, else the neutral house look. */
+/**
+ * The person's app: favourite beer #1 decides it, and nothing else does (PRODUCT.md, "Favourite #1
+ * is the app"). No beer ranked yet ⇒ the neutral house look.
+ */
 async function currentTheme() {
   const viewer = await getViewer();
-  const appearance = (viewer.profile?.appearance ?? "system") as Appearance;
-  const mood = resolveTheme({
-    override: viewer.profile?.theme_override,
-    primaryBeerSlug: viewer.primaryBeer?.slug,
-  });
-  return { mood, appearance };
+  return getThemeForBeer(viewer.primaryBeer?.slug);
 }
 
 // Static viewport. The browser-chrome colour follows the person's theme, so it is rendered as
@@ -59,25 +58,20 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { mood, appearance } = await currentTheme();
-  const chrome = chromeColors(mood);
+  const preset = await currentTheme();
+  const chrome = chromeColors(preset);
 
   return (
     <html lang="he" dir="rtl" className={`${rubik.variable} ${barlow.variable}`}>
       <head>
         {/* Generated from our own theme data (src/design/themes.ts): fixed hex values,
             no user-supplied text ever reaches this stylesheet. */}
-        <style id="theme" dangerouslySetInnerHTML={{ __html: themeStyleSheet(mood, appearance) }} />
-        {appearance === "system" ? (
-          <>
-            <meta name="theme-color" media="(prefers-color-scheme: light)" content={chrome.light} />
-            <meta name="theme-color" media="(prefers-color-scheme: dark)" content={chrome.dark} />
-          </>
-        ) : (
-          <meta name="theme-color" content={appearance === "light" ? chrome.light : chrome.dark} />
-        )}
+        <style id="theme" dangerouslySetInnerHTML={{ __html: themeStyleSheet(preset) }} />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content={chrome.light} />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content={chrome.dark} />
       </head>
-      <body className="antialiased" data-theme={mood.slug}>
+      <body className="antialiased" data-theme={preset.beerId}>
+        <BottleBackdrop preset={preset} />
         <NavigationProgress />
         {children}
         <TabBar />

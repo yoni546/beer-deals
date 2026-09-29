@@ -53,6 +53,14 @@ npx supabase db push                       # applies 0001 … 0013 in order
 **B · paste**: SQL editor → New query → paste `supabase/RUN_THIS_IN_SUPABASE.sql` → Run (fresh
 project only; regenerate with `npm run sql:build`).
 
+**Only if a database was built from the early draft of `0011`** (it added a manual theme picker's
+columns before that picker was removed — favourite #1 alone decides the look now). Check first:
+`select column_name from information_schema.columns where table_name = 'profiles' and column_name in ('theme_override', 'appearance');`
+If that returns rows, remove them (they only ever held a picker choice):
+```sql
+alter table public.profiles drop column if exists theme_override, drop column if exists appearance;
+```
+
 ## 3. Seed staging (optional but useful)
 
 SQL editor, one script at a time, **each starting with the confirmation line**:

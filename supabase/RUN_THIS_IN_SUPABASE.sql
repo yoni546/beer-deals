@@ -2222,31 +2222,24 @@ begin
 end;
 $$;
 
--- ======================== 0011_appearance_and_regular_prices_feed.sql ========================
+-- ======================== 0011_optional_name_and_regular_prices_feed.sql ========================
 
 -- ---------------------------------------------------------------------------
 -- 0011 — what the redesigned screens need from the database.
 --
---   * profiles.theme_override / appearance : the Settings choices (theme and
---     light/dark), stored per profile so they follow the person, not the device.
 --   * save_preferences() : the name becomes optional (one fewer thing to type
 --     during onboarding).
 --   * regular_prices_feed : regular (non-promotional) prices with the names,
 --     pack, unit price and freshness the beer and store pages display.
 --
--- Additive, like 0007–0010. Rollback: drop the view, drop the two columns, and
--- restore the previous save_preferences() body from 0010.
+-- Additive, like 0007–0010. Rollback: drop the view and restore the previous
+-- save_preferences() body from 0010.
+--
+-- History: an earlier draft of this file (never applied to a hosted database) also added
+-- profiles.theme_override and profiles.appearance for a manual theme picker. That picker was
+-- removed before release: favourite #1 alone decides the app's look (PRODUCT.md). If a
+-- database was ever built from that draft, docs/STAGING.md has the one-line cleanup.
 -- ---------------------------------------------------------------------------
-
-alter table public.profiles
-  -- A theme slug ("goldstar"); NULL = follow favourite #1. The set of valid themes
-  -- lives in code (src/design/themes.ts), so the database only checks the shape.
-  add column theme_override text check (theme_override is null or theme_override ~ '^[a-z0-9-]{1,40}$'),
-  add column appearance     text not null default 'system' check (appearance in ('system', 'light', 'dark'));
-
--- 0010 limited profile updates to two columns. These two are the person's own
--- choices, so they join the list; the derived columns stay out of reach.
-grant update (theme_override, appearance) on public.profiles to authenticated;
 
 -- The name is optional now. An empty string would violate the column's length
 -- check, so it is stored as NULL ("no name yet"), which the app already handles.

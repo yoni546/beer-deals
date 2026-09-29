@@ -90,7 +90,7 @@ export function ButtonLink({
 
 /**
  * A message that must be read: an error, or a confirmation. It is a piece of paper with
- * words on it — never colour alone — so it reads the same in every theme and appearance.
+ * words on it — never colour alone — so it reads the same for every beer, light or dark.
  * Errors are announced (role="alert"); confirmations politely (role="status").
  */
 export function Notice({ children, tone = "error" }: { children: ReactNode; tone?: "error" | "info" }) {

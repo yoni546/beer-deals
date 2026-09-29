@@ -204,51 +204,6 @@ test.describe("settings", () => {
     await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).toContainText("טובורג");
     await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
   });
-
-  test("a manual look overrides the beer's, survives a reload, and 'automatic' hands control back", async ({ page }) => {
-    await onboard(page);
-    await page.goto("/settings");
-    await page.getByText("צבעי האפליקציה").click();
-
-    // A look names the beer it belongs to, so it can be found by hand.
-    await expect(page.getByRole("button", { name: /יין אדום.*טובורג אדום/ })).toBeVisible();
-
-    await page.getByRole("button", { name: "ניטרלי" }).click();
-    await expect(page.locator("body")).toHaveAttribute("data-theme", "house");
-    await page.reload();
-    await expect(page.locator("body")).toHaveAttribute("data-theme", "house");
-    await page.goto("/");
-    await expect(page.locator("body")).toHaveAttribute("data-theme", "house");
-
-    await page.goto("/settings");
-    await page.getByText("צבעי האפליקציה").click();
-    await page.getByRole("button", { name: "אוטומטי" }).click();
-    await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
-    await page.reload();
-    await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
-  });
-
-  test("dark and light can be forced regardless of the device, and persist", async ({ page }) => {
-    await page.emulateMedia({ colorScheme: "light" });
-    await onboard(page);
-    await page.goto("/settings");
-
-    const groundLuminance = () =>
-      page.evaluate(() => {
-        const hex = getComputedStyle(document.documentElement).getPropertyValue("--ground").trim();
-        const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      });
-
-    expect(await groundLuminance()).toBeGreaterThan(0.4); // the device says light
-    await page.getByRole("button", { name: "כהה" }).click();
-    await expect.poll(groundLuminance).toBeLessThan(0.15);
-    await page.reload();
-    expect(await groundLuminance()).toBeLessThan(0.15);
-
-    await page.getByRole("button", { name: "לפי המכשיר" }).click();
-    await expect.poll(groundLuminance).toBeGreaterThan(0.4);
-  });
 });
 
 test("the bottom bar takes you between the four places and marks where you are", async ({ page }) => {

@@ -78,7 +78,13 @@ update in full, earlier ones collapsed. That screen is fed only by `releases.jso
   `src/design/`, `src/components/ui/`); no ad-hoc hex values, no emoji as icons.
   Before a UI pull request run `./.claude/skills/impeccable/scripts/impeccable detect --json src`
   (it must print `[]`).
-- Themes are data presets, not forked components or per-beer stylesheets.
+- **PERMANENT PRODUCT RULE: favourite #1 is the app.** The theme is chosen only by
+  `getThemeForBeer(favourite #1)`: its bottle on the counter and its palette. Never add a theme
+  picker, a manual override, an in-app light/dark switch, or any stored theme preference
+  (`tests/design.test.ts` and `tests/e2e/favourite-one.spec.ts` fail if one appears). Beer
+  identities are data in `src/design/themes.ts`, not forked components or per-beer stylesheets.
+- Bottle photos only with provenance, through `scripts/prepare-bottle.mjs`; never a logo or label
+  artwork drawn or copied; never a raw white-background product photo.
 - Every route has designed empty and error states; loading is the top progress bar
   (`NavigationProgress`). **Do not add `loading.tsx`**: it stalls client-side navigation in
   production builds (`docs/LESSONS.md`, enforced by a test). Touch targets ≥ 44px; text ≥

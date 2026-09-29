@@ -1,4 +1,4 @@
-# Design critique — "The Tape" at release 0.5.2
+# Design critique — "The Tape" at release 0.6.0
 
 Written by the person who built it, against `PRODUCT.md`/`DESIGN.md` and the audit's acceptance criteria, looking at
 `docs/design/screens/` and at every screen in a browser at 390×844 and 430×932, light and dark, in several themes.
@@ -27,7 +27,7 @@ screens; every control is ≥ 44 px; nothing scrolls sideways at 360/390/430/768
    the current chips work with no JavaScript.)
 2. **Lines are tall.** Every offer line is three rows (~136 px) so that each target is 44 px; about four lines fit on a
    screen. A compact mode, or moving the store into the first row on Home, would double the density.
-3. ~~Manual theme names describe a mood, not a beer.~~ *Fixed in 0.5.2: each look shows the beer it belongs to.*
+3. ~~Manual theme names describe a mood, not a beer.~~ *Superseded in 0.6.0: there is no manual look any more; favourite #1 is the app.*
 4. **The regular-prices view has no search**, and the beer list / store list are separate searches from Home's combined box.
 
 ## P3 — polish
@@ -37,6 +37,24 @@ screens; every control is ≥ 44 px; nothing scrolls sideways at 360/390/430/768
   smoothness. Measure before optimising.
 * No pull-to-refresh or explicit refresh control; "עודכן לפני…" is the only freshness cue on the page.
 * The build badge in development sits over the top-left corner and hides the first pixels of the header.
+
+## 0.6.0 — the bottle-led identity, reviewed
+
+Question asked: does The Tape support "my beer deals app" rather than "one design with different colour tokens"?
+**Yes, with the bottle on the counter.** Kept: hierarchy, shelf-label prices, navigation, accessibility, ergonomics.
+Changed: the counter now carries favourite #1's bottle and the beer's own colours; the same bottle, small, marks every
+beer by name. Five #1 beers side by side (`screens/favourite-one/_comparison-home-*.png`) are five recognisably
+different apps on one layout.
+
+* **P2 — the big bottle is subtle in dark mode.** The readability guarantee confines it to the dark end of the
+  range on a dark counter; it reads as a lit bottle in a dim bar, not a poster. Light mode shows more of it. This
+  is the honest cost of "text is never unreadable over the bottle"; a real photo will help (more tonal detail).
+* **P2 — much of the bottle is behind the tape.** The paper strips cover the counter, so the bottle is seen in the
+  header zone and in the gaps. A taller Home header ("stage") would show more; not done, to keep search, the #1
+  beer and the tab bar on the first screen (acceptance 11).
+* **P3 — drawn bottles are stand-ins.** They carry glass, cap and label colours and the right silhouette, but no
+  marks, by design. Licensed photos (`scripts/prepare-bottle.mjs`) are the real thing.
+* Impeccable detector: `[]` after the change.
 
 ## Not checked (and why it matters)
 
