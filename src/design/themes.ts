@@ -137,6 +137,10 @@ export type BottlePhoto = {
   license: string;
   approvedBy: string;
   addedOn: string;
+  /** The exact file it was made from, the site it came from, and the product's barcode. */
+  sourceUrl?: string;
+  sourceName?: string;
+  barcode?: string;
 };
 
 const PHOTOS = photos as Record<string, BottlePhoto>;

@@ -63,11 +63,12 @@ describe("the prepare script", () => {
           return String((error as { stderr?: Buffer }).stderr);
         }
       };
+      const before = readFileSync("src/design/bottle-photos.json", "utf8");
       expect(run("goldstar")).toContain("--source is required");
       expect(run("goldstar", "--source", "x", "--license", "y")).toContain("--approved-by is required");
       expect(run("somersby", "--source", "x", "--license", "y", "--approved-by", "z")).toContain("has no identity");
       // Nothing was written by the refused runs.
-      expect(JSON.parse(readFileSync("src/design/bottle-photos.json", "utf8"))).toEqual({});
+      expect(readFileSync("src/design/bottle-photos.json", "utf8")).toBe(before);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -88,5 +89,21 @@ describe("a photo on record replaces the drawn bottle for that beer", () => {
     expect(goldstar.modes.dark.bottleTone.hi).toBeGreaterThan(goldstar.modes.dark.bottleTone.lo);
     expect(getThemeForBeer("heineken").background.kind).toBe("drawn"); // no photo on record → drawn
     vi.doUnmock("@/design/bottle-photos.json");
+  });
+});
+
+describe("the real bottle photos on record", () => {
+  it("every one has a file, its provenance, and belongs to a beer with an identity", async () => {
+    const { existsSync } = await import("node:fs");
+    const manifest = JSON.parse(readFileSync("src/design/bottle-photos.json", "utf8")) as Record<string, Record<string, string | number>>;
+    const themes = readFileSync("src/design/themes.ts", "utf8");
+    expect(Object.keys(manifest).length).toBeGreaterThanOrEqual(19);
+    for (const [slug, photo] of Object.entries(manifest)) {
+      expect(themes, slug).toContain(`beer("${slug}"`);
+      expect(existsSync(join("public", String(photo.src))), slug).toBe(true);
+      for (const key of ["source", "sourceUrl", "sourceName", "license", "approvedBy", "addedOn"]) expect(photo[key], `${slug}.${key}`).toBeTruthy();
+      // Small enough to load fast as a background (only favourite #1's is ever requested).
+      expect(Number(photo.height), slug).toBeLessThanOrEqual(1600);
+    }
   });
 });

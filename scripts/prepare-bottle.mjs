@@ -5,7 +5,7 @@
  *   node scripts/prepare-bottle.mjs <photo> <beer-slug> \
  *     --source "where it came from (URL, brand press kit, own photo…)" \
  *     --license "the terms under which we may use it" \
- *     --approved-by "who approved it"
+ *     --approved-by "who approved it"  *     [--source-url <exact file URL>] [--source-name "Rami Levy online catalogue"] [--barcode <GTIN>]  *     [--crop left,top,width,height]   (to keep only the bottle when the photo also shows a glass)
  *
  * What it does: removes a white/near-white background (edge flood fill; the bottle's own pixels,
  * including white label areas inside it, are kept exactly), crops to the bottle, scales to at most
@@ -30,6 +30,10 @@ const flag = (name) => {
 };
 const [input, slug] = args.filter((arg, i) => !arg.startsWith("--") && !args[i - 1]?.startsWith("--"));
 const provenance = { source: flag("source"), license: flag("license"), approvedBy: flag("approved-by") };
+const extra = Object.fromEntries(
+  [["sourceUrl", flag("source-url")], ["sourceName", flag("source-name")], ["barcode", flag("barcode")]].filter(([, v]) => v),
+);
+const crop = flag("crop") ? flag("crop").split(",").map(Number) : null;
 const tolerance = Number(flag("tolerance") || 30);
 
 const fail = (message) => {
@@ -41,7 +45,9 @@ const known = [...readFileSync(join(ROOT, "src/design/themes.ts"), "utf8").match
 if (!known.includes(slug)) fail(`"${slug}" has no identity in src/design/themes.ts (known: ${known.join(", ")})`);
 for (const [key, value] of Object.entries(provenance)) if (!value) fail(`--${key === "approvedBy" ? "approved-by" : key} is required: every bottle photo needs its provenance on record`);
 
-const { data, info } = await sharp(readFileSync(input)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+let image = sharp(readFileSync(input)).rotate();
+if (crop) image = sharp(await image.extract({ left: crop[0], top: crop[1], width: crop[2], height: crop[3] }).toBuffer());
+const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 const { data: cut, box } = cutout(data, info.width, info.height, { tolerance });
 if (!box) fail("nothing left after removing the background — is the photo all white?");
 const coverage = (box.width * box.height) / (info.width * info.height);
@@ -62,6 +68,7 @@ manifest[slug] = {
   width: out.info.width,
   height: out.info.height,
   ...provenance,
+  ...extra,
   addedOn: new Date().toISOString().slice(0, 10),
 };
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");

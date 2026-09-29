@@ -217,7 +217,11 @@ describe("theme output", () => {
 
   it("exposes the preset in the product's own vocabulary", () => {
     const preset = getThemeForBeer("goldstar");
-    expect(preset.background.kind).toBe("drawn");
+    // Goldstar's own bottle photo (scripts/fetch-bottles.mjs), with its provenance on record.
+    expect(preset.background.kind).toBe("photo");
+    if (preset.background.kind === "photo") expect(preset.background.photo).toMatchObject({ src: "/bottles/goldstar.webp", barcode: "7290006764072" });
+    // A beer without a usable photo keeps its drawn stand-in, never another beer's photo.
+    expect(getThemeForBeer("bazelet").background.kind).toBe("drawn");
     for (const key of ["surface", "surfaceElevated", "textPrimary", "textMuted", "accent", "accentStrong", "border", "dealHighlight", "glow", "scrim"]) {
       expect(preset.modes.dark).toHaveProperty(key);
     }
