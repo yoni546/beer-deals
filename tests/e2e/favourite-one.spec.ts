@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedRealCatalog } from "./helpers";
+import { NO_IDENTITY_BEER, addBeerWithoutIdentity, onboard, resetDb, seedRealCatalog } from "./helpers";
 
 /**
  * The locked product rule (PRODUCT.md, "Favourite #1 is the app"): the person's favourite beer #1
@@ -114,7 +114,8 @@ test("light or dark follows the device, and nothing else", async ({ page }) => {
 });
 
 test("a beer without its own identity gets the neutral look and no bottle — never another beer's", async ({ page }) => {
-  await onboard(page, "בדיקה", ["סאמרסבי", "גולדסטאר", "מכבי", "קורונה"]);
+  await addBeerWithoutIdentity();
+  await onboard(page, "בדיקה", [NO_IDENTITY_BEER, "גולדסטאר", "מכבי", "קורונה"]);
   await expect(page.locator("body")).toHaveAttribute("data-theme", "house");
   await expect(stage(page)).toHaveAttribute("data-bottle", "none");
   await expect(page.locator(".bottle-art")).toHaveCount(0);

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
-import { ButtonLink, EmptyState, Screen, TopBar } from "@/components/Chrome";
+import { EmptyState, Screen, TopBar } from "@/components/Chrome";
 import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
+import { GroupStrip } from "@/components/GroupOffers";
 import { RegularStrip } from "@/components/RegularStrip";
+import { SectionHeading, SectionJump } from "@/components/Sections";
 import { SortBar } from "@/components/SortBar";
-import { Segmented } from "@/components/ui/Chip";
 import { packText } from "@/lib/format";
-import { getOffers, getRegularPrices } from "@/lib/offers";
+import { getGroupOffers, getOffers, getRegularPrices } from "@/lib/offers";
 import {
   filterByPack,
   filterRegularByPack,
@@ -19,6 +20,7 @@ import {
   parseSort,
   regularPackClass,
   sortOffers,
+  sortRegular,
   type PackFilter,
 } from "@/lib/offer-logic";
 import { getBeerBySlug } from "@/lib/queries";
@@ -28,30 +30,36 @@ export const dynamic = "force-dynamic";
 type Search = { view?: string; sort?: string; unit?: string; pack?: string; c?: string };
 
 /**
- * One beer, every pack, every chain.
+ * One beer, every pack, every chain — in two parts, never mixed:
  *
- * Two views of the same beer: what is on promotion now, and what it costs on an ordinary
- * day. Packs are never mixed — Goldstar 6×330 and Goldstar 6×500 are different strips —
- * and inside a pack the chains are ordered the way the person asked.
+ *   מבצעים עכשיו      promotions everyone can use, pack by pack, plus "any N of these" group offers
+ *   מחירים רגילים      the ordinary shelf price per pack and chain
+ *
+ * Packs are never compared as the same product: Goldstar 6×330 and 6×500 are different strips.
+ * One sort (price ↑ / price ↓ / best verified saving, optionally per litre) orders both parts.
+ * (`?view=regular`, the old tab link, still opens the page; both parts are on it.)
  */
 export default async function BeerPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Search> }) {
   const { slug } = await params;
   const query = await searchParams;
 
-  const beer = await getBeerBySlug(slug);
+  const [beer, offers, regular, groups] = await Promise.all([
+    getBeerBySlug(slug),
+    getOffers({ beerSlug: slug }),
+    getRegularPrices({ beerSlug: slug }),
+    getGroupOffers({ beerSlug: slug }),
+  ]);
   if (!beer) notFound();
 
-  const view = query.view === "regular" ? "regular" : "deals";
   const sort = parseSort(query.sort);
   const perLiter = query.unit === "1";
   const pack = parsePack(query.pack, query.c);
-
-  const [offers, regular] = await Promise.all([getOffers({ beerSlug: slug }), getRegularPrices({ beerSlug: slug })]);
   const path = `/beer/${beer.slug}`;
-  const chains = new Set(offers.map((offer) => offer.store_id)).size;
-  const freshest = newestObservation(view === "deals" ? offers : regular);
+  const chains = new Set([...offers.map((o) => o.store_id), ...groups.map((g) => g.store_id)]).size;
+  const freshest = newestObservation([...offers, ...regular]);
+  const dealCount = offers.length + groups.length;
 
-  const availablePacks = [...new Set(view === "deals" ? offers.map(packClass) : regular.map(regularPackClass))] as PackFilter[];
+  const availablePacks = [...new Set([...offers.map(packClass), ...regular.map(regularPackClass)])] as PackFilter[];
   const dealGroups = orderPackGroups(groupByPack(filterByPack(offers, pack)));
   const regularGroups = groupRegularByPack(filterRegularByPack(regular, pack));
 
@@ -62,11 +70,9 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
         backHref="/beer"
         sub={
           <>
-            {view === "deals"
-              ? offers.length > 0
-                ? `${offers.length} ${offers.length === 1 ? "מבצע" : "מבצעים"} ב־${chains} ${chains === 1 ? "רשת" : "רשתות"}`
-                : "אין כרגע מבצע על הבירה הזו"
-              : "המחיר ביום רגיל, בלי מבצע"}
+            {dealCount > 0
+              ? `${dealCount} ${dealCount === 1 ? "מבצע" : "מבצעים"} ב־${chains} ${chains === 1 ? "רשת" : "רשתות"}`
+              : "אין כרגע מבצע על הבירה הזו"}
             {freshest && (
               <>
                 {" · "}
@@ -77,36 +83,25 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
         }
       />
 
-      <div className="mb-4">
-        <Segmented
-          label="תצוגה"
-          items={[
-            { href: path, label: `מבצעים${offers.length ? ` (${offers.length})` : ""}`, selected: view === "deals" },
-            { href: `${path}?view=regular`, label: "מחירים רגילים", selected: view === "regular" },
-          ]}
-        />
-      </div>
-
-      {(view === "deals" ? offers.length > 0 : regular.length > 0) && (
+      {(dealCount > 0 || regular.length > 0) && (
         <div className="mb-5 space-y-3">
-          <SortBar
-            path={path}
-            state={{ sort, perLiter, pack, extra: { view: view === "regular" ? "regular" : undefined } }}
-            sorting={view === "deals"}
-            availablePacks={availablePacks}
+          <SectionJump
+            items={[
+              { href: "#deals", label: `מבצעים (${dealCount})` },
+              { href: "#regular", label: `מחירים רגילים (${regular.length})` },
+            ]}
           />
+          <SortBar path={path} state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
         </div>
       )}
 
-      {view === "deals" &&
-        (offers.length === 0 ? (
-          <EmptyState
-            title={`אין כרגע מבצע על ${beer.name_he}`}
-            action={regular.length > 0 ? <ButtonLink href={`${path}?view=regular`}>לראות את המחירים הרגילים</ButtonLink> : undefined}
-          >
-            כשמבצע יופיע, הוא יעלה כאן. אם בירה זו אחת מארבע הבירות שלכם, תקבלו על כך גם התראה.
+      <section aria-labelledby="deals" className="scroll-mt-4">
+        <SectionHeading id="deals">מבצעים עכשיו</SectionHeading>
+        {dealCount === 0 ? (
+          <EmptyState title={`אין כרגע מבצע על ${beer.name_he}`}>
+            כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן. אם זו אחת מארבע הבירות שלכם, תקבלו גם התראה.
           </EmptyState>
-        ) : dealGroups.length === 0 ? (
+        ) : dealGroups.length === 0 && groups.length === 0 ? (
           <EmptyState title="אין מבצע באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
         ) : (
           <div className="space-y-7">
@@ -118,16 +113,18 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
                 offers={sortOffers(group.offers, sort, perLiter)}
                 lead="chain"
                 printIn={index === 0}
+                headingLevel="h3"
               />
             ))}
+            <GroupStrip title="מבצעי שילוב" offers={groups} headingLevel="h3" />
           </div>
-        ))}
+        )}
+      </section>
 
-      {view === "regular" &&
-        (regular.length === 0 ? (
-          <EmptyState title="עוד אין מחירים רגילים לבירה הזו">
-            מחירים רגילים נכנסים מפרסומי הרשתות. עד אז אפשר לראות רק מבצעים.
-          </EmptyState>
+      <section aria-labelledby="regular" className="mt-9 scroll-mt-4">
+        <SectionHeading id="regular">מחירים רגילים</SectionHeading>
+        {regular.length === 0 ? (
+          <EmptyState title="עוד אין מחירים רגילים לבירה הזו">מחירים רגילים נכנסים מפרסומי הרשתות.</EmptyState>
         ) : regularGroups.length === 0 ? (
           <EmptyState title="אין מחיר באריזה הזו">נסו סוג אריזה אחר.</EmptyState>
         ) : (
@@ -137,12 +134,14 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
                 key={group.key}
                 title={packText(group.prices[0])}
                 aside={`${group.prices.length} ${group.prices.length === 1 ? "רשת" : "רשתות"}`}
-                prices={group.prices}
+                prices={sortRegular(group.prices, sort, perLiter)}
                 lead="chain"
+                headingLevel="h3"
               />
             ))}
           </div>
-        ))}
+        )}
+      </section>
     </Screen>
   );
 }

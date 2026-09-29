@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { isProductionEnvironment } from "@/lib/demo";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Offer, RegularPrice } from "@/lib/db/types";
+import type { GroupOffer, Offer, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
 
@@ -75,6 +75,23 @@ export async function getRegularPrices(filter: { beerSlug?: string; storeSlug?: 
   const { data, error } = await query;
   if (error) throw new DataUnavailableError("regular prices", error.message);
   return (data ?? []) as RegularPrice[];
+}
+
+/**
+ * "Any N of these for ₪X" offers (group_offers_feed, migration 0014): one row per chain promotion.
+ * Filter by a beer (any of its packs is eligible) or a chain.
+ */
+export async function getGroupOffers(filter: { beerSlug?: string; storeSlug?: string; beerIds?: string[] } = {}): Promise<GroupOffer[]> {
+  if (filter.beerIds && filter.beerIds.length === 0) return [];
+  const supabase = await supabaseServer();
+  let query = supabase.from("group_offers_feed").select("*");
+  if (hideSamples()) query = query.eq("is_sample", false);
+  if (filter.beerSlug) query = query.contains("beer_slugs", [filter.beerSlug]);
+  if (filter.storeSlug) query = query.eq("store_slug", filter.storeSlug);
+  if (filter.beerIds) query = query.overlaps("beer_ids", filter.beerIds);
+  const { data, error } = await query.order("per_unit_agorot");
+  if (error) throw new DataUnavailableError("group offers", error.message);
+  return (data ?? []) as GroupOffer[];
 }
 
 /** One row per beer or chain: how many offers there are, and the best verified saving. */

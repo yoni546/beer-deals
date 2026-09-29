@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedRealCatalog } from "./helpers";
+import { NO_IDENTITY_BEER, addBeerWithoutIdentity, onboard, resetDb, seedRealCatalog } from "./helpers";
 
 /**
  * The quality floor for every screen, checked in a real browser at both phone widths:
@@ -27,6 +27,7 @@ const SCREENS = [
 test.beforeAll(async () => {
   await resetDb();
   await seedRealCatalog();
+  await addBeerWithoutIdentity();
 });
 
 type Finding = string;
@@ -124,7 +125,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 // A spread of beers (as favourite #1 — the only way a look is chosen), plus the neutral house look.
 const OTHERS = ["גולדסטאר", "מכבי", "קורונה"];
-for (const [theme, name] of [["house", "סאמרסבי"], ["heineken", "היינקן"], ["stella", "סטלה ארטואה"], ["guinness", "גינס"], ["tuborg-red", "טובורג אדום"]] as const) {
+for (const [theme, name] of [["house", NO_IDENTITY_BEER], ["heineken", "היינקן"], ["stella", "סטלה ארטואה"], ["guinness", "גינס"], ["tuborg-red", "טובורג אדום"]] as const) {
   test(`axe: contrast holds with ${theme} as favourite #1, light and dark`, async ({ page }) => {
     await onboard(page, "בדיקה", [name, ...OTHERS]);
     for (const scheme of ["light", "dark"] as const) {

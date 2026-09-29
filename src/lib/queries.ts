@@ -10,15 +10,19 @@ import type { AppSettings, Beer, Store } from "@/lib/db/types";
  * Offers and regular prices are read in src/lib/offers.ts.
  */
 
+/**
+ * The beers people can choose: active, and in a category the app shows (product_categories.in_scope,
+ * migration 0014 — cider and malt drinks are out for now). A beer someone already chose stays theirs:
+ * favourites are read with the person, not from this list.
+ */
 export const getBeers = cache(async (): Promise<Beer[]> => {
   const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("beers")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order")
-    .order("name_he");
-  return (data ?? []) as Beer[];
+  const [{ data }, { data: categories }] = await Promise.all([
+    supabase.from("beers").select("*").eq("is_active", true).order("sort_order").order("name_he"),
+    supabase.from("product_categories").select("slug").eq("in_scope", true),
+  ]);
+  const shown = new Set((categories ?? []).map((c: { slug: string }) => c.slug));
+  return ((data ?? []) as Beer[]).filter((beer) => shown.size === 0 || shown.has(beer.category ?? "beer"));
 });
 
 export const getStores = cache(async (): Promise<Store[]> => {

@@ -57,6 +57,21 @@ export async function seedRealCatalog(options: { sample?: string[] } = {}) {
 export const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>
   ((await post("/__test/sql", { sql: query, params })) as { rows: T[] }).rows;
 
+/**
+ * A beer with no visual identity of its own (src/design/themes.ts has none for it), in a category the
+ * app shows — to prove the neutral fallback. Every real beer in scope has an identity, so the test
+ * adds one. Test database only.
+ */
+export const NO_IDENTITY_BEER = "בירת בדיקה";
+export async function addBeerWithoutIdentity() {
+  await exec(
+    `insert into public.beers (slug, name_he, name_en, theme_base, theme_surface, theme_accent, theme_ink, sort_order, brand_id, category)
+     select 'test-no-identity', '${NO_IDENTITY_BEER}', 'Test beer', '#111111', '#222222', '#cccccc', '#ffffff', 99, brand_id, 'beer'
+       from public.beers where slug = 'goldstar'
+     on conflict (slug) do nothing;`,
+  );
+}
+
 export async function createAdmin(email = "admin@example.test", password = "correct-horse") {
   const { id } = (await post("/__test/create-user", { email, password, admin: "super_admin" })) as { id: string };
   return { id, email, password };

@@ -3,7 +3,7 @@ import { ChevronDownIcon } from "@/components/ui/icons";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { ReportDealButton } from "@/components/ReportDealButton";
 import type { Offer } from "@/lib/db/types";
-import { conditionChips, packText, relativeTimeHe, validUntilHe } from "@/lib/format";
+import { conditionChips, depositHe, packText, relativeTimeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 export type LineLead = "chain" | "beer" | "pack";
@@ -36,6 +36,8 @@ export function OfferLine({
   const pack = packText(offer);
   const until = validUntilHe(offer.valid_to, now);
   const chips = conditionChips(offer);
+  const deposit = depositHe(offer.deposit_agorot, offer.deposit_included);
+  const where = whereSeenHe(offer);
   const beerHref = `/beer/${offer.beer_slug}`;
   const storeHref = `/store/${offer.store_slug}`;
 
@@ -54,7 +56,7 @@ export function OfferLine({
       </>
     );
 
-  const hasMeta = showStore || Boolean(until) || chips.length > 0 || offer.needs_review;
+  const hasMeta = showStore || Boolean(until) || Boolean(deposit) || chips.length > 0 || offer.needs_review;
 
   const hasReference = offer.value_pct !== null && offer.reference_agorot !== null;
   const summaryParts: React.ReactNode[] = [];
@@ -83,6 +85,16 @@ export function OfferLine({
             </span>
           )}
           {until && <span>{until}</span>}
+          {deposit && (
+            <>
+              {(showStore || until) && (
+                <span aria-hidden className="text-paper-line">
+                  ·
+                </span>
+              )}
+              <span className="num">{deposit}</span>
+            </>
+          )}
           {chips.map((chip) => (
             <span key={chip.label} className="rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
               {chip.label}
@@ -117,7 +129,10 @@ export function OfferLine({
         </summary>
 
         <dl className="mb-3 space-y-1.5 border-t border-dashed border-paper-line pt-3 text-sm">
-          <Row label="חנות">{offer.store_name}</Row>
+          <Row label="חנות">
+            {offer.store_name}
+            {where && <span className="text-ink-2"> · {where}</span>}
+          </Row>
           <Row label="אריזה">{pack}</Row>
           {offer.reference_agorot !== null && offer.value_pct !== null && (
             <Row label="מחיר רגיל">

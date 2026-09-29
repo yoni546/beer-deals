@@ -173,6 +173,9 @@ function condition(alias, columnTypes, column, operatorText, params) {
     const inner = raw.replace(/^\(/, "").replace(/\)$/, "");
     const values = splitTopLevel(inner).map((v) => unquote(v.trim()));
     sql = `${col} = any(${params.add(pgArrayLiteral(values))}::text::${type}[])`;
+  } else if (op === "cs" || op === "ov") {
+    // Array containment / overlap: the value is a Postgres array literal, "{a,b}".
+    sql = `${col} ${op === "cs" ? "@>" : "&&"} ${params.add(unquote(raw))}::text::${type}`;
   } else if (OPS[op]) {
     sql = `${col} ${OPS[op]} ${params.add(unquote(raw))}::text::${type}`;
   } else {

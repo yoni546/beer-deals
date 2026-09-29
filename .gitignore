@@ -28,3 +28,6 @@ supabase/.branches
 
 # Supermarket feed files fetched for ingestion dry runs (public data, large, re-fetchable)
 .ingest-cache/
+
+# A production build pointed at the staging project (scripts: see docs/STAGING.md)
+/.next-staging/

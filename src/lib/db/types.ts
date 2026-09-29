@@ -15,6 +15,8 @@ export type Beer = {
   theme_ink: string;
   sort_order: number;
   is_active: boolean;
+  /** product_categories.slug (migration 0014): beer | non_alcoholic | radler | malt | cider */
+  category?: string;
 };
 
 export type Store = {
@@ -120,6 +122,24 @@ export type OfferConditions = {
   club?: string;
   coupon?: boolean;
   note_he?: string;
+  /** Who can redeem it (0014). The read views only ever return "everyone". */
+  audience?: "everyone" | "club" | "payment" | "coupon" | "personal" | "restricted";
+  /** The bottle deposit: {agorot per pack, included in the price?, why we think so}. */
+  deposit?: { agorot: number | null; included: boolean; basis?: string };
+};
+
+/** Where a price was seen, and how it relates to the deposit (migrations 0014–0015). */
+export type PriceProvenance = {
+  variant: string;
+  category: string;
+  /** ₪0.30 × containers, per pack; null when unknown or not applicable. */
+  deposit_agorot: number | null;
+  deposit_included: boolean | null;
+  /** How many of the chain's branches this price (or promotion) was seen at. */
+  branch_count: number;
+  branch_id: string | null;
+  branch_name: string | null;
+  branch_city: string | null;
 };
 
 /**
@@ -161,7 +181,7 @@ export type Offer = {
   observed_at: string | null;
   is_sample: boolean;
   notes: string | null;
-};
+} & Partial<PriceProvenance>;
 
 /** One row of `regular_prices_feed`: the latest regular (non-promotional) price of a pack at a chain. */
 export type RegularPrice = {
@@ -183,4 +203,35 @@ export type RegularPrice = {
   is_sample: boolean;
   trust: ReferenceTrust;
   is_stale: boolean;
+  /** The highest current price among the branches seen; above price_agorot → "החל מ־". */
+  max_price_agorot?: number;
+} & Partial<PriceProvenance>;
+
+/**
+ * One row of `group_offers_feed` (0014): "any N of these packs for ₪X" at a chain — ONE offer across
+ * several packs. Never shown as a per-pack price of any one of them.
+ */
+export type GroupOffer = {
+  offer_key: string;
+  group_id: number;
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  description_he: string;
+  required_qty: number;
+  total_agorot: number;
+  per_unit_agorot: number;
+  deposit_agorot: number | null;
+  deposit_included: boolean | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  observed_at: string;
+  is_sample: boolean;
+  beer_ids: string[];
+  beer_slugs: string[];
+  packs: Array<{ sku_id: string; beer_slug: string; beer_name: string; label: string; container: ContainerType; volume_ml: number; pack_quantity: number }>;
+  branch_count: number;
+  branch_id: string | null;
+  branch_name: string | null;
+  branch_city: string | null;
 };

@@ -216,3 +216,13 @@ export function newestObservation(offers: Pick<Offer, "observed_at">[]): string 
   const times = offers.map((offer) => offer.observed_at).filter((t): t is string => Boolean(t));
   return times.length ? times.reduce((a, b) => (a > b ? a : b)) : null;
 }
+
+/**
+ * Regular prices inside one pack group, in the order the person asked for. "Best saving" means
+ * nothing for a regular price (there is no saving), so it orders them cheapest first like price_asc.
+ */
+export function sortRegular(prices: RegularPrice[], mode: SortMode, perLiter = false): RegularPrice[] {
+  const key = (p: RegularPrice) => (perLiter ? p.unit_price_per_liter_agorot : p.price_agorot);
+  const dir = mode === "price_desc" ? -1 : 1;
+  return [...prices].sort((a, b) => dir * (key(a) - key(b)) || a.store_name.localeCompare(b.store_name, "he"));
+}

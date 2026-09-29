@@ -8,10 +8,11 @@ import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { SortBar } from "@/components/SortBar";
 import { Strip } from "@/components/BeerStrip";
+import { GroupStrip } from "@/components/GroupOffers";
 import { Gap } from "@/components/ui/Tape";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { latestVisibleVersion } from "@/lib/releases";
-import { getFreshness, getOfferByKey, getOffers } from "@/lib/offers";
+import { getFreshness, getGroupOffers, getOfferByKey, getOffers } from "@/lib/offers";
 import {
   filterByPack,
   groupByBeer,
@@ -47,15 +48,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const pack = parsePack(query.pack, query.c);
 
   const favouriteIds = viewer.favorites.map((beer) => beer.id);
-  const settings = await getSettings();
-  const [allBeers, allStores, mine, more, featured, updatedAt] = await Promise.all([
+  // One round trip for everything; the editor's pick (rare) is a second one only when there is one.
+  const [allBeers, allStores, mine, more, myGroups, settings, updatedAt] = await Promise.all([
     getBeers(),
     getStores(),
     getOffers({ beerIds: favouriteIds }),
     getOffers({ excludeBeerIds: favouriteIds, topByValue: 24 }),
-    settings?.weekly_deal_id ? getOfferByKey(`deal:${settings.weekly_deal_id}`) : Promise.resolve(null),
+    getGroupOffers({ beerIds: favouriteIds }),
+    getSettings(),
     getFreshness(),
   ]);
+  const featured = settings?.weekly_deal_id ? await getOfferByKey(`deal:${settings.weekly_deal_id}`) : null;
 
   const everything = [...mine, ...more];
   const freshest = updatedAt ?? newestObservation(everything);
@@ -107,7 +110,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </>
       )}
 
-      {everything.length === 0 ? (
+      {everything.length === 0 && myGroups.length === 0 ? (
         <EmptyState
           title="עוד אין מבצעים מאומתים"
           action={<ButtonLink href="/submit">ראיתם מבצע? שלחו לנו</ButtonLink>}
@@ -135,7 +138,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               />
             ))}
 
-            {mine.length === 0 && (
+            <GroupStrip title="מבצעי שילוב על הבירות שלי" offers={myGroups} />
+
+            {mine.length === 0 && myGroups.length === 0 && (
               <EmptyState title="אין כרגע מבצע על הבירות שלי">
                 כשיופיע מבצע על אחת מהארבע, הוא יעלה לכאן ראשון.
               </EmptyState>

@@ -70,12 +70,16 @@ export function volumeHe(ml: number): string {
   return `${Number.isInteger(liters) ? liters : liters.toFixed(2).replace(/0$/, "")} ל׳`;
 }
 
-/** "6 × 330 מ״ל · פחית" — the pack as printed on a shelf label. Legacy deals only know a category. */
-export function packText(offer: Pick<Offer, "volume_ml" | "pack_quantity" | "container" | "pack_label">): string {
+/**
+ * "6 × 330 מ״ל · פחית" — the pack as printed on a shelf label, led by the variant when there is one
+ * ("לא מסונן · 500 מ״ל · פחית", "0.0 · 6 × 330 מ״ל · בקבוק"): two variants in the same can are two
+ * different products. Legacy deals only know a category.
+ */
+export function packText(offer: Pick<Offer, "volume_ml" | "pack_quantity" | "container" | "pack_label"> & { variant?: string | null }): string {
   if (!offer.volume_ml || !offer.pack_quantity) return offer.pack_label;
   const size = offer.pack_quantity > 1 ? `${offer.pack_quantity} × ${volumeHe(offer.volume_ml)}` : volumeHe(offer.volume_ml);
   const container = offer.container ? CONTAINER_HE[offer.container] : "";
-  return container ? `${size} · ${container}` : size;
+  return [offer.variant || "", size, container].filter(Boolean).join(" · ");
 }
 
 export type ConditionChip = { label: string; kind: "multi" | "club" | "limit" | "coupon" };
@@ -95,3 +99,29 @@ export function conditionChips(offer: Pick<Offer, "conditions" | "promo_type">):
   if (c.max_qty) chips.push({ label: `עד ${c.max_qty} ליחידות`, kind: "limit" });
   return chips;
 }
+
+/**
+ * The bottle deposit beside a price (migration 0014). Shelf prices in Israel exclude it; it is shown
+ * apart — "+ ₪1.80 פיקדון" — so it is never mistaken for part of a saving. Null when unknown.
+ */
+export function depositHe(depositAgorot: number | null | undefined, included: boolean | null | undefined): string | null {
+  if (!depositAgorot || depositAgorot <= 0) return null;
+  if (included) return "כולל פיקדון";
+  const shekels = (depositAgorot / 100).toFixed(2);
+  return `+ ₪${shekels} פיקדון`;
+}
+
+/**
+ * Where a price was seen. Prices are per branch; a chain row is never "the chain's price":
+ * one branch is named, several are counted.
+ */
+export function whereSeenHe(row: { branch_count?: number | null; branch_name?: string | null; branch_city?: string | null }): string | null {
+  const n = row.branch_count ?? 0;
+  if (n > 1) return `ב־${n} סניפים`;
+  if (n === 1 && row.branch_name) return `בסניף ${row.branch_name.trim()}`;
+  return null;
+}
+
+/** "החל מ־": the lowest of several branch prices that differ. */
+export const isFromPrice = (row: { branch_count?: number | null; price_agorot: number; max_price_agorot?: number | null }) =>
+  (row.branch_count ?? 0) > 1 && (row.max_price_agorot ?? row.price_agorot) > row.price_agorot;

@@ -111,20 +111,25 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
   await expect(page.getByRole("link", { name: /מחיר.*מהיקר לזול/ })).toHaveAttribute("aria-current", "true");
 });
 
+/** The two parts of a beer or chain page. */
+const dealsPart = (page: Page) => page.locator("section[aria-labelledby='deals']");
+const regularPart = (page: Page) => page.locator("section[aria-labelledby='regular']");
+const strip = (part: ReturnType<Page["locator"]>, name: string) => part.locator("section", { has: part.page().getByRole("heading", { level: 3, name }) });
+
 test("Beer page: every pack is its own strip and a chain's 6×500 price never sits among the 6×330s", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
 
   for (const pack of ["6 × 330 מ״ל · פחית", "6 × 500 מ״ל · פחית", "24 × 330 מ״ל · פחית"]) {
-    await expect(page.getByRole("heading", { level: 2, name: pack }), pack).toBeVisible();
+    await expect(dealsPart(page).getByRole("heading", { level: 3, name: pack }), pack).toBeVisible();
   }
 
-  const small = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "6 × 330 מ״ל · פחית" }) });
+  const small = strip(dealsPart(page), "6 × 330 מ״ל · פחית");
   await expect(small).toContainText("₪25.00");
   await expect(small).toContainText("₪29.90");
   await expect(small).not.toContainText("₪40.00");
 
-  const mid = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "6 × 500 מ״ל · פחית" }) });
+  const mid = strip(dealsPart(page), "6 × 500 מ״ל · פחית");
   await expect(mid).toContainText("₪40.00");
   await expect(mid).toContainText("2 ב־₪80"); // the multi-buy terms travel with the price
   await expect(mid).not.toContainText("₪25.00");
@@ -135,18 +140,22 @@ test("Beer page: the pack filter narrows to one kind of pack and stays in the UR
   await page.goto("/beer/goldstar");
   await page.getByRole("link", { name: "ארגזים" }).click();
   await expect(page).toHaveURL(/pack=case/);
-  await expect(page.getByRole("heading", { level: 2, name: "24 × 330 מ״ל · פחית" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "6 × 330 מ״ל · פחית" })).toHaveCount(0);
+  await expect(dealsPart(page).getByRole("heading", { level: 3, name: "24 × 330 מ״ל · פחית" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "6 × 330 מ״ל · פחית" })).toHaveCount(0);
 });
 
-test("Beer page: regular prices are their own view, every chain, cheapest first", async ({ page }) => {
+test("Beer page: deals first, then regular prices — every chain, and one sort orders both", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
+  await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /^(מבצעים עכשיו|מחירים רגילים)$/ })).toHaveText(["מבצעים עכשיו", "מחירים רגילים"]);
   await page.getByRole("link", { name: /מחירים רגילים/ }).click();
-  await expect(page).toHaveURL(/view=regular/);
+  await expect(page).toHaveURL(/#regular$/);
 
-  const small = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "6 × 330 מ״ל · פחית" }) });
+  const small = strip(regularPart(page), "6 × 330 מ״ל · פחית");
   expect(await pricesIn(small)).toEqual([3690, 3790, 3890, 3990]);
+  await page.getByRole("link", { name: /מחיר.*מהיקר לזול/ }).click();
+  await expect(page).toHaveURL(/sort=price_desc/);
+  expect(await pricesIn(strip(regularPart(page), "6 × 330 מ״ל · פחית"))).toEqual([3990, 3890, 3790, 3690]);
   // A regular price is not dressed up as a saving.
   await expect(small.getByText(/−\d+%/)).toHaveCount(0);
 });
@@ -157,7 +166,7 @@ test("Store page: 'my beers' lists all four in order and says plainly which have
   await page.getByRole("link", { name: "הבירות שלי" }).click();
   await expect(page).toHaveURL(/mine=1/);
 
-  const headings = page.getByRole("heading", { level: 2 });
+  const headings = dealsPart(page).getByRole("heading", { level: 3 });
   await expect(headings.filter({ hasText: /^(גולדסטאר|מכבי|היינקן|קורונה)$/ })).toHaveText(["גולדסטאר", "מכבי", "היינקן", "קורונה"]);
   await expect(page.getByText("אין כרגע מבצע על מכבי ברמי לוי")).toBeVisible();
   await expect(page.getByText("אין כרגע מבצע על היינקן ברמי לוי")).toBeVisible();

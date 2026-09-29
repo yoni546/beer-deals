@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Price, UnitPrice } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import type { RegularPrice } from "@/lib/db/types";
-import { packText, relativeTimeHe } from "@/lib/format";
+import { depositHe, isFromPrice, packText, relativeTimeHe, whereSeenHe } from "@/lib/format";
 
 /**
  * A regular (non-promotional) price as one line of the tape. It looks like an offer line
@@ -25,16 +25,36 @@ export function RegularLine({
   const href = lead === "chain" ? `/store/${price.store_slug}` : `/beer/${price.beer_slug}`;
   const title = lead === "chain" ? price.store_name : packText(price);
   const unconfirmed = price.trust === "unverified";
+  const from = isFromPrice(price);
+  const where = whereSeenHe(price);
+  const deposit = depositHe(price.deposit_agorot, price.deposit_included);
 
   return (
     <article className="px-4 pb-3">
       <Link href={href} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
+        {from && <span className="shrink-0 text-sm font-semibold text-ink-2">החל מ־</span>}
         <Price agorot={price.price_agorot} size="md" className="shrink-0 text-ink" />
       </Link>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-ink-2">
+        {deposit && (
+          <>
+            <span className="num">{deposit}</span>
+            <span aria-hidden className="text-paper-line">
+              ·
+            </span>
+          </>
+        )}
         <UnitPrice agorotPerLiter={price.unit_price_per_liter_agorot} />
+        {where && (
+          <>
+            <span aria-hidden className="text-paper-line">
+              ·
+            </span>
+            <span>{where}</span>
+          </>
+        )}
         <span aria-hidden className="text-paper-line">
           ·
         </span>
@@ -56,17 +76,20 @@ export function RegularStrip({
   aside,
   prices,
   lead,
+  headingLevel = "h2",
 }: {
   title: string;
   href?: string;
   aside?: React.ReactNode;
   prices: RegularPrice[];
   lead: "chain" | "pack";
+  headingLevel?: "h2" | "h3";
 }) {
+  const Heading = headingLevel;
   return (
     <Tape className="pb-1">
       <div className="flex items-center justify-between gap-3 px-4 pt-2">
-        <h2 className="min-w-0 truncate text-lg leading-tight font-bold text-ink">
+        <Heading className="min-w-0 truncate text-lg leading-tight font-bold text-ink">
           {href ? (
             <Link href={href} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
               {title}
@@ -74,7 +97,7 @@ export function RegularStrip({
           ) : (
             title
           )}
-        </h2>
+        </Heading>
         {aside && <span className="shrink-0 text-sm text-ink-2">{aside}</span>}
       </div>
       <div className="divide-y divide-dotted divide-paper-line">
