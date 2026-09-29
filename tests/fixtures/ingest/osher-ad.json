@@ -502,6 +502,21 @@
    "dialect": "shufersal"
   },
   {
+   "item_code": "7290011133375",
+   "item_name": "מארז בירה שנדי אפרסק",
+   "manufacturer": "טמפו",
+   "price": 27.9,
+   "unit_price": 14.09,
+   "price_per_kg": null,
+   "quantity": "1.98",
+   "unit_of_measure": "קילוגרם",
+   "item_status": "",
+   "update_date": "2023-06-25T08:37:13.000",
+   "is_weighted": false,
+   "chain": "osher-ad",
+   "dialect": "shufersal"
+  },
+  {
    "item_code": "4008287905786",
    "item_name": "בירה קרומבאכר חיטה פ",
    "manufacturer": "יקבי כרמל",
@@ -587,21 +602,6 @@
    "unit_of_measure": "100 מיליליטר",
    "item_status": "",
    "update_date": "2024-12-31T15:17:26.000",
-   "is_weighted": false,
-   "chain": "osher-ad",
-   "dialect": "shufersal"
-  },
-  {
-   "item_code": "851621000050",
-   "item_name": "בירה בלאנק 1664 5% ב",
-   "manufacturer": "קרוננבורג ספליי קומפ",
-   "price": 39.9,
-   "unit_price": 20.15,
-   "price_per_kg": null,
-   "quantity": "1.98",
-   "unit_of_measure": "ליטר",
-   "item_status": "",
-   "update_date": "2025-12-24T09:47:29.000",
    "is_weighted": false,
    "chain": "osher-ad",
    "dialect": "shufersal"

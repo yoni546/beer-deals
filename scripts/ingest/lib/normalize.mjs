@@ -63,22 +63,85 @@ const NOT_A_BEER = [
   [/סבון|שמפו|קרם|תרסיס/, "cosmetic"],
 ];
 
-/** In a beer's world but outside the product's default scope (owner decision, docs/INGESTION-READINESS.md §6). */
-const OUT_OF_SCOPE = [
-  [/מאלט|בירה שחורה/, "malt drink (non-alcoholic)"],
-  [/ללא אלכוהול|נטול אלכוהול|0\.0|0%|אלכוהול 0/, "non-alcoholic"],
-  [/סיידר/, "cider"],
-  [/רדלר|שנדי/, "radler / shandy"],
+/**
+ * What kind of product a row is (migration 0014, product_categories). Beer, non-alcoholic beer and
+ * radler are shown; malt drinks and cider are kept out for now. Order matters: "בירה שחורה נשר מאלט"
+ * is a malt drink even though it says "בירה".
+ */
+const CATEGORY_RULES = [
+  ["malt", /מאלט|מאלטי|בירה שחורה/, "malt drink"],
+  ["cider", /סיידר/, "cider"],
+  // "0.0", "0%", "ללא אלכוהול" — but not "10%", "8.0%" or "7.0%": no digit or point before the zero.
+  ["non_alcoholic", /ללא אלכוהול|נטול אלכוהול|אלכוהול 0|(^|[^\d.])0(\.0)?\s*%|(^|[^\d.])0\.0(?!\d)|alcohol free|alkoholfrei/i, "non-alcoholic beer"],
+  ["radler", /רדלר|שנדי|radler|shandy/i, "radler"],
 ];
+export const IN_SCOPE = new Set(["beer", "non_alcoholic", "radler"]);
 
 /**
- * @returns {{verdict: "beer" | "not_beer" | "out_of_scope", beer: string | null, reason: string}}
+ * Variants of our beers that are different products in the same pack ("גולדסטאר לא מסונן" is not
+ * "גולדסטאר"). A variant not listed here falls back to '' (the beer's main product) — the barcode
+ * check across and within chains is what catches an unlisted variant (lib/plan.mjs).
+ * `required`: the brand has no single main product (craft breweries); without a variant it goes to review.
+ */
+export const VARIANTS = {
+  // Truncated spellings count ("לא מסו", "ל.מסונ", "SLOW B"): chains cut names at ~20 characters.
+  goldstar: { rules: [[/לא מס|ל\.\s?מסונ|(^|\s)UF(\s|$)|unfiltered/i, "לא מסונן"], [/slow ?b|slowbrew|סלואו|סלאו/i, "סלואו ברו"], [/לייט|light/i, "לייט"]] },
+  heineken: { rules: [[/סילבר|silver/i, "סילבר"]] },
+  // Carlsberg Luma is Carlsberg's unfiltered lager.
+  carlsberg: { rules: [[/לומה|luma|לא מס|unfiltered/i, "לומה"]] },
+  tuborg: { rules: [[/גולד|gold/i, "גולד"]] },
+  corona: { rules: [[/סרוסה|cero/i, "סרו"]] },
+  paulaner: { rules: [[/חיטה|ויס|וייס|weiss|hefe|מעונן|מעוננת/i, "חיטה"], [/דונקל|dunkel/i, "דונקל"], [/מינכן|הל(\s|$)|hell/i, "מינכן הל"]] },
+  weihen: { rules: [[/דונקל|dunkel/i, "דונקל"], [/ויטוס|vitus/i, "ויטוס"], [/קריסטל|kristall/i, "קריסטל"], [/פילס|pils/i, "פילס"], [/אוריגינל|original|הלס/i, "אוריגינל"]] },
+  erdinger: { rules: [[/דונקל|dunkel/i, "דונקל"], [/קריסטל|kristall/i, "קריסטל"]] },
+  leffe: { rules: [[/בראון|brune|brown/i, "בראון"], [/רובי|ruby/i, "רובי"], [/טריפל|tripel/i, "טריפל"], [/בלונד|blond/i, ""]] },
+  budweiser: { rules: [[/באדוור|בודוואר|budvar/i, "באדוור"]] },
+  becks: { rules: [] },
+  stella: { rules: [] },
+  guinness: { rules: [] },
+  desperados: { rules: [] },
+  "tuborg-red": { rules: [] },
+  maccabee: { rules: [] },
+  malka: { required: true, rules: [[/בהיר|בלונד/, "בהירה"], [/אדמונית/, "אדמונית"], [/הינדי|אינדי|IPA/i, "הינדי"], [/חיטה/, "חיטה"], [/סטאוט|שחורה|כהה/, "סטאוט"]] },
+  negev: { required: true, rules: [[/פאטה מורגנה/, "פאטה מורגנה"], [/אמבר|ענבר/, "אמבר"], [/פסיפלורה/, "פסיפלורה"], [/אלון|oak/i, "אלון"], [/פורטר|porter/i, "פורטר"], [/בלונד|blond/i, "בלונד"], [/IPA|אי פי איי/i, "IPA"]] },
+  alexander: { required: true, rules: [[/בלונד|blond/i, "בלונד"], [/גרין|green/i, "גרין"], [/בלאק|black/i, "בלאק"], [/אמבר|ambree/i, "אמבר"], [/רובי|ruby/i, "רובי"], [/IPA|אי פי איי/i, "IPA"]] },
+  shapiro: { required: true, rules: [[/פייל אייל|pale ale/i, "פייל אייל"], [/IPA|אי פי איי/i, "IPA"], [/סטאוט|stout|אוטמיל/i, "סטאוט"], [/חיטה|wheat/i, "חיטה"], [/אמבר|amber/i, "אמבר"]] },
+  bazelet: { required: true, rules: [[/פילס|pils/i, "פילס"], [/אמבר|amber/i, "אמבר"], [/חיטה|wheat/i, "חיטה"], [/IPA/i, "IPA"], [/חלב|לאגר|lager/i, "לאגר"]] },
+};
+
+/**
+ * @returns {{variant: string, known: boolean}} known = false when the brand needs a variant and none was found.
+ */
+export function variantOf(beer, name, category) {
+  const text = clean(name);
+  const spec = VARIANTS[beer] ?? { rules: [] };
+  let variant = "";
+  let found = false;
+  for (const [re, label] of spec.rules) {
+    if (re.test(text)) {
+      variant = label;
+      found = true;
+      break;
+    }
+  }
+  if (category === "non_alcoholic") variant = [variant, "0.0"].filter(Boolean).join(" ");
+  if (category === "radler") {
+    const flavour = (text.match(/(?:שנדי|רדלר)\s+(אפרסק|ליים|לימון ליים|לימון|אשכולית|תפוז)/) ?? [])[1];
+    variant = ["שנדי", flavour].filter(Boolean).join(" ");
+    found = true;
+  }
+  return { variant, known: found || !spec.required };
+}
+
+/**
+ * @returns {{verdict: "beer" | "not_beer" | "out_of_scope", beer: string | null, category: string, reason: string}}
  *   beer = one of our slugs, or null for a beer we do not carry.
  */
 export function classify(item) {
   const name = clean(item.item_name);
   const maker = clean(item.manufacturer);
-  const saysBeer = word("בירה").test(name) || /beer|bier/i.test(name);
+  // "מכבי שנדי אפרסק" says beer without the word: a shandy / radler is beer-based.
+  const saysBeer = word("בירה").test(name) || /beer|bier|שנדי|רדלר|radler|shandy/i.test(name);
   const byBrewer = BREWERS.some((b) => maker.toLowerCase().includes(b.toLowerCase()));
 
   let brand = null;
@@ -88,12 +151,23 @@ export function classify(item) {
       break;
     }
   }
-  if (!brand && !saysBeer) return { verdict: "not_beer", beer: null, reason: "no beer word, no known brand" };
-  for (const [re, reason] of NOT_A_BEER) if (re.test(name)) return { verdict: "not_beer", beer: null, reason };
+  const isCider = /סיידר/.test(name) || brand === "somersby";
+  if (!brand && !saysBeer && !isCider) return { verdict: "not_beer", beer: null, category: "", reason: "no beer word, no known brand" };
+  for (const [re, reason] of NOT_A_BEER) if (re.test(name)) return { verdict: "not_beer", beer: null, category: "", reason };
 
-  for (const [re, reason] of OUT_OF_SCOPE) if (re.test(name)) return { verdict: "out_of_scope", beer: brand, reason };
-  if (brand === "somersby") return { verdict: "beer", beer: brand, reason: "in our catalogue (a cider)" };
-  return { verdict: "beer", beer: brand, reason: brand ? "known brand" : "beer we do not carry" };
+  let category = "beer";
+  let reason = brand ? "known brand" : "beer we do not carry";
+  for (const [slug, re, why] of CATEGORY_RULES) {
+    if (re.test(name)) {
+      category = slug;
+      reason = why;
+      break;
+    }
+  }
+  // Somersby makes cider only.
+  if (brand === "somersby") [category, reason] = ["cider", "cider"];
+  if (!IN_SCOPE.has(category)) return { verdict: "out_of_scope", beer: brand, category, reason };
+  return { verdict: "beer", beer: brand, category, reason };
 }
 
 const STANDARD_ML = [250, 275, 330, 333, 335, 355, 440, 473, 500, 568, 650, 750, 1000];
@@ -114,9 +188,14 @@ const WORD_COUNTS = [
  */
 export function parsePack(item) {
   const name = clean(item.item_name).replace(/[×Xx]/g, "*");
-  // "ח\"פ" (→ "חפ") is חד-פעמי, one-way — not פח, a can.
-  const container = /פחית|פחיות|(^|\s)פח(\s|$|\d)/.test(name) ? "can" : /בקבוק|בקבוקים|(^|\s)בק(\s|$|\d)|בקב/.test(name) ? "bottle" : null;
-  const returnable = /רב פעמי|רב-פעמי|(^|\s)רב(\s|$)|חוזר/.test(name);
+  // A returnable (חוזר, רב פעמי) is always a glass bottle; so is ח"פ (→ "חפ", חד-פעמי, one-way glass —
+  // not פח, a can) and a "צוואר ארוך" long neck. "פחי" at the end is פחית cut at the length limit.
+  const returnable = /רב פעמי|רב-פעמי|(^|\s)רב(\s|$)|חוזר|ב\.חוז/.test(name);
+  const container = /פחית|פחיות|(^|\s)פח(\s|$|\d)|פחי$/.test(name)
+    ? "can"
+    : returnable || /בקבוק|בקבוקים|(^|\s)בק(\s|$|\d|\.)|בקב|(^|\s)חפ(\s|$|\d)|חד פעמי|צוו?אר/.test(name)
+      ? "bottle"
+      : null;
 
   let count = null;
   let unit = null;
@@ -204,6 +283,33 @@ export function checkPrice(item, pack) {
 export const DEPOSIT_AGOROT = 30;
 
 /**
+ * Who can redeem a promotion (migration 0014: conditions.audience). The feed's ClubID codes are, per the
+ * government file spec: 0 all customers, 1 club members, 2 a credit card, 3 other conditions — but chains
+ * label them inconsistently (Carrefour tags "מועדון קרפור אשראי" with 0). So an offer is for everyone
+ * ONLY when every code is 0 and neither the label nor the description names a club, card, app, coupon,
+ * employer or similar condition. In doubt, restricted: it is recorded, never shown or announced.
+ *
+ * @returns {{audience: "everyone"|"club"|"payment"|"coupon"|"personal"|"restricted", why: string}}
+ */
+export function audienceOf(promo) {
+  const raw = String(promo.club_id_raw ?? "").trim();
+  const text = clean(`${promo.description ?? ""} ${raw}`);
+  const codes = [...raw.matchAll(/(?:^|[(|&"]\s*)(\d)\s*(?:=|-|$)|=\s*(\d)\s*["|)]/g)].map((m) => Number(m[1] ?? m[2]));
+  if (/^\d$/.test(raw)) codes.push(Number(raw));
+  const label = raw.replace(/^0\s*-\s*כלל הלקוחות$/, "");
+
+  if (/עובד|עובדי|בעלים|סיטונא|עמותת|ארגון/.test(text)) return { audience: "personal", why: "employees, organisations or wholesale customers only" };
+  if (/קופון|שובר|תווי|תו |מולטיפס/.test(text)) return { audience: "coupon", why: "needs a coupon or voucher" };
+  if (codes.includes(2) || /אשראי|כרטיס|ישראכרט|ויזה|מאסטרקארד|דיינרס|אמריקן אקספרס|לאומי קארד|כאל|מקס(\s|$)/.test(text)) {
+    return { audience: "payment", why: "needs a specific card or payment method" };
+  }
+  if (codes.includes(1) || promo.club_only || /מועדון|חברי|חבר /.test(text)) return { audience: "club", why: "club members only" };
+  if (codes.includes(3) || /אפליקצי|אונליין|באתר|הזמנה אינטרנט|משלוח|online/i.test(text)) return { audience: "restricted", why: "restricted to some customers or channels" };
+  if (codes.some((c) => c !== 0) || (label && !/^0$/.test(label) && !/כלל הלקוחות/.test(label))) return { audience: "restricted", why: `unrecognised eligibility "${raw}"` };
+  return { audience: "everyone", why: "" };
+}
+
+/**
  * What a promotion says, conservatively. Two independent statements of its price exist:
  *   - the description, in forms we can state exactly: "2 ב 55" / "2ב71.40" (multi-buy: qty for total),
  *     "ב 24.90" or a lone "24.9" (a price cut);
@@ -211,48 +317,55 @@ export const DEPOSIT_AGOROT = 30;
  *     MinQty 2, DiscountedPrice 55.00). The skill's parser drops this field for the dialect every chain
  *     uses, so lib/promo-supplement.mjs fills it in.
  * RewardType meanings are unsourced (the skill says so) and are not used. A promotion may be published
- * only when both statements exist and agree (`hold: false`); one statement alone, a disagreement, a
- * payment condition or per-item prices that differ are reported and HELD for review — never applied.
+ * only when both statements exist and agree, and it is for everyone (`hold: false`); one statement
+ * alone, a disagreement, per-item prices that differ, or any eligibility condition → HELD.
  *
- * @param {{description: string, club_only: boolean, items: Array<{item_code: string, min_qty?: string, discounted_price?: string}>}} promo
- *   a promotion as the skill emits it (+ discounted_price per item)
+ * Prices come back WITHOUT the bottle deposit, like shelf prices (Shufersal's "2ב71.40 פקדון" rows
+ * publish DiscountedPrice 75.00 = 71.40 + 12 × ₪0.30; the description's 71.40 is kept, the deposit apart).
+ *
+ * @param {{description: string, club_only: boolean, club_id_raw?: string, items: Array<{item_code: string, min_qty?: string, discounted_price?: string}>}} promo
  * @param {Set<string> | null} [codes] the item codes the price is read for (e.g. only the beer rows); all when omitted
  * @returns {{kind: "multi_buy"|"price_cut"|"unmapped"|"excluded", qty?: number, total_agorot?: number,
- *            price_agorot?: number, club: boolean, basis: string, hold: boolean, reason: string}}
+ *            price_agorot?: number, audience: string, club: boolean, basis: string, hold: boolean, reason: string,
+ *            depositInDescription: boolean}}
  */
 export function readPromotion(promo, codes = null) {
   const text = clean(promo.description);
-  const club = Boolean(promo.club_only);
-  const held = (kind, reason, extra = {}) => ({ kind, club, basis: "", hold: true, reason, ...extra });
+  const { audience, why: audienceWhy } = audienceOf(promo);
+  const base = { audience, club: audience === "club", depositInDescription: false };
+  const held = (kind, reason, extra = {}) => ({ kind, ...base, basis: "", hold: true, reason, ...extra });
   if (promo.items.length > 50) return held("excluded", `applies to ${promo.items.length} items — a store-wide coupon, not a beer offer`);
-  if (/קופון|פיצוי|מתנה/.test(text)) return held("excluded", "coupon / compensation, not a shelf offer");
+  if (/פיצוי|מתנה/.test(text)) return held("excluded", "compensation or gift, not a shelf offer");
 
   const said = fromDescription(text);
   const items = codes ? promo.items.filter((i) => codes.has(i.item_code)) : promo.items;
   const feed = fromFeed(items);
   const shape = (r) => (r.qty > 1 ? { kind: "multi_buy", qty: r.qty, total_agorot: r.total } : { kind: "price_cut", price_agorot: r.total });
   const show = (r) => (r.qty > 1 ? `${r.qty} for ₪${(r.total / 100).toFixed(2)}` : `₪${(r.total / 100).toFixed(2)}`);
-  const payment = /אשראי|כרטיס/.test(text) ? "conditional on a payment method" : "";
+  const restricted = audience === "everyone" ? "" : audienceWhy;
+  const result = (r, basis, doubts = []) => {
+    const reason = [restricted, ...doubts].filter(Boolean).join("; ");
+    return { ...shape(r), ...base, basis, hold: Boolean(reason), reason };
+  };
 
   if (feed?.varies) return held("unmapped", "the items' DiscountedPrice values differ");
   if (said && feed) {
-    // "2ב71.40 פקדון …": the description quotes the price before the bottle deposit, DiscountedPrice
-    // includes it (75.00 = 71.40 + 12 containers × ₪0.30). Seen on every such Shufersal row, 2026-09-29.
     const gap = feed.total - said.total;
     if (said.qty === feed.qty && /פקדון/.test(text) && gap > 0 && gap % DEPOSIT_AGOROT === 0 && gap / DEPOSIT_AGOROT <= 48) {
-      return { ...shape(feed), club, basis: "description + DiscountedPrice", hold: Boolean(payment), reason: [payment, `description excludes the deposit (${gap / DEPOSIT_AGOROT} × ₪0.30)`].filter(Boolean).join("; ") };
+      return { ...result(said, "description + DiscountedPrice"), depositInDescription: true, depositGap: gap };
     }
     if (said.qty !== feed.qty || said.total !== feed.total) return held("unmapped", `description says ${show(said)}, DiscountedPrice says ${show(feed)}`);
-    return { ...shape(said), club, basis: "description + DiscountedPrice", hold: Boolean(payment), reason: payment };
+    return result(said, "description + DiscountedPrice");
   }
-  if (said) return { ...shape(said), club, basis: "description only", hold: true, reason: [payment, "no DiscountedPrice to confirm it"].filter(Boolean).join("; ") };
-  if (feed) return { ...shape(feed), club, basis: "DiscountedPrice only", hold: true, reason: [payment, "the description states no price to confirm it"].filter(Boolean).join("; ") };
+  if (said) return result(said, "description only", ["no DiscountedPrice to confirm it"]);
+  if (feed) return result(feed, "DiscountedPrice only", ["the description states no price to confirm it"]);
   return held("unmapped", "no price in the description and no DiscountedPrice");
 }
 
 /** @returns {{qty: number, total: number} | null} */
 function fromDescription(text) {
-  const multi = text.match(/(\d{1,2})\s*ב\s*-?\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)/);
+  // "2 ב 55", "2ב71.40", "2 יח ב 27.90", "2 יח ב-18 ש"ח"
+  const multi = text.match(/(\d{1,2})\s*(?:יח|יחידות|פחיות|בקבוקים)?\s*ב\s*-?\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)/);
   if (multi && Number(multi[1]) >= 2 && Number(multi[2]) > 0) return { qty: Number(multi[1]), total: Math.round(Number(multi[2]) * 100) };
   const single = text.match(/(?:^|[^\d])ב\s*-?\s*(\d{1,4}(?:\.\d{1,2})?)(?!\d)/);
   const lone = [...text.matchAll(/(?:^|\s)(\d{1,3}\.\d{1,2})(?:\s|$)/g)].map((m) => Number(m[1]));
@@ -301,27 +414,60 @@ export function inForce(promo, now) {
 }
 
 /**
- * One barcode is one product everywhere, so readings of the same GTIN at different chains must
- * agree. Where they agree, a reading that knows the container fills in one that does not; where
- * they disagree on beer, volume or pack, at least one chain's name was misread and every reading
- * of that barcode goes to review — the barcode is the tie-breaker only once a human has matched it.
+ * Several chains cut item names at about 20 characters ("גולדסטאר לא מסו", "בירה פאולנר בקבוק 50"). A
+ * name that short may be LESS specific than another chain's full name for the same barcode, but it is
+ * never evidence against it.
+ */
+export const TRUNCATION_LIMIT = 20;
+// Without a name there is nothing to call truncated: the reading is taken at its word.
+const isShort = (name) => typeof name === "string" && name.trim().length > 0 && name.trim().length <= TRUNCATION_LIMIT;
+/** A beer another beer's name can be a shortened form of. */
+const SHORTENS = { "tuborg-red": "tuborg" };
+
+/**
+ * One barcode is one product everywhere, so readings of the same GTIN must agree on the beer, the pack
+ * and the container. Two things are allowed:
+ *   - a reading that does not know the container takes it from one that does;
+ *   - a reading from a SHORT (possibly truncated) name that is less specific — no variant, plain
+ *     "beer" instead of non-alcoholic, "tuborg" instead of "tuborg-red" — takes the specific identity,
+ *     provided every full-length name agrees with it.
+ * Anything else (a full-length name saying something different, another volume or pack) means a name
+ * was misread somewhere, and every reading of that barcode is held for a human.
  *
- * @param {Array<{code: string, chain: string, beer: string, container: string|null, volume_ml: number, pack_quantity: number}>} readings
- * @returns {Map<string, {agree: true, container: string|null} | {agree: false, why: string}>} by code
+ * @param {Array<{code: string, chain?: string, retailer?: string, name?: string, beer: string, variant?: string, category?: string,
+ *                container: string|null, volume_ml: number, pack_quantity: number}>} readings
+ * @returns {Map<string, {agree: true, container: string|null, beer: string, variant: string, category: string} | {agree: false, why: string}>}
  */
 export function reconcileBarcodes(readings) {
   const byCode = new Map();
   for (const r of readings) if (isGtin(r.code)) byCode.set(r.code, [...(byCode.get(r.code) ?? []), r]);
+  const identity = (r) => ({ beer: r.beer, variant: r.variant ?? "", category: r.category ?? "beer" });
+  const same = (a, b) => a.beer === b.beer && a.variant === b.variant && a.category === b.category;
+  // Could `short` be a shortened reading of `full`?
+  const shortens = (short, full) =>
+    (short.beer === full.beer || SHORTENS[full.beer] === short.beer) &&
+    (short.variant === "" || short.variant === full.variant) &&
+    (short.category === "beer" || short.category === full.category);
+
   const result = new Map();
   for (const [code, rs] of byCode) {
-    const shapes = new Set(rs.map((r) => `${r.beer} ${r.pack_quantity}×${r.volume_ml}`));
+    const seen = () => rs.map((r) => `${r.chain ?? r.retailer}: ${[r.beer, r.variant, r.category === "beer" ? "" : r.category].filter(Boolean).join(" ")} ${r.pack_quantity}×${r.volume_ml} ${r.container ?? ""}`.trim()).join(" / ");
+    const shapes = new Set(rs.map((r) => `${r.pack_quantity}×${r.volume_ml}`));
     const containers = new Set(rs.map((r) => r.container).filter(Boolean));
     if (shapes.size > 1 || containers.size > 1) {
-      const seen = rs.map((r) => `${r.chain}: ${r.beer} ${r.pack_quantity}×${r.volume_ml} ${r.container ?? ""}`.trim());
-      result.set(code, { agree: false, why: `the same barcode reads differently — ${seen.join(" / ")}` });
-    } else {
-      result.set(code, { agree: true, container: [...containers][0] ?? null });
+      result.set(code, { agree: false, why: `the same barcode reads differently — ${seen()}` });
+      continue;
     }
+    const full = rs.filter((r) => !isShort(r.name));
+    const candidates = (full.length ? full : rs).map(identity);
+    // The most specific identity among the readings that must be taken at their word.
+    const target = candidates.find((c) => candidates.every((o) => same(o, c) || (full.length === 0 && shortens(o, c))));
+    const ok = target && rs.every((r) => same(identity(r), target) || (isShort(r.name) && shortens(identity(r), target)));
+    if (!ok) {
+      result.set(code, { agree: false, why: `the same barcode reads differently — ${seen()}` });
+      continue;
+    }
+    result.set(code, { agree: true, container: [...containers][0] ?? null, ...target });
   }
   return result;
 }

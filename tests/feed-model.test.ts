@@ -236,3 +236,31 @@ describe("source products (aliases and the review queue)", () => {
     ).rejects.toThrow(/source_products_matched_has_sku/);
   });
 });
+
+describe("re-import after rollback (0015)", () => {
+  it("a rolled-back file can be imported again, and its prices come back", async () => {
+    const w = await world();
+    await w.source("feed-osher-ad", "chain_feed");
+    const s = await w.sku(w.ids.goldstar, "can", 330, 6);
+    const svc = <T>(sql: string, params: unknown[] = []) =>
+      asUser(w.db, null, async () => (await w.db.query<{ r: T }>(sql, params)).rows[0].r, "service_role");
+    const importOnce = async () => {
+      const run = await svc<{ run_id: string; already_imported: boolean }>("select public.start_ingestion_run('feed-osher-ad', 'same-file') as r");
+      expect(run.already_imported).toBe(false);
+      await svc(
+        "select public.record_prices('feed-osher-ad', $1::jsonb, $2) as r",
+        [JSON.stringify([{ sku_id: s, store_id: w.ids.rami, kind: "regular", price_agorot: 3790, observed_at: inDays(0), content_hash: "row-1" }]), run.run_id],
+      );
+      await svc("select public.finish_ingestion_run($1, 'succeeded') as r", [run.run_id]);
+      return run.run_id;
+    };
+    const live = async () => (await w.one<{ n: number }>("select count(*)::int as n from public.price_observations where status = 'live'")).n;
+
+    const first = await importOnce();
+    expect(await live()).toBe(1);
+    await svc("select public.rollback_ingestion_run($1, 'bad file') as r", [first]);
+    expect(await live()).toBe(0);
+    await importOnce(); // the same file, the same row hashes
+    expect(await live()).toBe(1);
+  });
+});

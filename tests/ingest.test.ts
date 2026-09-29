@@ -2,8 +2,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { kindOf, parseFileName } from "../scripts/ingest/lib/files.mjs";
-import { checkPrice, classify, inForce, isGtin, israelTime, parsePack, readPromotion, reconcileBarcodes } from "../scripts/ingest/lib/normalize.mjs";
+import { audienceOf, checkPrice, classify, inForce, isGtin, israelTime, parsePack, readPromotion, reconcileBarcodes, variantOf } from "../scripts/ingest/lib/normalize.mjs";
 import { discountedPrices, withDiscountedPrices } from "../scripts/ingest/lib/promo-supplement.mjs";
+import { PUBLISHERS } from "../scripts/ingest/lib/publishers.mjs";
+import { parseStores } from "../scripts/ingest/lib/stores-file.mjs";
 
 /**
  * The ingestion dry run's normaliser, against REAL rows: tests/fixtures/ingest/<chain>.json are excerpts of
@@ -25,8 +27,8 @@ const find = (chain: string, name: string) => {
 const item = (name: string, quantity = "1.00", unit = "יחידות", price = 10): Item => ({ item_code: "7290000000000", item_name: name, manufacturer: "", price, quantity, unit_of_measure: unit, is_weighted: false });
 
 describe("real fixtures", () => {
-  it("cover six chains, each with beer rows and promotions", () => {
-    expect(fixtures.map((f) => f.chain).sort()).toEqual(["carrefour", "osher-ad", "rami-levy", "shufersal", "tiv-taam", "yochananof"]);
+  it("cover eight publishers, each with beer rows and promotions", () => {
+    expect(fixtures.map((f) => f.chain).sort()).toEqual(["carrefour", "dor-alon", "hatzi-hinam", "osher-ad", "rami-levy", "shufersal", "tiv-taam", "yochananof"]);
     for (const f of fixtures) {
       expect(f.items.filter((it) => classify(it).beer).length, f.chain).toBeGreaterThan(20);
       expect(f.promotions.length, f.chain).toBeGreaterThan(5);
@@ -51,10 +53,29 @@ describe("what is beer", () => {
     expect(classify(item("בקבוק בירה חוזר ריק")).verdict).toBe("not_beer");
   });
 
-  it("keeps non-alcoholic, malt, cider and radler out of scope by default (owner decision pending)", () => {
+  it("shows beer, non-alcoholic beer and radler; keeps malt drinks and cider out (owner decision, 2026-09-29)", () => {
+    expect(classify(item("היינקן 0.0 ללא אלכוהול"))).toMatchObject({ verdict: "beer", beer: "heineken", category: "non_alcoholic" });
+    expect(classify(item("הייניקן בירה 0% בק'"))).toMatchObject({ verdict: "beer", category: "non_alcoholic" });
+    expect(classify(item("מכבי שנדי אפרסק 6*330מ\"ל"))).toMatchObject({ verdict: "beer", beer: "maccabee", category: "radler" });
     expect(classify(item("בירה שחורה נשר")).verdict).toBe("out_of_scope");
-    expect(classify(item("היינקן 0.0 ללא אלכוהול")).verdict).toBe("out_of_scope");
-    expect(classify(item("בירה מאלט")).verdict).toBe("out_of_scope");
+    expect(classify(item("בירה מאלט"))).toMatchObject({ verdict: "out_of_scope", category: "malt" });
+    expect(classify(item("סומרסבי מנגו ליים 330מ\"ל"))).toMatchObject({ verdict: "out_of_scope", category: "cider" });
+  });
+
+  it("a strength that ends in 0% is not non-alcoholic", () => {
+    expect(classify(item("בירה גולדסטאר 10% 330 מ\"ל SLOW BREW")).category).toBe("beer");
+    expect(classify(item("בירה דליריאום רד בטעמי פירות 8.0% 750 מל")).category).toBe("beer");
+  });
+
+  it("tells variants apart, including names cut at 20 characters", () => {
+    expect(variantOf("goldstar", "בירה גולדסטאר לא מסו", "beer")).toEqual({ variant: "לא מסונן", known: true });
+    expect(variantOf("goldstar", "בירה גולדסטאר ל.מסונ", "beer").variant).toBe("לא מסונן");
+    expect(variantOf("goldstar", "גולדסטאר SLOW BREW פ", "beer").variant).toBe("סלואו ברו");
+    expect(variantOf("goldstar", "בירה גולדסטאר ב.חוזר", "beer")).toEqual({ variant: "", known: true });
+    expect(variantOf("heineken", "היינקן 0.0", "non_alcoholic").variant).toBe("0.0");
+    expect(variantOf("maccabee", "מכבי שנדי אפרסק", "radler").variant).toBe("שנדי אפרסק");
+    // A craft brewery has no single main beer: without a known variant it goes to review.
+    expect(variantOf("alexander", "בירה אלכסנדר 330", "beer").known).toBe(false);
   });
 
   it("no real row that names one of our beers is a look-alike", () => {
@@ -72,9 +93,12 @@ describe("the pack", () => {
     expect(parsePack(item("בירה גינס פחית 440 מ\"ל", "440.00", "100 מיליליטר"))).toMatchObject({ container: "can", volume_ml: 440, pack_quantity: 1, confidence: "confident" });
   });
 
-  it("ח\"פ is one-way (חד-פעמי), not a can", () => {
-    expect(parsePack(item("גולדסטאר ח\"פ 250 מ\"ל")).container).toBeNull();
+  it("ח\"פ is a one-way glass bottle (never פח, a can); a returnable is a bottle; 'פחי' is פחית cut short", () => {
+    expect(parsePack(item("גולדסטאר ח\"פ 250 מ\"ל")).container).toBe("bottle");
     expect(parsePack(item("היינקן ח\"פ 330 בקבוק")).container).toBe("bottle");
+    expect(parsePack(item("בירה גולדסטאר ב.חוזר", "0.5", "ליטר"))).toMatchObject({ container: "bottle", returnable: true });
+    expect(parsePack(item("סטלה בירה ארטואה פחי", "440", "מיליליטר")).container).toBe("can");
+    expect(parsePack(item("בירה הייניקן שישייה")).container).toBeNull(); // not guessed
   });
 
   it("does not trust 'יחידות' as a volume, and never guesses a pack", () => {
@@ -137,16 +161,33 @@ describe("promotions", () => {
     expect(readPromotion(promo("בירה 2 ב 15 מועדון", 1, true, { min_qty: "2", discounted_price: "14.90" }))).toMatchObject({ kind: "unmapped", hold: true, reason: expect.stringContaining("DiscountedPrice says") });
   });
 
-  it("a 'פקדון' description quotes the price before the ₪0.30-per-container deposit; DiscountedPrice includes it", () => {
+  it("a 'פקדון' description quotes the price without the ₪0.30-per-container deposit; that price is kept, like a shelf price", () => {
     const r = readPromotion(promo("2ב71.40 פקדון בירה סטלה ארטואה 6 * 330 מ", 1, false, { min_qty: "2", discounted_price: "75.00" }));
-    expect(r).toMatchObject({ kind: "multi_buy", qty: 2, total_agorot: 7500, hold: false, reason: expect.stringContaining("12 × ₪0.30") });
+    expect(r).toMatchObject({ kind: "multi_buy", qty: 2, total_agorot: 7140, hold: false, depositInDescription: true, depositGap: 360 });
     // Without the word, the same gap is a disagreement.
     expect(readPromotion(promo("2ב71.40 בירה סטלה", 1, false, { min_qty: "2", discounted_price: "75.00" })).hold).toBe(true);
   });
 
-  it("holds a payment-method condition, and marks club offers", () => {
-    expect(readPromotion(promo("שישייה ב99.90 אשראי", 1, false, { min_qty: "1", discounted_price: "99.90" }))).toMatchObject({ kind: "price_cut", price_agorot: 9990, hold: true });
-    expect(readPromotion(promo("בירה 3 ב 20 מועדון", 1, true, { min_qty: "3", discounted_price: "20.00" }))).toMatchObject({ club: true, hold: false });
+  it("holds every offer that is not for everyone: card, club, coupon, employees", () => {
+    expect(readPromotion(promo("שישייה ב99.90 אשראי", 1, false, { min_qty: "1", discounted_price: "99.90" }))).toMatchObject({ kind: "price_cut", audience: "payment", hold: true });
+    expect(readPromotion(promo("בירה 3 ב 20 מועדון", 1, true, { min_qty: "3", discounted_price: "20.00" }))).toMatchObject({ audience: "club", club: true, hold: true });
+  });
+
+  it("reads the feed's club codes conservatively (0 = everyone, 1 club, 2 card, 3 other)", () => {
+    const who = (club_id_raw: string, description = "בירה 2 ב 20") => audienceOf({ club_id_raw, description, club_only: false }).audience;
+    expect(who("0")).toBe("everyone");
+    expect(who("0 - כלל הלקוחות")).toBe("everyone");
+    expect(who("1 - המועדון החדש")).toBe("club");
+    expect(who("(2=מועדון קרפור אשראי|2=מועדון אפליקציה)")).toBe("payment");
+    // Code 0 but the label names a card: the label wins.
+    expect(who("(0=מועדון קרפור אשראי|0=מועדון אפליקציה)")).toBe("payment");
+    expect(who("(3=תווי זיכוי מימוש|3=עיגול אגורות)")).toBe("coupon");
+    expect(who("3 - מועדון עובדי ע.רעננה")).toBe("personal");
+    expect(who("0", "בירה 2 ב 20 באפליקציה")).toBe("restricted");
+  });
+
+  it("reads '2 יח ב 27.90' as a multi-buy", () => {
+    expect(readPromotion(promo("מבצע בירה שקמה 330 מ ל 2 יח ב 26.90 שח", 1, false, { min_qty: "2", discounted_price: "26.90" }))).toMatchObject({ kind: "multi_buy", qty: 2, total_agorot: 2690, hold: false });
   });
 
   it("excludes store-wide coupons and compensation coupons", () => {
@@ -208,9 +249,17 @@ describe("identity", () => {
 
   it("one barcode, one product: agreeing readings fill each other's gaps, disagreeing ones go to review", () => {
     const r = (chain: string, beer: string, container: string | null, ml = 500) => ({ code: "7290008464024", chain, beer, container, volume_ml: ml, pack_quantity: 1 });
-    expect(reconcileBarcodes([r("a", "goldstar", "can"), r("b", "goldstar", null)]).get("7290008464024")).toEqual({ agree: true, container: "can" });
+    expect(reconcileBarcodes([r("a", "goldstar", "can"), r("b", "goldstar", null)]).get("7290008464024")).toMatchObject({ agree: true, container: "can", beer: "goldstar" });
     expect(reconcileBarcodes([r("a", "tuborg-red", "can"), r("b", "tuborg", "can")]).get("7290008464024")).toMatchObject({ agree: false });
     expect(reconcileBarcodes([r("a", "corona", null, 355), r("b", "corona", null, 335)]).get("7290008464024")).toMatchObject({ agree: false });
+  });
+
+  it("a name cut at 20 characters takes the specific identity the full names agree on — and never overrides one", () => {
+    const at = (chain: string, name: string, beer: string, variant = "", category = "beer") => ({ code: "7290008464024", chain, name, beer, variant, category, container: "can", volume_ml: 500, pack_quantity: 1 });
+    // "בירה גולדסטאר לא מסו" (20) → the full name's "לא מסונן"
+    expect(reconcileBarcodes([at("a", "גולדסטאר פח לא מסונן500מ", "goldstar", "לא מסונן"), at("b", "בירה גולדסטאר פחית 5", "goldstar")]).get("7290008464024")).toMatchObject({ agree: true, variant: "לא מסונן" });
+    // A FULL-length plain name is evidence: Tuborg vs Tuborg Red stays a conflict.
+    expect(reconcileBarcodes([at("a", "טובורג רד פחית פקדון", "tuborg-red"), at("b", "בירה טובורג פחית 500 מ\"ל", "tuborg")]).get("7290008464024")).toMatchObject({ agree: false });
   });
 
   it("feed file names parse from the right, both shapes", () => {
@@ -221,11 +270,42 @@ describe("identity", () => {
   });
 });
 
+describe("publishers and their branches", () => {
+  it("decides the retailer per branch from the publisher's Stores file, never from the URL", () => {
+    expect(PUBLISHERS.carrefour.retailer({ store: "80", name: "יינות ביתן טבעון" })).toBe("yeinot-bitan");
+    expect(PUBLISHERS.carrefour.retailer({ store: "2", name: "קרפור מרקט אשקלון" })).toBe("carrefour");
+    expect(PUBLISHERS["dor-alon"].retailer({ store: "401", subChainName: "AM:PM", name: "AM-PMדרך השלום" })).toBe("ampm");
+    expect(PUBLISHERS["dor-alon"].retailer({ store: "12", subChainName: "אלונית מיני סופר", name: "אלונית" })).toBeNull();
+    expect(PUBLISHERS["super-yuda"].blocked).toMatch(/not guessed/i);
+  });
+
+  it("reads a UTF-16 Stores file with a BOM (as Carrefour publishes it) and flat Cerberus-style ones", () => {
+    const xml = "<Root><ChainID>7290055700007</ChainID><SubChains><SubChain><SubChainID>001</SubChainID><SubChainName>1</SubChainName><Stores>" +
+      "<Store><StoreID>080</StoreID><StoreName>יינות ביתן טבעון</StoreName><City>2300</City></Store></Stores></SubChain></SubChains></Root>";
+    const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xml, "utf16le")]);
+    expect(parseStores(utf16)).toEqual([{ chain: "7290055700007", subChain: "001", subChainName: "1", store: "080", name: "יינות ביתן טבעון", address: "", city: "2300" }]);
+    const flat = "<Root><ChainId>7290492000005</ChainId><Stores><Store><ChainId>7290492000005</ChainId><SubChainId>2</SubChainId><SubChainName>AM:PM</SubChainName><StoreId>401</StoreId><StoreName>AM-PM</StoreName></Store></Stores></Root>";
+    expect(parseStores(Buffer.from(flat))[0]).toMatchObject({ subChainName: "AM:PM", store: "401" });
+  });
+});
+
 describe("the dry run cannot write", () => {
   it("imports no database client, reads no keys and opens no connection", () => {
-    for (const file of ["scripts/ingest/dry-run.mjs", "scripts/ingest/lib/normalize.mjs", "scripts/ingest/lib/files.mjs", "scripts/ingest/lib/promo-supplement.mjs", "scripts/ingest/make-fixtures.mjs"]) {
+    for (const file of ["scripts/ingest/dry-run.mjs", "scripts/ingest/lib/normalize.mjs", "scripts/ingest/lib/files.mjs", "scripts/ingest/lib/promo-supplement.mjs", "scripts/ingest/lib/plan.mjs", "scripts/ingest/lib/report.mjs", "scripts/ingest/lib/publishers.mjs", "scripts/ingest/lib/stores-file.mjs", "scripts/ingest/make-fixtures.mjs"]) {
       const src = readFileSync(join(__dirname, "..", file), "utf8");
       expect(src, file).not.toMatch(/@supabase|createClient|SERVICE_ROLE|SUPABASE_|process\.env|fetch\(|\.rpc\(/);
     }
+  });
+});
+
+describe("the staging writer", () => {
+  it("refuses production and anything but an explicit staging target", () => {
+    const src = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
+    expect(src).toContain('PRODUCTION_REFS = ["itpyyexhmvosxcbcagvy"]');
+    expect(src).toContain('flag("target") !== "staging"');
+    expect(src).toContain('env.APP_ENV !== "staging"');
+    // Credentials only from the git-ignored staging file, never from the shell environment.
+    expect(src.includes("process.env")).toBe(false);
+    expect(src).toContain(".env.staging.local");
   });
 });

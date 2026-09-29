@@ -28,6 +28,8 @@ const LOOKALIKE = /נסטלה|גינסנג|CORONA|פקדון|שמרי בירה|�
 
 for (const chain of readdirSync(join(cache, DAY)).filter((d) => !d.includes("."))) {
   const files = readdirSync(join(cache, DAY, chain));
+  // A publisher with no price file for a branch of ours (King Store: none of its branches lists beer).
+  if (!files.some((f) => f.endsWith(".json") && kindOf(f) === "PriceFull")) continue;
   const read = (kind) => JSON.parse(readFileSync(join(cache, DAY, chain, files.find((f) => f.endsWith(".json") && kindOf(f) === kind)), "utf8"));
   const prices = read("PriceFull");
   const promos = read("PromoFull");

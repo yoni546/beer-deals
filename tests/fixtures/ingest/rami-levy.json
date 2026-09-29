@@ -907,16 +907,16 @@
    "dialect": "shufersal"
   },
   {
-   "item_code": "4008287058161",
-   "item_name": "קרומבכר בירה בהירה 6",
-   "manufacturer": "קרומבאכר",
-   "price": 41.9,
-   "unit_price": 23.28,
+   "item_code": "5411081011963",
+   "item_name": "בירה קסטיל 0% אלכוהו",
+   "manufacturer": "לא ידוע",
+   "price": 12.7,
+   "unit_price": 0.04,
    "price_per_kg": null,
-   "quantity": "1.80",
+   "quantity": "330.00",
    "unit_of_measure": "ליטר",
    "item_status": "",
-   "update_date": "2026-04-26T14:51:39.000",
+   "update_date": "2026-04-07T14:10:13.000",
    "is_weighted": false,
    "chain": "rami-levy",
    "dialect": "shufersal"
@@ -1708,29 +1708,6 @@
    ]
   },
   {
-   "promotion_id": "0001420513",
-   "description": "קרומבכר פילס בק שישייה ב29.90 כולל",
-   "club_id_raw": "0",
-   "club_id": 0,
-   "club_only": false,
-   "start": "2026-08-02T00:00:00.000",
-   "end": "2026-10-03T23:59:00.000",
-   "start_hour": "",
-   "end_hour": "",
-   "promotion_days": "",
-   "items": [
-    {
-     "item_code": "4008287058161",
-     "reward_type": "3",
-     "min_qty": "1",
-     "max_qty": "",
-     "discount_rate": "28.64",
-     "min_purchase_amount": "0.00",
-     "discounted_price": "29.90"
-    }
-   ]
-  },
-  {
    "promotion_id": "0001420518",
    "description": "בירה קורונה/סטלה/קרונבכר/מילר 500מל 2ב16",
    "club_id_raw": "0",
@@ -1873,6 +1850,29 @@
      "discount_rate": "14.33",
      "min_purchase_amount": "0.00",
      "discounted_price": "29.90"
+    }
+   ]
+  },
+  {
+   "promotion_id": "0001421662",
+   "description": "בירה בבקבוק נשר מאלט   330*6 מ ל ב26.90",
+   "club_id_raw": "0",
+   "club_id": 0,
+   "club_only": false,
+   "start": "2026-08-04T00:00:00.000",
+   "end": "2026-10-03T23:59:00.000",
+   "start_hour": "",
+   "end_hour": "",
+   "promotion_days": "",
+   "items": [
+    {
+     "item_code": "7290006764485",
+     "reward_type": "3",
+     "min_qty": "1",
+     "max_qty": "",
+     "discount_rate": "10.03",
+     "min_purchase_amount": "0.00",
+     "discounted_price": "26.90"
     }
    ]
   }
