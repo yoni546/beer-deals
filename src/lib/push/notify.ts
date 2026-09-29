@@ -3,7 +3,7 @@ import "server-only";
 import webpush from "web-push";
 import { supabaseServiceRole } from "@/lib/supabase/admin";
 import { publicEnv, serverEnv } from "@/lib/env";
-import { buildDealNotification } from "@/lib/push/message";
+import { buildDealNotification, buildDealPath } from "@/lib/push/message";
 import type { DealCategory } from "@/lib/categories";
 
 /**
@@ -48,7 +48,7 @@ export async function notifyAboutDeal(dealId: string): Promise<NotifyOutcome> {
     deal_price_agorot: number;
     discount_percent: number;
     beer_id: string;
-    beers: { name_he: string } | null;
+    beers: { name_he: string; slug: string } | null;
     stores: { name_he: string } | null;
   };
 
@@ -56,7 +56,7 @@ export async function notifyAboutDeal(dealId: string): Promise<NotifyOutcome> {
     .from("deals")
     .select(
       "id, status, notified_at, category, deal_price_agorot, discount_percent, beer_id, " +
-        "beers(name_he), stores(name_he)",
+        "beers(name_he, slug), stores(name_he)",
     )
     .eq("id", dealId)
     .maybeSingle();
@@ -132,6 +132,8 @@ export async function notifyAboutDeal(dealId: string): Promise<NotifyOutcome> {
   const nameById = new Map(targets.map((t) => [t.id, t.first_name]));
   const beerName = deal.beers?.name_he ?? "בירה";
   const storeName = deal.stores?.name_he ?? "";
+  // The page a tap opens. Falls back to home rather than to a link that 404s.
+  const url = deal.beers ? buildDealPath({ beerSlug: deal.beers.slug, category: deal.category }) : "/";
 
   const notified = new Set<string>();
   const deadEndpoints: string[] = [];
@@ -150,7 +152,7 @@ export async function notifyAboutDeal(dealId: string): Promise<NotifyOutcome> {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title, body, url: `/beer/${deal.beer_id}`, dealId: deal.id }),
+          JSON.stringify({ title, body, url, dealId: deal.id }),
           { TTL: 60 * 60 * 12 },
         );
         notified.add(sub.user_id);

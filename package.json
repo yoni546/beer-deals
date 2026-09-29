@@ -1,6 +1,6 @@
 {
   "name": "beer-deals",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,9 +13,14 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e": "playwright test",
+    "changelog": "node scripts/changelog.mjs",
+    "changelog:check": "node scripts/changelog.mjs --check",
+    "sql:build": "node scripts/build-combined-sql.mjs",
+    "sql:check": "node scripts/build-combined-sql.mjs --check",
     "icons": "node scripts/generate-icons.mjs",
     "vapid": "node scripts/generate-vapid.mjs",
-    "verify": "npm run typecheck && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -30,13 +35,18 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.11",
     "@eslint/eslintrc": "^3.3.7",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.13",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@types/web-push": "^3.6.4",
     "eslint": "^9.36.0",
     "eslint-config-next": "^15.5.4",
+    "jsdom": "^30.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",

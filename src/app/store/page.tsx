@@ -12,7 +12,7 @@ export default async function StorePickerPage() {
       <TopBar title="חיפוש לפי סופר / מכולת" />
       <Picker
         items={stores.map((store) => ({ slug: store.slug, label: store.name_he }))}
-        hrefFor={(slug) => `/store/${slug}`}
+        basePath="/store"
         placeholder="איזה סופר?"
         emptyLabel="לא מצאנו חנות בשם הזה."
       />

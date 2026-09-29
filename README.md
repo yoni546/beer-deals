@@ -76,20 +76,29 @@ if it is later edited and re-approved.
 ## Commands
 
 ```bash
-npm run dev        # local dev server
-npm run verify     # typecheck + tests + build
-npm test           # the security + money tests (no credentials needed)
-npm run icons      # regenerate the PWA icons
-npm run vapid      # generate a Web Push key pair (once, ever)
+npm run dev             # local dev server
+npm run verify          # typecheck + lint + tests + production build
+npm test                # security, migrations, release rule, components (no credentials)
+npm run e2e             # Playwright on a local fake Supabase, at 390x844 and 430x932
+npm run changelog       # regenerate CHANGELOG.md from src/content/releases.json
+npm run sql:build       # regenerate supabase/RUN_THIS_IN_SUPABASE.sql from the migrations
+npm run icons           # regenerate the PWA icons
+npm run vapid           # generate a Web Push key pair (once, ever)
 ```
+
+**Every meaningful change ships a release entry** (version bump + `src/content/releases.json`
++ `npm run changelog`); a test fails if it does not. The rule, and the other
+non-negotiables, are in [CLAUDE.md](CLAUDE.md). CI (`.github/workflows/ci.yml`) runs
+everything above on every pull request.
 
 ## Layout
 
 ```
 src/
   middleware.ts        anonymous session + token refresh
-  app/                 screens; /admin is the moderation side
+  app/                 screens; /admin is the moderation side; /whats-new is the release history
   components/          deal card, pickers, onboarding, install prompt
+  content/releases.json  the release record: what's-new screen + CHANGELOG.md come from it
   lib/
     money.ts           agorot, and the string-based conversion
     categories.ts      the three worlds
@@ -98,5 +107,8 @@ src/
     actions/           server actions — each one calls a checked RPC
     push/              who gets woken up, and the message they see
 supabase/migrations/   the schema, the write API, and RLS
-tests/                 the security rules, asserted against the real migrations
+supabase/seed/         sample data for dev/staging ONLY (production refuses to show it)
+tests/                 security rules against the real migrations; components; release rule
+tests/e2e/             Playwright specs + a fake Supabase (real migrations on PGlite)
+docs/                  setup, collaborators, INFRASTRUCTURE.md, the 2026-09-29 product audit
 ```

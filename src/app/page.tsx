@@ -5,6 +5,8 @@ import { getLatestDeals, getWeeklyDeal } from "@/lib/queries";
 import { DealCard } from "@/components/DealCard";
 import { Screen } from "@/components/Chrome";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { WhatsNewLink } from "@/components/WhatsNewLink";
+import { latestVisibleVersion } from "@/lib/releases";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,8 @@ export default async function HomePage() {
           <h1 className="truncate text-2xl font-black">אהלן {viewer.profile?.first_name} 🍺</h1>
           <p className="mt-1 text-sm opacity-65">איזה מבצע מחפשים היום?</p>
         </div>
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <WhatsNewLink latestVersion={latestVisibleVersion} />
           {viewer.isAdmin && (
             <Link
               href="/admin"

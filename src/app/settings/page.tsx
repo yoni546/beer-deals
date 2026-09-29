@@ -7,6 +7,8 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { getBeers } from "@/lib/queries";
 import { getViewer } from "@/lib/session";
 import { publicEnv } from "@/lib/env";
+import { latestRelease, latestVisibleVersion } from "@/lib/releases";
+import { WhatsNewLink } from "@/components/WhatsNewLink";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,13 @@ export default async function SettingsPage() {
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-black opacity-70">האפליקציה</h2>
         <InstallPrompt />
+      </section>
+
+      <section className="mb-6 flex items-center justify-between rounded-2xl bg-[color:var(--surface)] px-4 py-1.5 ring-1 ring-white/10">
+        <WhatsNewLink latestVersion={latestVisibleVersion} className="-mx-2.5" />
+        <span className="text-xs opacity-60">
+          גרסה <span className="num">{latestRelease.version}</span>
+        </span>
       </section>
 
       {viewer.isAdmin && (

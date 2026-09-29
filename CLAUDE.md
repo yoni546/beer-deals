@@ -1,0 +1,87 @@
+# Beer Deals — instructions for AI agents and contributors
+
+Israeli beer-deals PWA (Hebrew, RTL, mobile-first). Next.js 15 App Router · TypeScript ·
+Tailwind v4 · Supabase (Postgres + RLS + anonymous auth) · Web Push. Read
+`docs/for-collaborators.md` first; the product audit that shaped the current roadmap is
+`docs/PRODUCT-AUDIT-2026-09-29.md`.
+
+## PERMANENT RULE: every meaningful product change ships a release entry
+
+A change is **meaningful** if a user can see it, or it changes prices, deals,
+notifications or the database schema. (Not meaningful: comments, refactors with no
+behaviour change, tests-only, docs-only, CI-only.)
+
+For every meaningful change, in the **same pull request**:
+
+1. Bump `version` in `package.json`.
+   PATCH = fix / copy / data, MINOR = new user-visible capability, MAJOR = data-model or
+   navigation rebuild.
+2. Add a new entry at the **top** of `src/content/releases.json`:
+   Hebrew `title_he` and 1–5 short plain-language `highlights_he`; `showInApp: true`
+   unless the release is purely internal. Put developer notes in `internal`.
+3. Run `npm run changelog` to regenerate `CHANGELOG.md`. **Never edit `CHANGELOG.md` by
+   hand** — it is generated from the JSON.
+4. Open the app, tap **מה חדש**, and confirm your release is the one shown.
+
+`tests/releases.test.ts` (part of `npm test` / `npm run verify` / CI) fails if
+`package.json`, `src/content/releases.json` and `CHANGELOG.md` disagree. Do not weaken or
+skip that test; fix the release entry instead.
+
+The app has a small **מה חדש** link (Home header and Settings) → `/whats-new`: the latest
+update in full, earlier ones collapsed. That screen is fed only by `releases.json`.
+
+## Non-negotiables
+
+- **Authorization lives in Postgres.** RLS on every table, explicit per-table `GRANT`s,
+  `SECURITY DEFINER` functions that start with `require_admin()` / `require_super_admin()`.
+  Hiding a button is a courtesy, not security. Every new table needs grants, policies and
+  tests in the style of `tests/security.test.ts` (run as a non-superuser role).
+- **Money is integer agorot**, converted from the *string* (`src/lib/money.ts`). Never
+  `parseFloat(x) * 100`.
+- **Never show a discount % that lacks a verified reference price**, and never present a
+  fake price as real. Sample deals exist only in dev/staging (`src/lib/demo.ts`,
+  `supabase/seed/dev-demo-deals.sql`); a production server refuses to read them.
+- **The service worker never caches navigations** (a stale price in a shop aisle is the one
+  unforgivable failure). `/sw.js` is served `no-store`.
+- **Never register a Tailwind colour named `base`** (it shadows the `text-base` font size).
+- **Service-role keys are server-only.** Never `NEXT_PUBLIC_`, never in a client component,
+  never in a file that is committed. Do not paste secrets into chat, docs or scripts.
+- **Server/client boundary:** never pass a function (or an object/array containing one) from
+  a Server Component to a Client Component — pass data (a string, a slug), or a Server
+  Action. This mistake once took `/beer` and `/store` down (`tests/server-client-boundary.test.ts`).
+- **Don't drop, truncate or rewrite** `deals`, `beers`, `stores`, `user_favorite_beers`,
+  `push_*` without an approved plan, a staging rehearsal and a backup. Migrations are
+  additive and reversible where practical.
+- **Preserve RTL basics:** `dir="rtl" lang="he"`, `.num` for LTR number isolation, inputs
+  ≥ 16px, pinch-zoom left enabled.
+
+## Workflow
+
+- One branch per change; never commit to `main`; open a pull request. CI must be green.
+- `npm run verify` before pushing (typecheck + lint + tests + production build). Stop
+  `next dev` before `next build` (both write `.next`).
+- UI changes: run `npm run e2e` (Playwright at 390×844 and 430×932 against a *local fake
+  Supabase* — see `tests/e2e/`) and attach screenshots to the PR. Fix failing behaviour
+  with a failing test first.
+- **Production data is real people's data.** Do not point experiments, seeds or imports at
+  the production Supabase project. Use the local fake for automated tests and the staging
+  project (`docs/STAGING.md`) for anything manual.
+- Schema changes: add a new numbered file in `supabase/migrations/` (never edit an applied
+  one), run `npm run sql:build` to refresh `supabase/RUN_THIS_IN_SUPABASE.sql`, add tests
+  in `tests/`. Applying migrations to a hosted project is done by the owner via the
+  Supabase SQL editor or CLI; list any migration that still needs applying in the PR.
+- Windows checkouts have CRLF line endings; that is normal. Don't "fix" whole files.
+
+## Design
+
+- Use semantic tokens and shared components (see the design system once it lands:
+  `DESIGN.md`, `src/design/`); no ad-hoc hex values, no emoji as icons.
+- Themes are data presets, not forked components or per-beer stylesheets.
+- Every route has designed loading, empty and error states. Touch targets ≥ 44px; text ≥
+  12px; contrast ≥ 4.5:1 (3:1 large).
+
+## Data ingestion (later phase)
+
+- Never bulk-import without a dry-run diff, an `ingestion_run` id and a rollback path.
+- Nothing is imported until the prerequisites in `docs/PRODUCT-AUDIT-2026-09-29.md` §19
+  are demonstrably satisfied (`docs/INGESTION-READINESS.md` tracks them).

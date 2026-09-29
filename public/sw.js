@@ -91,18 +91,27 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || "/";
+  const target = new URL(event.notification.data?.url || "/", self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-      // Reuse an open tab rather than piling up new ones.
-      for (const client of windows) {
-        if ("focus" in client) {
-          client.navigate(target);
-          return client.focus();
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const ours = windows.filter((client) => new URL(client.url).origin === self.location.origin);
+
+      // Reuse the tab the person is actually looking at rather than piling up new
+      // ones — and never a background tab they were not using.
+      const candidate =
+        ours.find((client) => client.focused) ?? ours.find((client) => client.visibilityState === "visible");
+
+      if (candidate) {
+        try {
+          const navigated = await candidate.navigate(target);
+          return await (navigated ?? candidate).focus();
+        } catch {
+          // navigate() refuses windows this worker does not control. Fall through.
         }
       }
       return self.clients.openWindow(target);
-    }),
+    })(),
   );
 });

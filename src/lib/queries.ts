@@ -1,7 +1,9 @@
 import "server-only";
 
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabase/server";
+import { isProductionEnvironment, WITHOUT_DEMO_DEALS } from "@/lib/demo";
 import type { DealCategory } from "@/lib/categories";
 import type { AppSettings, Beer, PublicDeal, Store } from "@/lib/db/types";
 
@@ -46,6 +48,20 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
 });
 
 /**
+ * The one door every public deal read goes through.
+ *
+ * In production it also drops sample rows (see src/lib/demo.ts): the app must
+ * never present a fake price as a real deal, whatever the database contains.
+ */
+function publicDeals(supabase: SupabaseClient) {
+  // Deliberately NOT async: a Supabase query builder is a thenable, so returning
+  // one from an async function would run the query before the caller has added
+  // its filters.
+  const query = supabase.from("deals_public").select("*");
+  return isProductionEnvironment() ? query.or(WITHOUT_DEMO_DEALS) : query;
+}
+
+/**
  * Deals for one beer in one category, cheapest first.
  *
  * The category is a required argument rather than an optional filter. Comparing
@@ -58,9 +74,7 @@ export async function getDealsForBeer(
   category: DealCategory,
 ): Promise<PublicDeal[]> {
   const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("deals_public")
-    .select("*")
+  const { data } = await publicDeals(supabase)
     .eq("beer_id", beerId)
     .eq("category", category)
     .order("deal_price_agorot", { ascending: true });
@@ -79,37 +93,12 @@ export async function getDealsForStore(
   category: DealCategory,
 ): Promise<PublicDeal[]> {
   const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("deals_public")
-    .select("*")
+  const { data } = await publicDeals(supabase)
     .eq("store_id", storeId)
     .eq("category", category)
     .order("discount_percent", { ascending: false })
     .order("deal_price_agorot", { ascending: true });
   return (data ?? []) as PublicDeal[];
-}
-
-/** The cheapest live deal for each of several beers, in one query. */
-export async function getBestDealPerBeer(
-  beerIds: string[],
-  category: DealCategory,
-): Promise<Map<string, PublicDeal>> {
-  const best = new Map<string, PublicDeal>();
-  if (beerIds.length === 0) return best;
-
-  const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("deals_public")
-    .select("*")
-    .in("beer_id", beerIds)
-    .eq("category", category)
-    .order("deal_price_agorot", { ascending: true });
-
-  for (const deal of (data ?? []) as PublicDeal[]) {
-    // Ordered cheapest first, so the first row seen for a beer is its best.
-    if (!best.has(deal.beer_id)) best.set(deal.beer_id, deal);
-  }
-  return best;
 }
 
 /** The single best deal at a store for each of the user's beers. */
@@ -122,15 +111,14 @@ export async function getBestDealPerBeerAtStore(
   if (beerIds.length === 0) return best;
 
   const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("deals_public")
-    .select("*")
+  const { data } = await publicDeals(supabase)
     .eq("store_id", storeId)
     .in("beer_id", beerIds)
     .eq("category", category)
     .order("deal_price_agorot", { ascending: true });
 
   for (const deal of (data ?? []) as PublicDeal[]) {
+    // Ordered cheapest first, so the first row seen for a beer is its best.
     if (!best.has(deal.beer_id)) best.set(deal.beer_id, deal);
   }
   return best;
@@ -161,11 +149,7 @@ export async function getWeeklyDeal(): Promise<PublicDeal | null> {
   if (!settings?.weekly_deal_id) return null;
 
   const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("deals_public")
-    .select("*")
-    .eq("id", settings.weekly_deal_id)
-    .maybeSingle();
+  const { data } = await publicDeals(supabase).eq("id", settings.weekly_deal_id).maybeSingle();
 
   // Null if the deal has since been deactivated: the view only exposes approved
   // rows, so a stale pointer resolves to nothing rather than to a dead deal.
@@ -181,9 +165,7 @@ export async function getWeeklyDeal(): Promise<PublicDeal | null> {
  */
 export async function getLatestDeals(limit = 8, excludeId?: string | null): Promise<PublicDeal[]> {
   const supabase = await supabaseServer();
-  let query = supabase
-    .from("deals_public")
-    .select("*")
+  let query = publicDeals(supabase)
     .order("approved_at", { ascending: false, nullsFirst: false })
     .limit(limit);
 

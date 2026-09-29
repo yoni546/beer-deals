@@ -26,3 +26,15 @@ export function buildDealNotification(input: {
     body: `${unit} ב־${price} ₪ ב${input.storeName} — ${input.discountPercent}% הנחה.`,
   };
 }
+
+/**
+ * Where tapping a notification goes.
+ *
+ * The beer pages are addressed by SLUG (`/beer/goldstar`). This used to be built
+ * from the beer's database id, which no route answers to, so every notification
+ * opened a 404. Taking the slug (not an id) as the input makes that mistake
+ * impossible to repeat by accident.
+ */
+export function buildDealPath(input: { beerSlug: string; category: DealCategory }): string {
+  return `/beer/${encodeURIComponent(input.beerSlug)}?c=${input.category}`;
+}

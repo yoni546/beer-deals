@@ -22,12 +22,17 @@ export type PickerItem = {
  */
 export function Picker({
   items,
-  hrefFor,
+  basePath,
   placeholder,
   emptyLabel,
 }: {
   items: PickerItem[];
-  hrefFor: (slug: string) => string;
+  /**
+   * Where each item links: `${basePath}/${slug}`. A string, not a function —
+   * this is a Client Component, and functions cannot be passed to one from a
+   * Server Component. Passing one made /beer and /store return HTTP 500.
+   */
+  basePath: string;
   placeholder: string;
   emptyLabel: string;
 }) {
@@ -64,7 +69,7 @@ export function Picker({
           {filtered.map((item) => (
             <li key={item.slug}>
               <Link
-                href={hrefFor(item.slug)}
+                href={`${basePath}/${item.slug}`}
                 className="flex min-h-16 items-center justify-center rounded-2xl px-3 py-4 text-center text-sm font-bold ring-1 ring-white/10"
                 style={
                   item.surface

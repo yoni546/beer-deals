@@ -25,7 +25,7 @@ export default async function BeerPickerPage() {
           surface: beer.theme_surface,
           ink: beer.theme_ink,
         }))}
-        hrefFor={(slug) => `/beer/${slug}`}
+        basePath="/beer"
         placeholder="איזו בירה?"
         emptyLabel="לא מצאנו בירה בשם הזה."
       />

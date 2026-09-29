@@ -11,7 +11,8 @@ and `npx vercel deploy --prod` gives you the link you can send on WhatsApp.
   closest Supabase region to Israel — roughly 60ms away, against 200ms+ for
   Asia-Pacific. Every page in this app is server-rendered against the database,
   so that gap is felt on every screen. The region cannot be changed later
-  without moving the project.
+  without moving the project. (Check what the live project actually uses, and
+  where the Vercel functions run, in [INFRASTRUCTURE.md](INFRASTRUCTURE.md).)
 - **Database password:** press *Generate a password* and save it in your
   password manager. This app never uses it — the schema is applied by pasting
   SQL in the dashboard — but you cannot see it again afterwards.
@@ -46,9 +47,15 @@ sign-ins failing.
 2. `0002_functions.sql` — role checks and the write API
 3. `0003_rls.sql` — Row Level Security and the storage bucket
 4. `0004_seed.sql` — the beer and store catalogue
+5. `0005_one_deal_per_shelf.sql` — one approved deal per beer, shop and pack
+6. `0006_retire_demo_deals.sql` — retires sample deals, makes notifications opt-in,
+   grants the push sender its privileges
 
 Each one is safe to re-run except `0001`, which creates types and will complain
-that they already exist.
+that they already exist. On a **fresh** project you can instead paste the single
+generated file `supabase/RUN_THIS_IN_SUPABASE.sql` (every migration in order;
+rebuilt with `npm run sql:build`). On an **existing** project, apply only the
+migrations you have not run yet — the pull request that adds one says which.
 
 > These are applied by pasting rather than by `supabase db push` on purpose:
 > `db push` needs the database password, and the migration history in the
@@ -95,6 +102,9 @@ Admins sign in with a real email and password; everyone else is anonymous.
    ```
 
 Then open `/admin/login` in the app and sign in with that email and password.
+(`supabase/MAKE_ME_ADMIN.sql` does step 3 for you. It no longer adds any sample deals —
+those live in `supabase/seed/dev-demo-deals.sql`, which refuses to run unless you
+confirm the database is not production.)
 From there you can add other admins by email — but only a super admin can, and
 that rule is enforced by `grant_admin()` in the database, not by the button
 being hidden.

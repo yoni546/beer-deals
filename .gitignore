@@ -17,3 +17,8 @@ public/sw.js.map
 # The Vercel CLI appends a broad ".env*" above. Keep the template visible —
 # it is the documentation for what has to be filled in.
 !.env.example
+.next-e2e
+test-results
+playwright-report
+supabase/.temp
+supabase/.branches

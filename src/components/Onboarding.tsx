@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useRouter } from "next/navigation";
-import { savePreferences } from "@/lib/actions/profile";
+import { completeOnboarding } from "@/lib/actions/profile";
+import { hardNavigate } from "@/lib/navigation";
 import { IDLE } from "@/lib/actions/result";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import type { Beer } from "@/lib/db/types";
@@ -15,15 +15,22 @@ import type { Beer } from "@/lib/db/types";
  * and unreachable with a screen reader; tapping four beers in the order you
  * like them is the same information with none of that cost. The chosen ones
  * carry their number so the ranking is visible rather than remembered.
+ *
+ * The last step appears only once the save has actually succeeded (a failure
+ * stays on the ranking step, next to its error message), and it stays until the
+ * user presses the button. It used to advance on click regardless of the result
+ * and then get replaced by the home page a second later.
  */
 export function Onboarding({ beers }: { beers: Beer[] }) {
-  const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
   const [picked, setPicked] = useState<Beer[]>([]);
-  const [state, submit, pending] = useActionState(savePreferences, IDLE);
+  const [state, submit, pending] = useActionState(completeOnboarding, IDLE);
 
   const primary = picked[0] ?? null;
+  // A successful save is the only way onto the last step.
+  const saved = state.ok && Boolean(state.message);
+  const visibleStep = saved ? 3 : step;
 
   function toggle(beer: Beer) {
     setPicked((current) => {
@@ -46,7 +53,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
         </p>
       </header>
 
-      {step === 1 && (
+      {visibleStep === 1 && (
         <section className="space-y-4">
           <label htmlFor="firstName" className="block text-lg font-bold">
             איך קוראים לכם?
@@ -72,7 +79,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
         </section>
       )}
 
-      {step === 2 && (
+      {visibleStep === 2 && (
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-bold">ארבע הבירות האהובות עליכם</h2>
@@ -137,7 +144,6 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             <button
               type="submit"
               disabled={picked.length !== 4 || pending}
-              onClick={() => setTimeout(() => setStep(3), 0)}
               className="w-full rounded-2xl bg-[color:var(--accent)] px-4 py-3.5 font-bold text-[color:var(--base)] disabled:opacity-40"
             >
               {pending ? "שומרים…" : picked.length === 4 ? "סיימנו" : `בחרו עוד ${4 - picked.length}`}
@@ -153,7 +159,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
         </section>
       )}
 
-      {step === 3 && (
+      {visibleStep === 3 && (
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-bold">אהלן {name} 🍺</h2>
@@ -172,7 +178,10 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
 
           <button
             type="button"
-            onClick={() => router.replace("/")}
+            // A real page load, not a client navigation: the root layout (which
+            // carries the theme) is not re-rendered by one, so the new Primary
+            // Beer's colours would otherwise wait for a manual refresh.
+            onClick={() => hardNavigate("/")}
             className="w-full rounded-2xl bg-[color:var(--accent)] px-4 py-3.5 font-bold text-[color:var(--base)]"
           >
             קדימה, למבצעים

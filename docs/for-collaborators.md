@@ -72,7 +72,24 @@ git push -u origin what-youre-doing
 ```
 
 Then open a pull request on GitHub. The other person can see the change before
-it reaches the live site.
+it reaches the live site. CI runs typecheck, lint, tests, the production build and
+the Playwright suite on every pull request.
+
+## The release rule
+
+Every meaningful change — anything a user can see, or that touches prices, deals,
+notifications or the schema — must bump `package.json`'s version, add an entry at the
+top of `src/content/releases.json`, and regenerate `CHANGELOG.md` with
+`npm run changelog`. A failing test enforces it. Full text in [CLAUDE.md](../CLAUDE.md).
+
+## Testing without touching production
+
+`npm run e2e` builds the app and runs it against a **local fake Supabase**
+(`tests/e2e/fake-supabase`): the real migrations on an in-memory Postgres, behind a
+PostgREST/auth-shaped server. Real row level security, no network, no credentials, and no
+way to hurt the live database. Use `E2E_DEV=1 npm run e2e` (dev server) for quicker
+iteration and `PW_CHANNEL=chrome` to use an installed Chrome instead of downloading
+Playwright's browser.
 
 ## Things worth knowing before you change them
 
@@ -92,6 +109,7 @@ in a comment at the point it matters — this is just the map.
 ## Deploying
 
 The live site is <https://beer-deals.vercel.app>, on the owner's Vercel account.
-Pushing to GitHub does not deploy by itself yet — connecting the repository to
-Vercel so every push deploys is a five-minute job worth doing once two people
-are working on it.
+Pushing to GitHub does not deploy by itself yet. The step-by-step (connecting the
+repository, environment variables per environment, where the functions run relative
+to the database, and how to verify a deployment) is in
+[INFRASTRUCTURE.md](INFRASTRUCTURE.md).
