@@ -6,6 +6,24 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.7.0 — 2026-09-29
+
+**מחירים לפי הסניף, מבצעים שפתוחים לכולם, ובקבוק אמיתי ברקע** · Feature, Data
+
+- הבקבוק של הבירה הראשונה שלכם מופיע עכשיו ברקע כתמונה אמיתית של המוצר.
+- בעמוד של בירה ושל רשת: קודם המבצעים של עכשיו, ואחריהם המחירים הרגילים.
+- מוצגים רק מבצעים שכל אחד יכול לקבל: בלי מבצעי מועדון, כרטיס אשראי או קופון.
+- ליד כל מחיר כתוב באיזה סניף הוא נמצא, וכמה פיקדון משלמים על הבקבוקים או הפחיות.
+- מבצע על כמה בירות ביחד (למשל 2 ב־₪35) מוצג כמבצע אחד, ולא כמחיר מומצא לכל בירה.
+
+Internal:
+
+- Migrations 0014 (categories beer/non_alcoholic/radler in, malt/cider out; SKU variant; feed identity on branches; source_products alias+review queue; audience — only 'everyone' offers are read, announced or ranked; deposit beside the price; promotion_groups for mix-and-match; one row per pack x chain with 'from' the lowest branch) and 0015 (re-import after rollback; branch name/city in the views). Applied to STAGING only.
+- First real ingestion into STAGING (qpjwnxptitnmtsznjvkw, ap-northeast-1): 9 chains/10 branches incl. Yeinot Bitan inside Carrefour's feed and AM:PM inside Dor Alon's; idempotency, rollback and re-import rehearsed. docs/INGESTION-STAGING-REPORT.md.
+- 19 real bottle photos (17 retailer pack shots found by barcode, 1 Commons CC BY-SA) with provenance in src/design/bottle-photos.json; scripts/fetch-bottles.mjs.
+- Notification worker resolves catalogue events through offers_ranked (a multi-branch promotion was being dropped as 'stale').
+- vercel.json regions [hnd1] next to the database (confirm production's region before merging). Daily ingestion workflow for STAGING, gated on a clean import.
+
 ## 0.6.0 — 2026-09-29
 
 **הבירה הראשונה שלכם היא האפליקציה** · Design, Feature
