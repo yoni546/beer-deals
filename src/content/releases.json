@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.5.1",
+    "date": "2026-09-29",
+    "title_he": "הכנה לייבוא מחירים בטוח",
+    "highlights_he": [
+      "אין שינוי במה שרואים באתר: הוכנו מנגנוני הגנה לפני שיובאו מחירים אמיתיים מהרשתות (ייבוא של אותו קובץ פעם אחת, החזקת מחירים חשודים, וביטול ייבוא שגוי)."
+    ],
+    "kind": [
+      "data"
+    ],
+    "showInApp": false,
+    "internal": [
+      "Migration 0013: start/finish_ingestion_run (one run per source+file hash), record_prices holds implausible prices (out of range vs the SKU median, >40% jump in 2 days) and reports them, rollback_ingestion_run rejects a run's rows AND re-records the prices they replaced (rejecting alone leaves shelves empty because superseded rows are immutable), closes pending notification events; restored rows never notify.",
+      "docs/INGESTION-READINESS.md: the 16 prerequisites with evidence. Verdict: not ready (3 done, 7 partly, 5 blocked, 1 not started). Nothing imports anything."
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-09-29",
     "title_he": "התראות שנבנו מחדש",

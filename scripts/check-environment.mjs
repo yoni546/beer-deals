@@ -80,6 +80,7 @@ const probes = [
   ["0011       regular prices feed", "regular_prices_feed?select=sku_id&limit=1"],
   ["0011       theme choices on profiles", "profiles?select=theme_override,appearance&limit=1"],
   ["0012       notification rules (daily cap, quiet hours)", "app_settings?select=notify_daily_cap,notify_quiet_start,notify_quiet_end&limit=1"],
+  ["0013       ingestion runs are de-duplicated by file", "ingestion_runs?select=file_hash&limit=1"],
 ];
 for (const [name, path] of probes) {
   const response = await rest(path, token);
