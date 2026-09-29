@@ -37,9 +37,9 @@ describe("the notification text (audit §13.3)", () => {
     expect(message.body).not.toContain("במקום");
   });
 
-  it("says when a price is for club members only", () => {
+  it("never words an offer as members-only: such offers are not announced at all (0014)", () => {
     const message = buildOfferNotification(offer({ promo_type: "club_price", conditions: { club: "שופרסל פלוס" } }));
-    expect(message.body.endsWith("חברי שופרסל פלוס")).toBe(true);
+    expect(message.body).not.toMatch(/חברי|מועדון/);
   });
 
   it("puts the chain after ב, with a maqaf for a Latin name", () => {

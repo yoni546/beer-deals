@@ -1,4 +1,4 @@
-import { conditionChips, packText } from "@/lib/format";
+import { packText } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 import type { Offer } from "@/lib/db/types";
 
@@ -59,9 +59,7 @@ export function buildOfferNotification(
     verified && !multi ? `${price} במקום ${formatPrice(offer.reference_agorot!)}` : price,
   ];
   if (verified) pieces.push(`−${offer.value_pct}%`);
-  // A club-only price is worth saying: it is not everyone's price.
-  const club = conditionChips(offer).find((chip) => chip.kind === "club");
-  if (club) pieces.push(club.label);
+  // No "members only" wording: an offer that is not for everyone is never announced (migration 0014).
 
   return {
     title: `מבצע חדש ${inChain(offer.store_name)}`,

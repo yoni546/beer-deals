@@ -354,3 +354,38 @@ describe("the worker", () => {
     expect((await eventFor(promo.offerKey))?.outcome).toMatch(/stale|expired/);
   });
 });
+
+describe("a chain promotion seen at several branches (0014)", () => {
+  it("is announced once — even when the public feed shows another branch's row", async () => {
+    const user = await person();
+    const promo = await promotion({ price: 2500, regular: 3790 });
+    // The same chain promotion at a second, cheaper-listed branch of the same chain.
+    const branch = (await one<{ id: string }>("insert into public.branches (store_id, external_ref) values ($1, 'second') returning id", [ramiId])).id;
+    await rows(
+      `insert into public.price_observations (sku_id, store_id, branch_id, kind, price_agorot, observed_at, valid_to, promo_type, conditions, identity_key, source_id)
+       select sku_id, store_id, $2, kind, price_agorot, observed_at + interval '1 minute', valid_to, promo_type, conditions, identity_key, source_id
+         from public.price_observations where id = $1`,
+      [promo.observationId, branch],
+    );
+    // The feed now shows the newer branch's row, not the one the event names…
+    const shown = await one<{ offer_key: string }>("select offer_key from public.offers_feed where sku_id = $1", [promo.sku]);
+    expect(shown.offer_key).not.toBe(promo.offerKey);
+    const sent = okSender();
+    await processNotificationEvents({ db, send: sent, now: daytime() });
+    expect(await eventFor(promo.offerKey)).toMatchObject({ status: "done", outcome: "sent" });
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect((await deliveriesOf(user)).map((d) => d.status)).toEqual(["sent"]);
+  });
+
+  it("an offer only club members can use is never queued, even as the person's #1 beer", async () => {
+    await person();
+    const promo = await promotion({ price: 2000, regular: 3790 });
+    const club = await one<{ id: string }>(
+      `insert into public.price_observations (sku_id, store_id, kind, price_agorot, observed_at, valid_to, promo_type, conditions, identity_key, source_id)
+       select sku_id, store_id, 'promotion', 1500, now(), now() + interval '2 days', 'price_cut', '{"audience": "club"}'::jsonb, 'club-1', source_id
+         from public.price_observations where id = $1 returning id`,
+      [promo.observationId],
+    );
+    expect(await eventFor(`obs:${club.id}`)).toBeUndefined();
+  });
+});

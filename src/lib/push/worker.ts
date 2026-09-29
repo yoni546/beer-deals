@@ -58,6 +58,25 @@ type SettingsRow = {
   notify_quiet_end: number;
 };
 
+/**
+ * The offer an event announces, from the read model (so it is still live, in force, redeemable by
+ * everyone and in scope). A catalogue event names ONE branch's observation; the public feed shows one
+ * row per chain promotion (migration 0014), possibly another branch's — so catalogue events are looked
+ * up in offers_ranked, which has every branch. Legacy deals are only in offers_feed.
+ */
+async function loadOffer(db: SupabaseClient, offerKey: string): Promise<Offer | null> {
+  if (!offerKey.startsWith("obs:")) {
+    const result = await db.from("offers_feed").select("*").eq("offer_key", offerKey).maybeSingle();
+    if (result.error) throw new Error(`offers unavailable: ${result.error.message}`);
+    return (result.data as Offer | null) ?? null;
+  }
+  const result = await db.from("offers_ranked").select("*").eq("observation_id", Number(offerKey.slice(4))).maybeSingle();
+  if (result.error) throw new Error(`offers unavailable: ${result.error.message}`);
+  const row = result.data as (Omit<Offer, "offer_key" | "origin" | "pack_label" | "notes"> & { observation_id: number; sku_name: string }) | null;
+  if (!row) return null;
+  return { ...row, offer_key: offerKey, origin: "catalog", pack_label: row.sku_name, notes: null } as Offer;
+}
+
 const toSettings = (row: SettingsRow): NotifySettings => ({
   minValuePct: row.notify_min_discount_percent,
   maxPriceAgorot: row.notify_max_price_agorot,
@@ -101,9 +120,7 @@ export async function processNotificationEvents(input: {
     const expiresAt = new Date(event.expires_at);
 
     // 1. The offer must still be live; render everything from the read model.
-    const offerResult = await db.from("offers_feed").select("*").eq("offer_key", event.offer_key).maybeSingle();
-    if (offerResult.error) throw new Error(`offers unavailable: ${offerResult.error.message}`);
-    const offer = offerResult.data as Offer | null;
+    const offer = await loadOffer(db, event.offer_key);
     if (!offer) {
       await finish(event.id, now >= expiresAt ? "expired" : "stale");
       continue;
