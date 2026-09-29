@@ -169,10 +169,19 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
 
       {visibleStep === 3 && (
         <section className="space-y-5">
+          {/* The moment the app becomes theirs: their #1's bottle, seen, not covered. */}
+          {primary && (
+            <div className="stage-window flex items-end justify-center">
+              <span className="stage-caption inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold">
+                <span className="text-on-ground-2">הבירה שלכם</span>
+                <span className="text-on-ground">{primary.name_he}</span>
+              </span>
+            </div>
+          )}
           <Tape className="px-5 py-6">
             <h2 className="text-xl font-bold text-ink">{name.trim() ? `אהלן, ${name.trim()}` : "אהלן"}</h2>
             <p className="mt-1 text-sm leading-relaxed text-ink-2">
-              {primary ? `הבירה הראשית שלכם: ${primary.name_he}.` : ""} שני דברים אחרונים, שניהם רשות.
+              {primary ? `${primary.name_he} קובעת עכשיו את המראה של האפליקציה ואת ההתראות.` : ""} עוד שני דברים, שניהם רשות.
             </p>
             <div aria-hidden className="tear my-4" />
             <InstallPrompt onPaper />

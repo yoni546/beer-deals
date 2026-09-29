@@ -189,25 +189,48 @@ select,
   overflow: hidden;
   pointer-events: none;
 }
+/* The composition: ONE hero bottle, centred, large, its label in the open stage at the top of the
+   screen (the cap runs off the top edge — a close-up, not a product shot) — and two smaller bottles
+   of the same beer behind it at the sides, softer and tilted outward. Always the same arrangement;
+   only the beer changes. */
 .bottle-art {
   position: absolute;
-  height: calc(var(--bottle-scale, 1) * 100svh);
   width: auto;
-  aspect-ratio: 200 / 820;
-  /* Beside the phone-width column on a wide screen; cropped off the left edge on a phone. */
-  left: calc(max(0px, 50vw - 15rem) + var(--bottle-x, -12) * 1vw);
-  top: calc(var(--bottle-top, -45) * 1svh);
-  transform: rotate(var(--bottle-rotate, -7deg));
-  transform-origin: 50% 60%;
   object-fit: contain;
+}
+svg.bottle-art {
+  aspect-ratio: 200 / 820;
+}
+.bottle-hero {
+  height: calc(var(--bottle-scale, 1) * 80svh);
+  top: -21svh;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.bottle-side {
+  height: calc(var(--bottle-scale, 1) * 42svh);
+  top: 7svh;
+  opacity: 0.6;
+  transform-origin: 50% 100%;
+}
+.bottle-side-start {
+  left: calc(50% - 11.5rem);
+  transform: rotate(-9deg);
+}
+.bottle-side-end {
+  left: calc(50% + 6rem);
+  transform: rotate(9deg);
 }
 .bottle-stage[data-bottle]:not([data-bottle="none"])::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(130% 90% at 18% 72%, transparent 45%, var(--scrim) 100%),
-    linear-gradient(to left, var(--scrim) 0%, transparent 60%);
+    /* the greeting sits over the shoulder of the bottle: a calm band at the very top */
+    linear-gradient(to bottom, var(--scrim) 0%, transparent 13%),
+    /* below the stage the paper takes over; the counter darkens so it never competes */
+    linear-gradient(to top, var(--scrim) 0%, transparent 62%),
+    radial-gradient(120% 80% at 50% 30%, transparent 55%, var(--scrim) 100%);
 }
 
 /* ------------------------------------------------------------ fields and buttons */
@@ -332,4 +355,18 @@ select,
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------------------------------------------------------------- the stage */
+
+/* On Home, the open stretch of counter under the greeting where the hero bottle's label shows. Its
+   height follows the bottle's composition (the label sits at ~31svh), so the two line up at any size. */
+.stage-window {
+  height: clamp(9rem, 27svh, 16rem);
+  margin-block: -0.5rem 1rem;
+}
+.stage-caption {
+  background: color-mix(in oklab, var(--ground) 72%, transparent);
+  border: 1px solid var(--ground-line);
+  backdrop-filter: blur(6px);
 }

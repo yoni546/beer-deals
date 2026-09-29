@@ -31,3 +31,4 @@ supabase/.branches
 
 # A production build pointed at the staging project (scripts: see docs/STAGING.md)
 /.next-staging/
+/.next-staging-dev/

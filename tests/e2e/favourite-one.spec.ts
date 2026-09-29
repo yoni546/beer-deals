@@ -22,7 +22,12 @@ test("favourite #1 Goldstar → the Goldstar app: bottle, palette and browser ch
   await expect(stage(page)).toHaveAttribute("data-beer", "goldstar");
   // Goldstar's own bottle photo (the pack shot, cut out — src/design/bottle-photos.json).
   await expect(stage(page)).toHaveAttribute("data-bottle", "photo");
-  await expect(stage(page).locator("img")).toHaveAttribute("src", "/bottles/goldstar.webp");
+  // The composition: one hero bottle in the centre, two smaller ones of the same beer at the sides.
+  await expect(stage(page).locator(".bottle-hero")).toHaveAttribute("src", "/bottles/goldstar.webp");
+  await expect(stage(page).locator(".bottle-side")).toHaveCount(2);
+  for (const side of await stage(page).locator(".bottle-side").all()) await expect(side).toHaveAttribute("src", "/bottles/goldstar.webp");
+  // Home leaves a stage open for it, and names the beer there.
+  await expect(page.locator(".stage-caption")).toContainText("גולדסטאר");
 
   // No flash: the server's HTML already carries the beer — before any script runs.
   const html = await (await page.request.get("/")).text();

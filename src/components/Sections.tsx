@@ -1,6 +1,8 @@
+import { ArrowDownIcon } from "@/components/ui/icons";
+
 /**
- * The two parts of a beer or chain page — current deals, then regular prices — each with a heading,
- * and a pair of jump links at the top so the second part is one tap away on a long page.
+ * The two parts of a beer or chain page — current deals, then regular prices — each with a heading.
+ * The deals are already at the top, so the only jump needed is a quiet link down to the regular prices.
  */
 export function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
   return (
@@ -10,18 +12,12 @@ export function SectionHeading({ id, children }: { id: string; children: React.R
   );
 }
 
-export function SectionJump({ items }: { items: { href: string; label: string }[] }) {
+export function JumpToRegular({ count }: { count: number }) {
+  if (count === 0) return null;
   return (
-    <nav aria-label="חלקי העמוד" className="flex rounded-2xl border border-ground-line p-1">
-      {items.map((item) => (
-        <a
-          key={item.href}
-          href={item.href}
-          className="flex min-h-11 flex-1 items-center justify-center rounded-xl px-3 text-sm font-semibold text-on-ground-2 hover:bg-paper hover:text-ink"
-        >
-          {item.label}
-        </a>
-      ))}
-    </nav>
+    <a href="#regular" className="inline-flex min-h-11 items-center gap-1 px-1 text-sm font-semibold text-on-ground-2 underline-offset-4 hover:text-on-ground hover:underline">
+      מחירים רגילים ({count})
+      <ArrowDownIcon size={16} />
+    </a>
   );
 }

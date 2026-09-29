@@ -3,7 +3,7 @@ import { ChevronDownIcon } from "@/components/ui/icons";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { ReportDealButton } from "@/components/ReportDealButton";
 import type { Offer } from "@/lib/db/types";
-import { conditionChips, depositHe, packText, relativeTimeHe, validUntilHe, whereSeenHe } from "@/lib/format";
+import { conditionChips, depositHe, packText, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 export type LineLead = "chain" | "beer" | "pack";
@@ -17,26 +17,30 @@ export type LineLead = "chain" | "beer" | "pack";
  *   pack   → on a chain's page, under a beer heading: "6 × 330 · פחית ········ ₪25"
  *   beer   → on Home, where nothing has been said yet: "גולדסטאר · 6 × 330 ········ ₪25"
  *
+ * Two levels, one unit per deal: the line (name ····· saving · price), then ONE quiet row of facts
+ * (what it replaces, where, until when, the deposit, the multi-buy terms). Nothing to unfold.
  * The saving chip only ever shows the database's VERIFIED value (offers_feed.value_pct).
  * Without one there is no strikethrough and no "you save" — just the price, and a market
- * comparison when there is one. The details fold out below (native <details>, no script).
+ * comparison when there is one.
  */
 export function OfferLine({
   offer,
   lead,
   showStore = lead !== "chain",
+  perLiter = false,
   now = Date.now(),
 }: {
   offer: Offer;
   lead: LineLead;
   /** Name the chain on the second row. Off where the page or heading already says which chain. */
   showStore?: boolean;
+  /** The list is ordered per litre: show that number on the line. */
+  perLiter?: boolean;
   now?: number;
 }) {
   const pack = packText(offer);
   const until = validUntilHe(offer.valid_to, now);
   const chips = conditionChips(offer);
-  const deposit = depositHe(offer.deposit_agorot, offer.deposit_included);
   const where = whereSeenHe(offer);
   const beerHref = `/beer/${offer.beer_slug}`;
   const storeHref = `/store/${offer.store_slug}`;
@@ -56,113 +60,79 @@ export function OfferLine({
       </>
     );
 
-  const hasMeta = showStore || Boolean(until) || Boolean(deposit) || chips.length > 0 || offer.needs_review;
-
   const hasReference = offer.value_pct !== null && offer.reference_agorot !== null;
-  const summaryParts: React.ReactNode[] = [];
-  if (hasReference) summaryParts.push(<span key="r">במקום <s className="num">{formatPrice(offer.reference_agorot!)}</s></span>);
-  else if (offer.market_value_pct !== null) summaryParts.push(<span key="m">זול ב־<span className="num">{offer.market_value_pct}%</span> מהממוצע ברשתות</span>);
-  if (offer.unit_price_per_liter_agorot !== null) summaryParts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);
+  const deposit = depositHe(offer.deposit_agorot, offer.deposit_included);
+  const Dot = () => (
+    <span aria-hidden className="text-paper-line">
+      ·
+    </span>
+  );
+  // One quiet row of facts, in reading order: what it replaces, where, until when, what else is paid.
+  const facts: React.ReactNode[] = [];
+  if (hasReference) {
+    const source = offer.reference_trust === "feed" ? "מפרסום הרשת" : "אושר על ידי מנהל";
+    facts.push(
+      <span key="r" title={`המחיר הרגיל, ${source}`}>
+        במקום <s className="num">{formatPrice(offer.reference_agorot!)}</s>
+        <span className="sr-only"> (המחיר הרגיל, {source})</span>
+      </span>,
+    );
+  }
+  else if (offer.market_value_pct !== null) facts.push(<span key="m">זול ב־<span className="num">{offer.market_value_pct}%</span> מהממוצע</span>);
+  if (showStore)
+    facts.push(
+      <Link key="s" href={storeHref} className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-ink underline-offset-4 hover:underline">
+        {offer.store_name}
+      </Link>,
+    );
+  if (until) facts.push(<span key="u">{until}</span>);
+  if (deposit) facts.push(<span key="d" className="num">{deposit}</span>);
+  if (perLiter && offer.unit_price_per_liter_agorot !== null) facts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);
+  if (where && !showStore) facts.push(<span key="w">{where}</span>);
 
   return (
-    <article className="px-4">
-      <Link href={primaryHref} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
+    <article className="px-4 pt-2 pb-3.5">
+      <Link href={primaryHref} className="flex min-h-11 items-baseline gap-2 pt-2 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
+        {offer.value_pct !== null && (
+          <Saving pct={offer.value_pct} className="shrink-0 self-center rounded-md bg-deal px-2 py-0.5 text-sm font-bold text-on-deal" />
+        )}
         <Price agorot={offer.effective_agorot} size="md" className="shrink-0 text-price" />
       </Link>
 
-      {hasMeta && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-ink-2">
-          {showStore && (
-            <Link href={storeHref} className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium underline-offset-4 hover:underline">
-              {offer.store_name}
-            </Link>
-          )}
-          {showStore && until && (
-            <span aria-hidden className="text-paper-line">
-              ·
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+        {facts.map((node, i) => (
+          <span key={i} className="inline-flex items-center gap-2">
+            {i > 0 && <Dot />}
+            {node}
+          </span>
+        ))}
+        {chips.map((chip) => (
+          <span key={chip.label} className="rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
+            {chip.label}
+          </span>
+        ))}
+        {offer.needs_review && (
+          <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">אחוז ההנחה בבדיקה</span>
+        )}
+      </div>
+
+      {offer.origin === "legacy" && (
+        // A user-submitted deal (the old flow): the only line with anything more to do.
+        <details className="group">
+          <summary className="-ms-1 inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1 ps-1 text-xs font-semibold text-ink-2 [&::-webkit-details-marker]:hidden">
+            דיווח על המבצע
+            <span aria-hidden className="transition-transform group-open:rotate-180">
+              <ChevronDownIcon size={14} />
             </span>
-          )}
-          {until && <span>{until}</span>}
-          {deposit && (
-            <>
-              {(showStore || until) && (
-                <span aria-hidden className="text-paper-line">
-                  ·
-                </span>
-              )}
-              <span className="num">{deposit}</span>
-            </>
-          )}
-          {chips.map((chip) => (
-            <span key={chip.label} className="rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
-              {chip.label}
-            </span>
-          ))}
-          {offer.needs_review && (
-            <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
-              אחוז ההנחה בבדיקה
-            </span>
-          )}
-        </div>
+          </summary>
+          <div className="pb-2">
+            <ReportDealButton dealId={offer.offer_key.replace(/^deal:/, "")} />
+          </div>
+        </details>
       )}
-
-      <details className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm text-ink-2 marker:hidden [&::-webkit-details-marker]:hidden">
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
-            {summaryParts.length === 0 && <span>פרטים</span>}
-            {summaryParts.map((node, i) => (
-              <span key={i} className="inline-flex items-center gap-2">
-                {i > 0 && <span aria-hidden className="text-paper-line">·</span>}
-                {node}
-              </span>
-            ))}
-          </span>
-          {offer.value_pct !== null && (
-            <Saving pct={offer.value_pct} className="shrink-0 rounded-md bg-deal px-2 py-1 text-sm font-bold text-on-deal" />
-          )}
-          <span aria-hidden className="shrink-0 text-ink-2 transition-transform group-open:rotate-180">
-            <ChevronDownIcon size={18} />
-          </span>
-          <span className="sr-only">פרטים נוספים</span>
-        </summary>
-
-        <dl className="mb-3 space-y-1.5 border-t border-dashed border-paper-line pt-3 text-sm">
-          <Row label="חנות">
-            {offer.store_name}
-            {where && <span className="text-ink-2"> · {where}</span>}
-          </Row>
-          <Row label="אריזה">{pack}</Row>
-          {offer.reference_agorot !== null && offer.value_pct !== null && (
-            <Row label="מחיר רגיל">
-              <span className="num">{formatPrice(offer.reference_agorot)}</span>{" "}
-              <span className="text-ink-2">({offer.reference_trust === "feed" ? "מפרסום הרשת" : "אושר על ידי מנהל"})</span>
-            </Row>
-          )}
-          {offer.market_reference_agorot !== null && (
-            <Row label="ממוצע ברשתות אחרות">
-              <span className="num">{formatPrice(offer.market_reference_agorot)}</span>
-            </Row>
-          )}
-          {offer.observed_at && <Row label="נראה לאחרונה">{relativeTimeHe(offer.observed_at, now)}</Row>}
-          {offer.notes && <Row label="הערה">{offer.notes}</Row>}
-          {offer.origin === "legacy" && (
-            <div className="pt-1">
-              <ReportDealButton dealId={offer.offer_key.replace(/^deal:/, "")} />
-            </div>
-          )}
-        </dl>
-      </details>
     </article>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-3">
-      <dt className="w-32 shrink-0 text-ink-2">{label}</dt>
-      <dd className="min-w-0 text-ink">{children}</dd>
-    </div>
-  );
-}

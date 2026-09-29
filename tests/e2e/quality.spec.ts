@@ -100,10 +100,10 @@ for (const width of [360, 768]) {
   });
 }
 
-test("the unread dot and the details toggles are still touch targets when they are open", async ({ page }) => {
+test("the unread dot and the sort control are still touch targets when they are open", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
-  for (const summary of await page.locator("article summary").all()) await summary.click();
+  for (const summary of await page.locator("summary").all()) await summary.click();
   expect(await floorViolations(page)).toEqual([]);
 });
 

@@ -22,6 +22,7 @@ export function Strip({
   printIn = false,
   headingLevel = "h2",
   beerSlug,
+  perLiter = false,
 }: {
   title: string;
   href?: string;
@@ -35,6 +36,8 @@ export function Strip({
   headingLevel?: "h2" | "h3";
   /** When the strip is about one beer: its bottle beside the heading. */
   beerSlug?: string;
+  /** The list is ordered per litre: each line shows that number. */
+  perLiter?: boolean;
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
@@ -56,9 +59,9 @@ export function Strip({
         {aside && <span className="shrink-0 text-sm text-ink-2">{aside}</span>}
       </div>
 
-      <div className="divide-y divide-dotted divide-paper-line [&>*+*]:pt-0">
+      <div className="divide-y divide-paper-line">
         {shown.map((offer) => (
-          <OfferLine key={offer.offer_key} offer={offer} lead={lead} showStore={showStore} />
+          <OfferLine key={offer.offer_key} offer={offer} lead={lead} showStore={showStore} perLiter={perLiter} />
         ))}
       </div>
 

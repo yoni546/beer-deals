@@ -17,7 +17,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
   const beers = [...new Set(offer.packs.map((p) => p.beer_name))];
 
   return (
-    <article className="px-4 pb-3">
+    <article className="px-4 pt-1 pb-3.5">
       <Link href={`/store/${offer.store_slug}`} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{showStore ? offer.store_name : beers.join(" / ")}</span>
         <span aria-hidden className="leader-fill" />
@@ -38,12 +38,25 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
         ))}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
-        <span>
-          יוצא <span className="num">{formatPrice(offer.per_unit_agorot)}</span> לאריזה
-        </span>
-        {deposit && <span className="num">· {deposit}</span>}
-        {until && <span>· {until}</span>}
-        {where && <span>· {where}</span>}
+        {[
+          <span key="u">
+            יוצא <span className="num">{formatPrice(offer.per_unit_agorot)}</span> לאריזה
+          </span>,
+          until ? <span key="t">{until}</span> : null,
+          deposit ? <span key="d" className="num">{deposit}</span> : null,
+          where ? <span key="w">{where}</span> : null,
+        ]
+          .filter(Boolean)
+          .map((node, i) => (
+            <span key={i} className="inline-flex items-center gap-2">
+              {i > 0 && (
+                <span aria-hidden className="text-paper-line">
+                  ·
+                </span>
+              )}
+              {node}
+            </span>
+          ))}
       </div>
     </article>
   );
@@ -70,7 +83,7 @@ export function GroupStrip({
           {offers.length} {offers.length === 1 ? "מבצע" : "מבצעים"}
         </span>
       </div>
-      <div className="divide-y divide-dotted divide-paper-line">
+      <div className="divide-y divide-paper-line">
         {offers.map((offer) => (
           <GroupOfferLine key={offer.offer_key} offer={offer} showStore={showStore} />
         ))}

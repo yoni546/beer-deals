@@ -5,7 +5,7 @@ import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
 import { RegularStrip } from "@/components/RegularStrip";
-import { SectionHeading, SectionJump } from "@/components/Sections";
+import { JumpToRegular, SectionHeading } from "@/components/Sections";
 import { SortBar } from "@/components/SortBar";
 import { Chip } from "@/components/ui/Chip";
 import { CheckIcon } from "@/components/ui/icons";
@@ -109,6 +109,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
         aside={`${item.offers.length} ${item.offers.length === 1 ? "מבצע" : "מבצעים"}`}
         offers={item.offers}
         lead="pack"
+        perLiter={perLiter}
         showStore={false}
         printIn={index === 0}
         headingLevel="h3"
@@ -126,6 +127,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
         aside={`${item.prices.length} ${item.prices.length === 1 ? "אריזה" : "אריזות"}`}
         prices={item.prices}
         lead="pack"
+        perLiter={perLiter}
         headingLevel="h3"
       />
     ) : (
@@ -159,13 +161,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
       />
 
       {(dealCount > 0 || regular.length > 0) && (
-        <div className="mb-5 space-y-3">
-          <SectionJump
-            items={[
-              { href: "#deals", label: `מבצעים (${dealCount})` },
-              { href: "#regular", label: `מחירים רגילים (${regular.length})` },
-            ]}
-          />
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-2">
           <SortBar
             path={path}
             state={{ sort, perLiter, pack, extra: { mine: current.mine } }}
@@ -177,6 +173,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
               </Chip>
             }
           />
+          <JumpToRegular count={regular.length} />
         </div>
       )}
 

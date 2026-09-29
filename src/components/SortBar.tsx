@@ -1,5 +1,5 @@
 import { Chip, ChipRow } from "@/components/ui/Chip";
-import { ArrowDownIcon, ArrowUpIcon } from "@/components/ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon } from "@/components/ui/icons";
 import type { PackFilter, SortMode } from "@/lib/offer-logic";
 import { withParams } from "@/lib/urls";
 
@@ -16,9 +16,13 @@ const DEFAULTS = { sort: "value", unit: "", pack: "all" };
 const PACK_LABEL: Record<PackFilter, string> = { all: "כל האריזות", single: "בודדים", multi: "מארזים", case: "ארגזים" };
 const SORT_LABEL: Record<SortMode, string> = { value: "משתלם", price_asc: "מחיר", price_desc: "מחיר" };
 
+const SORT_SUMMARY: Record<SortMode, string> = { value: "הכי משתלם", price_asc: "מחיר, מהזול", price_desc: "מחיר, מהיקר" };
+
 /**
- * Sort and filter, as chips. Everything is a link to "this page with one thing changed"
- * (src/lib/urls.ts), so state is in the URL and works with no script at all.
+ * Sort and filter, folded into ONE quiet control that says what is active ("מיון: הכי משתלם ·
+ * מארזים"); the options open under it. Everything is a link to "this page with one thing changed"
+ * (src/lib/urls.ts), so state is in the URL and it works with no script at all (native <details>).
+ * A page's own primary toggle (the store page's "my beers") stays outside, in plain view.
  *
  *   משתלם | מחיר ↑ | מחיר ↓ | לליטר             how to order
  *   כל האריזות | בודדים | מארזים | ארגזים      which packs
@@ -48,9 +52,28 @@ export function SortBar({
     pack: state.pack,
   };
   const href = (patch: Record<string, string | undefined>) => withParams(path, current, patch, DEFAULTS);
+  const summary = [
+    sorting ? SORT_SUMMARY[state.sort] : null,
+    state.perLiter ? "לליטר" : null,
+    packs && state.pack !== "all" ? PACK_LABEL[state.pack] : null,
+  ].filter(Boolean);
+  const changed = state.sort !== "value" || state.perLiter || state.pack !== "all";
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {leading}
+      {/* Keyed by the choice, so it closes once one is made (a client navigation would keep it open). */}
+      <details key={`${state.sort}|${state.perLiter}|${state.pack}`} className="sort-panel group w-full [&:not([open])]:w-auto">
+        <summary
+          className={`inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-full border px-4 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
+            changed ? "border-on-ground text-on-ground" : "border-ground-line text-on-ground-2"
+          }`}
+        >
+          <span>{sorting ? "מיון" : "סינון"}:</span>
+          <span className="text-on-ground">{summary.join(" · ") || "הכל"}</span>
+          <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-3 space-y-2">
       {sorting && (
         <ChipRow label="מיון">
           <Chip href={href({ sort: "value" })} selected={state.sort === "value"}>
@@ -74,9 +97,8 @@ export function SortBar({
         </ChipRow>
       )}
 
-      {(packs || leading) && (
+      {packs && (
         <ChipRow label="סינון">
-          {leading}
           {packs &&
             (["all", "single", "multi", "case"] as PackFilter[])
             .filter((pack) => pack === "all" || pack === state.pack || !availablePacks || availablePacks.includes(pack))
@@ -87,6 +109,8 @@ export function SortBar({
             ))}
         </ChipRow>
       )}
+        </div>
+      </details>
     </div>
   );
 }

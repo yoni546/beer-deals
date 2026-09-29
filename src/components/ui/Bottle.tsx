@@ -91,13 +91,26 @@ export function BottleArt({ spec, idPrefix, className = "", style }: { spec: Bot
   );
 }
 
-/** The two tone filters (light and dark) that keep every counter text readable over the bottle. */
+/**
+ * The tone filters (light and dark) that keep every counter text readable over the bottle. Two
+ * depths: the hero bottle is almost in focus (its label reads, so the beer is recognised at a
+ * glance); the supporting bottles at the sides sit further back, softer. Both squeeze colour into the
+ * same safe range — the range, not the blur, is what guarantees contrast.
+ */
 function ToneFilters({ preset }: { preset: ThemePreset }) {
-  const filter = (mode: Mode) => {
+  const filter = (mode: Mode, depth: "hero" | "soft") => {
     const { amplitude, exponent, offset } = toneTransfer(preset, mode);
     const fn = { type: "gamma", amplitude: amplitude.toFixed(4), exponent: String(exponent), offset: offset.toFixed(4) } as const;
     return (
-      <filter id={`bottle-tone-${mode}`} x="-5%" y="-5%" width="110%" height="110%" colorInterpolationFilters="sRGB">
+      <filter
+        key={`${mode}-${depth}`}
+        id={depth === "hero" ? `bottle-tone-${mode}` : `bottle-tone-soft-${mode}`}
+        x="-5%"
+        y="-5%"
+        width="110%"
+        height="110%"
+        colorInterpolationFilters="sRGB"
+      >
         {/* Richer colour first, then squeeze into the safe range — the range is what guarantees contrast. */}
         <feColorMatrix type="saturate" values="1.7" />
         <feComponentTransfer>
@@ -105,24 +118,27 @@ function ToneFilters({ preset }: { preset: ThemePreset }) {
           <feFuncG {...fn} />
           <feFuncB {...fn} />
         </feComponentTransfer>
-        {/* Depth of field: the bottle is behind the focal plane, so no label detail competes with text. */}
-        <feGaussianBlur stdDeviation="2.6" />
+        {/* Depth of field: a touch for the hero (the label stays legible), more for the bottles behind it. */}
+        <feGaussianBlur stdDeviation={depth === "hero" ? "0.6" : "3.2"} />
       </filter>
     );
   };
   return (
     <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden focusable="false">
-      {filter("light")}
-      {filter("dark")}
+      {filter("light", "hero")}
+      {filter("dark", "hero")}
+      {filter("light", "soft")}
+      {filter("dark", "soft")}
     </svg>
   );
 }
 
 /**
- * Favourite #1's bottle, standing on the counter behind everything. Fixed to the viewport so it
- * stays put while the paper scrolls over it; cropped off the left edge (the end of a right-to-left
- * line, where the least text sits); a vignette and a reading-side scrim give it depth. The tone
- * filter — not the scrim — is what guarantees readability.
+ * Favourite #1's bottle, standing on the counter behind everything, fixed while the paper scrolls:
+ * one large hero bottle in the centre, its label in the open "stage" at the top of the screen, and
+ * two smaller ones behind it at the sides — the same product, so the beer is obvious at a glance and
+ * the composition reads as deliberate, not as wallpaper. A vignette and a top scrim give depth; the
+ * tone filter — not the scrim — is what guarantees readability.
  */
 export function BottleBackdrop({ preset }: { preset: ThemePreset }) {
   const { background, backgroundPosition, backgroundScale, beerId } = preset;
@@ -138,12 +154,24 @@ export function BottleBackdrop({ preset }: { preset: ThemePreset }) {
   return (
     <div aria-hidden className="bottle-stage" data-bottle={background.kind} data-beer={beerId} style={style}>
       <ToneFilters preset={preset} />
-      {background.kind === "photo" ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a fixed decorative layer; next/image adds nothing here
-        <img className="bottle-art" src={background.photo.src} width={background.photo.width} height={background.photo.height} alt="" decoding="async" />
-      ) : (
-        <BottleArt spec={background.bottle} idPrefix={`stage-${beerId}`} className="bottle-art" />
-      )}
+      {(["side-start", "side-end", "hero"] as const).map((place) => {
+        const className = place === "hero" ? "bottle-art bottle-hero" : `bottle-art bottle-side bottle-${place}`;
+        return background.kind === "photo" ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a fixed decorative layer; next/image adds nothing here
+          <img
+            key={place}
+            className={className}
+            src={background.photo.src}
+            width={background.photo.width}
+            height={background.photo.height}
+            alt=""
+            decoding="async"
+            fetchPriority={place === "hero" ? "high" : "low"}
+          />
+        ) : (
+          <BottleArt key={place} spec={background.bottle} idPrefix={`stage-${beerId}-${place}`} className={className} />
+        );
+      })}
     </div>
   );
 }

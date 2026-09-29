@@ -322,8 +322,8 @@ const cssVars = (preset: ThemePreset, m: Mode): string => {
 export function themeStyleSheet(preset: ThemePreset): string {
   return (
     `:root{${cssVars(preset, "light")}color-scheme:light}` +
-    `.bottle-art{filter:url(#bottle-tone-light)}` +
-    `@media (prefers-color-scheme:dark){:root{${cssVars(preset, "dark")}color-scheme:dark}.bottle-art{filter:url(#bottle-tone-dark)}}`
+    `.bottle-art{filter:url(#bottle-tone-light)}.bottle-side{filter:url(#bottle-tone-soft-light)}` +
+    `@media (prefers-color-scheme:dark){:root{${cssVars(preset, "dark")}color-scheme:dark}.bottle-art{filter:url(#bottle-tone-dark)}.bottle-side{filter:url(#bottle-tone-soft-dark)}}`
   );
 }
 

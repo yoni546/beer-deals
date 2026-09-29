@@ -89,6 +89,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       </header>
 
+      {/* The stage: an open stretch of counter where favourite #1's bottle is seen, not covered —
+          the one place on the screen that says, at a glance, whose app this is. */}
+      {viewer.primaryBeer && (
+        <div className="stage-window flex items-end justify-center">
+          <Link
+            href={`/beer/${viewer.primaryBeer.slug}`}
+            className="stage-caption inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold"
+          >
+            <span className="text-on-ground-2">הבירה שלכם</span>
+            <span className="text-on-ground">{viewer.primaryBeer.name_he}</span>
+          </Link>
+        </div>
+      )}
+
       <div className="mb-6">
         <HomeSearch
           beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
@@ -133,6 +147,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 aside={`${group.offers.length} ${group.offers.length === 1 ? "מבצע" : "מבצעים"}`}
                 offers={group.offers}
                 lead="pack"
+                perLiter={perLiter}
                 limit={3}
                 moreHref={`/beer/${group.slug}`}
               />
@@ -151,6 +166,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 title="עוד מבצעים"
                 offers={others}
                 lead="beer"
+                perLiter={perLiter}
                 limit={6}
                 moreHref="/beer"
               />

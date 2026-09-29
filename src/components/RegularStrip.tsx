@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Price, UnitPrice } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import type { RegularPrice } from "@/lib/db/types";
-import { depositHe, isFromPrice, packText, relativeTimeHe, whereSeenHe } from "@/lib/format";
+import { depositHe, isFromPrice, packText, whereSeenHe } from "@/lib/format";
 
 /**
  * A regular (non-promotional) price as one line of the tape. It looks like an offer line
@@ -15,12 +15,13 @@ import { depositHe, isFromPrice, packText, relativeTimeHe, whereSeenHe } from "@
 export function RegularLine({
   price,
   lead,
-  now = Date.now(),
+  perLiter = false,
 }: {
   price: RegularPrice;
   /** chain: on a beer page under its pack heading. pack: on a chain page under a beer heading. */
   lead: "chain" | "pack";
-  now?: number;
+  /** The list is ordered per litre: show that number. */
+  perLiter?: boolean;
 }) {
   const href = lead === "chain" ? `/store/${price.store_slug}` : `/beer/${price.beer_slug}`;
   const title = lead === "chain" ? price.store_name : packText(price);
@@ -30,7 +31,7 @@ export function RegularLine({
   const deposit = depositHe(price.deposit_agorot, price.deposit_included);
 
   return (
-    <article className="px-4 pb-3">
+    <article className="px-4 pt-1 pb-3.5">
       <Link href={href} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
@@ -38,27 +39,22 @@ export function RegularLine({
         <Price agorot={price.price_agorot} size="md" className="shrink-0 text-ink" />
       </Link>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-ink-2">
-        {deposit && (
-          <>
-            <span className="num">{deposit}</span>
-            <span aria-hidden className="text-paper-line">
-              ·
+        {[
+          where ? <span key="w">{where}</span> : null,
+          deposit ? <span key="d" className="num">{deposit}</span> : null,
+          perLiter ? <UnitPrice key="l" agorotPerLiter={price.unit_price_per_liter_agorot} /> : null,
+        ]
+          .filter(Boolean)
+          .map((node, i) => (
+            <span key={i} className="inline-flex items-center gap-2">
+              {i > 0 && (
+                <span aria-hidden className="text-paper-line">
+                  ·
+                </span>
+              )}
+              {node}
             </span>
-          </>
-        )}
-        <UnitPrice agorotPerLiter={price.unit_price_per_liter_agorot} />
-        {where && (
-          <>
-            <span aria-hidden className="text-paper-line">
-              ·
-            </span>
-            <span>{where}</span>
-          </>
-        )}
-        <span aria-hidden className="text-paper-line">
-          ·
-        </span>
-        <span>נראה {relativeTimeHe(price.observed_at, now)}</span>
+          ))}
         {price.is_stale && (
           <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">לא עודכן זמן רב</span>
         )}
@@ -77,6 +73,7 @@ export function RegularStrip({
   prices,
   lead,
   headingLevel = "h2",
+  perLiter = false,
 }: {
   title: string;
   href?: string;
@@ -84,6 +81,7 @@ export function RegularStrip({
   prices: RegularPrice[];
   lead: "chain" | "pack";
   headingLevel?: "h2" | "h3";
+  perLiter?: boolean;
 }) {
   const Heading = headingLevel;
   return (
@@ -100,9 +98,9 @@ export function RegularStrip({
         </Heading>
         {aside && <span className="shrink-0 text-sm text-ink-2">{aside}</span>}
       </div>
-      <div className="divide-y divide-dotted divide-paper-line">
+      <div className="divide-y divide-paper-line">
         {prices.map((price) => (
-          <RegularLine key={price.observation_id} price={price} lead={lead} />
+          <RegularLine key={price.observation_id} price={price} lead={lead} perLiter={perLiter} />
         ))}
       </div>
     </Tape>

@@ -13,6 +13,9 @@ test.beforeAll(async () => {
   await seedRealCatalog();
 });
 
+/** Sorting and pack filters live behind one quiet control ("מיון: …"); open it to reach them. */
+const openSort = (page: Page) => page.locator("details.sort-panel > summary").first().click();
+
 /** Every "₪12.34" figure that is read out by a screen reader within a locator, as agorot. */
 async function pricesIn(scope: ReturnType<Page["locator"]>): Promise<number[]> {
   const texts = await scope.locator(".num > .sr-only").allInnerTexts();
@@ -90,6 +93,10 @@ test("Home search: a beer or a chain, typos forgiven, Enter opens the best match
 
 test("Home: sorting lives in the URL, reorders the lines, and survives a reload", async ({ page }) => {
   await onboard(page);
+  // Folded by default: one control that names the active order.
+  await expect(page.locator("details.sort-panel > summary").first()).toContainText("הכי משתלם");
+  await expect(page.getByRole("link", { name: /מחיר.*מהזול ליקר/ })).toBeHidden();
+  await openSort(page);
   await page.getByRole("link", { name: /מחיר.*מהזול ליקר/ }).click();
   await expect(page).toHaveURL(/sort=price_asc/);
 
@@ -101,6 +108,8 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
   expect(ascending.length).toBeGreaterThan(1);
   expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
 
+  await expect(page.locator("details.sort-panel > summary").first()).toContainText("מחיר, מהזול");
+  await openSort(page);
   await page.getByRole("link", { name: /מחיר.*מהיקר לזול/ }).click();
   await expect(page).toHaveURL(/sort=price_desc/);
   const descending = await pricesIn(goldstar);
@@ -108,6 +117,7 @@ test("Home: sorting lives in the URL, reorders the lines, and survives a reload"
 
   await page.reload();
   await expect(page).toHaveURL(/sort=price_desc/);
+  await openSort(page);
   await expect(page.getByRole("link", { name: /מחיר.*מהיקר לזול/ })).toHaveAttribute("aria-current", "true");
 });
 
@@ -139,6 +149,7 @@ test("Beer page: every pack is its own strip and a chain's 6×500 price never si
 test("Beer page: the pack filter narrows to one kind of pack and stays in the URL", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
+  await openSort(page);
   await page.getByRole("link", { name: "ארגזים" }).click();
   await expect(page).toHaveURL(/pack=case/);
   await expect(dealsPart(page).getByRole("heading", { level: 3, name: "24 × 330 מ״ל · פחית" })).toBeVisible();
@@ -154,6 +165,7 @@ test("Beer page: deals first, then regular prices — every chain, and one sort 
 
   const small = strip(regularPart(page), "6 × 330 מ״ל · פחית");
   expect(await pricesIn(small)).toEqual([3690, 3790, 3890, 3990]);
+  await openSort(page);
   await page.getByRole("link", { name: /מחיר.*מהיקר לזול/ }).click();
   await expect(page).toHaveURL(/sort=price_desc/);
   expect(await pricesIn(strip(regularPart(page), "6 × 330 מ״ל · פחית"))).toEqual([3990, 3890, 3790, 3690]);
@@ -173,14 +185,16 @@ test("Store page: 'my beers' lists all four in order and says plainly which have
   await expect(page.getByText("אין כרגע מבצע על היינקן ברמי לוי")).toBeVisible();
 });
 
-test("Details fold out on a line: the regular price it is measured against and where that comes from", async ({ page }) => {
+test("A deal line says, on the line itself, the regular price it is measured against and where that comes from", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
   const line = page.locator("article", { hasText: "₪25.00" }).first();
-  await expect(line.getByText("מחיר רגיל")).toBeHidden();
-  await line.locator("summary").click();
-  await expect(line.getByText("מחיר רגיל")).toBeVisible();
-  await expect(line.getByText("₪37.90").last()).toBeVisible();
+  await expect(line.getByText(/במקום/)).toBeVisible();
+  await expect(line.locator("s")).toHaveText("₪37.90");
+  await expect(line).toContainText("המחיר הרגיל, אושר על ידי מנהל"); // read out to screen readers
+  await expect(line.getByText("−34%")).toBeVisible();
+  // One unit per deal: nothing to unfold on an ordinary line.
+  await expect(line.locator("summary")).toHaveCount(0);
 });
 
 test.describe("settings", () => {
