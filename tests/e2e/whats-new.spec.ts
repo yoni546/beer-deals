@@ -9,6 +9,8 @@ const visibleReleases = (
   JSON.parse(readFileSync(new URL("../../src/content/releases.json", import.meta.url), "utf8")) as Release[]
 ).filter((release) => release.showInApp);
 const latestRelease = visibleReleases[0];
+// Settings shows the app's own version, which can be newer than the last release users are shown.
+const appVersion = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 test.beforeAll(async () => {
   await resetDb();
@@ -51,6 +53,6 @@ test("What's New: a quiet link with an unread dot, the latest update in full, hi
 test("Settings shows the app version and the same entry point", async ({ page }) => {
   await onboard(page);
   await page.goto("/settings");
-  await expect(page.getByText(`גרסה ${latestRelease.version}`)).toBeVisible();
+  await expect(page.getByText(`גרסה ${appVersion}`)).toBeVisible();
   await expect(page.getByRole("link", { name: /מה חדש/ })).toBeVisible();
 });

@@ -6,6 +6,18 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.3.1 — 2026-09-29 (internal)
+
+**הכנה לסביבת בדיקות נפרדת** · Data
+
+- אין שינוי במה שרואים באתר: הוכנה סביבת בדיקות נפרדת כדי שניסויים לא ייגעו בנתונים האמיתיים.
+
+Internal:
+
+- Staging runbook (docs/STAGING.md), supabase/config.toml for the CLI, scripts/check-environment.mjs (verifies a project + site: anonymous sign-in, migrations 0001-0010, profile protection, sample data, function region).
+- EnvironmentBadge: staging/development badge; red warning when a non-production environment is connected to the production database. Nothing renders in production.
+- for-collaborators.md no longer tells people to develop against the live database.
+
 ## 0.3.0 — 2026-09-29
 
 **בסיס חדש למחירים ולאריזות** · Data, Fix

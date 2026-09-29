@@ -36,9 +36,15 @@ npm run dev
 <http://localhost:3100>. Port 3100 rather than 3000, because another project on
 the owner's machine uses 3000.
 
-Both machines talk to the **same** Supabase database. There is no separate dev
-database, so a deal approved locally is approved for everyone on the live site
-too. Keep that in mind before pressing things in `/admin`.
+**Do not develop against the live database.** Until the staging project exists
+(see [STAGING.md](STAGING.md)) the only project these credentials point at is the
+production one, so a deal approved on your laptop is approved for every real user.
+The app now says so: any non-production environment connected to the production
+database shows a red warning bar. Prefer, in this order:
+
+1. `npm run e2e` / `npm test` — a local fake Supabase, no network, no risk;
+2. the **staging** project, once created ([STAGING.md](STAGING.md));
+3. the live database only for read-only checking, and never `/admin` actions.
 
 ## 4. Before you commit
 

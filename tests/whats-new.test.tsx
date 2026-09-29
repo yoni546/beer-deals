@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MarkReleaseSeen } from "@/components/MarkReleaseSeen";
 import { LAST_SEEN_KEY, WhatsNewLink } from "@/components/WhatsNewLink";
 import WhatsNewPage from "@/app/whats-new/page";
-import { latestRelease, latestVisibleVersion, visibleReleases } from "@/lib/releases";
+import { latestVisibleVersion, visibleReleases } from "@/lib/releases";
+
+// The screen shows the newest release users are meant to see; internal-only releases
+// (showInApp: false) can be newer than that.
+const latestRelease = visibleReleases[0];
 
 beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);

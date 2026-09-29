@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-09-29",
+    "title_he": "הכנה לסביבת בדיקות נפרדת",
+    "highlights_he": [
+      "אין שינוי במה שרואים באתר: הוכנה סביבת בדיקות נפרדת כדי שניסויים לא ייגעו בנתונים האמיתיים."
+    ],
+    "kind": [
+      "data"
+    ],
+    "showInApp": false,
+    "internal": [
+      "Staging runbook (docs/STAGING.md), supabase/config.toml for the CLI, scripts/check-environment.mjs (verifies a project + site: anonymous sign-in, migrations 0001-0010, profile protection, sample data, function region).",
+      "EnvironmentBadge: staging/development badge; red warning when a non-production environment is connected to the production database. Nothing renders in production.",
+      "for-collaborators.md no longer tells people to develop against the live database."
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-09-29",
     "title_he": "בסיס חדש למחירים ולאריזות",

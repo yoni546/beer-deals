@@ -6,6 +6,7 @@ import { getViewer } from "@/lib/session";
 import { themeColor, themeFor } from "@/lib/theme";
 import { publicEnv } from "@/lib/env";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
+import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 
 // Self-hosted at build time by next/font: no request to Google at runtime, no
 // layout shift while the Hebrew face loads, and no third party watching who
@@ -61,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased">
         {children}
         <RegisterServiceWorker />
+        <EnvironmentBadge />
       </body>
     </html>
   );
