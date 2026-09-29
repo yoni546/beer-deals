@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 /**
  * The admin shell, and the first of two gates.
  *
+ * It lives in a "(panel)" route group so that /admin/login can sit at its own
+ * URL WITHOUT this layout wrapping it. That is not cosmetic: a layout that
+ * sends non-admins to /admin/login will send them there from /admin/login as
+ * well, and the browser follows that until it gives up. The group changes no
+ * URL — /admin, /admin/reports and the rest are exactly where they were.
+ *
  * This redirect keeps non-admins out of the UI. It is NOT what keeps them out
  * of the data — every write below calls an RPC that re-checks the role in
  * Postgres, and every read is subject to RLS. If this file were deleted, an
