@@ -108,7 +108,10 @@ always shares the production address, https://beer-deals.vercel.app.
   held, never shown or announced (`conditions.audience`, `is_universal_offer`, migration 0014).
 - Prices are per branch; the retailer of a branch comes from the publisher's Stores file. Never invent a
   chain price. Deposit travels beside the price. Mix-and-match is a `promotion_groups` row.
-- **STAGING only** until docs/FINAL-READINESS-REPORT.md says production is cleared. `run.mjs` refuses the
-  production project; credentials come only from the git-ignored `.env.staging.local`.
+- **Production writes follow docs/PRODUCTION-HANDOFF-YONI.md, run by the owner.** `run.mjs --target production`
+  needs the git-ignored `.env.production.local` (APP_ENV=production) AND `--confirm-ref <ref>` equal to its
+  project AND a ref that is not staging's (`scripts/ingest/lib/target.mjs`); staging uses `.env.staging.local`.
+  The production workflow (`ingest-production.yml`) is manual only. A first import into any database is followed by
+  the notification baseline (`baseline-notifications.mjs --apply`) before the worker gets a `CRON_SECRET`.
 - Never bulk-import without a dry-run diff, an `ingestion_run` id and a rollback path
   (`rollback_ingestion_run`; a rolled-back file can be imported again, migration 0015).

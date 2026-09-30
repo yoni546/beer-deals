@@ -1,0 +1,150 @@
+name: Price ingestion (PRODUCTION, manual)
+
+# Scans every branch of the supported chains (scripts/ingest/scan.mjs, read-only) and writes the result to the
+# PRODUCTION database (scripts/ingest/run.mjs --target production). docs/PRODUCTION-HANDOFF-YONI.md §N.
+#
+# MANUAL ONLY: there is no schedule. Actions → "Price ingestion (PRODUCTION, manual)" → Run workflow.
+# A schedule is added only after manual runs have been proved (handoff §N), in a separate reviewed change.
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions). They are PRODUCTION values,
+# never the STAGING_* ones. Without them the run FAILS on its first step and writes nothing:
+#   PRODUCTION_SUPABASE_URL                https://<production ref>.supabase.co
+#   PRODUCTION_SUPABASE_SERVICE_ROLE_KEY   the production service-role (secret) key — the writer
+#
+# Safety:
+#   - the operator types the production project ref (confirm_ref); run.mjs refuses unless it matches the
+#     secret's URL, is not the staging project, and APP_ENV is production (scripts/ingest/lib/target.mjs);
+#   - one run at a time (concurrency group); a file already imported is skipped (start_ingestion_run);
+#   - nothing is ever reset or rolled back automatically; any run can be undone by hand with
+#     select rollback_ingestion_run('<run id>', 'reason');
+#   - it never rings the notification worker. initial_population = true marks everything this run queued as
+#     the notification baseline (scripts/ingest/baseline-notifications.mjs), so the first import tells nobody.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_ref:
+        description: "The PRODUCTION Supabase project ref (Supabase → Project Settings → General → Reference ID). Never qpjwnxptitnmtsznjvkw (staging)."
+        required: true
+        type: string
+      publishers:
+        description: "Only these publishers, comma-separated (the canary: rami-levy). Empty = every supported publisher."
+        required: false
+        default: ""
+        type: string
+      initial_population:
+        description: "First import into production: mark every notification it queued as the baseline (nobody is notified)."
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ingest-production
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Scan branches, write to production
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 180
+    steps:
+      - name: Check the production secrets and the typed project ref
+        env:
+          URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          CONFIRM_REF: ${{ inputs.confirm_ref }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::error::PRODUCTION_SUPABASE_URL / PRODUCTION_SUPABASE_SERVICE_ROLE_KEY are not set. Nothing was written. See docs/PRODUCTION-HANDOFF-YONI.md §N."
+            exit 1
+          fi
+          if [ "$CONFIRM_REF" = "qpjwnxptitnmtsznjvkw" ]; then
+            echo "::error::qpjwnxptitnmtsznjvkw is the STAGING project. Nothing was written."
+            exit 1
+          fi
+          case "$URL" in
+            "https://${CONFIRM_REF}.supabase.co"|"https://${CONFIRM_REF}.supabase.co/") echo "Target: production project ${CONFIRM_REF}" ;;
+            *) echo "::error::The typed ref does not match PRODUCTION_SUPABASE_URL. Nothing was written."; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: npm ci
+
+      # Incremental scans: the previous run's manifest and slim per-branch files, so unchanged branches are
+      # not downloaded again. (A cold cache just means a full scan — slower, never wrong.)
+      - name: Restore the scan cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ingest-cache
+          key: ingest-production-${{ github.run_id }}
+          restore-keys: ingest-production-
+
+      - name: Scan every branch (read-only)
+        env:
+          PUBLISHERS: ${{ inputs.publishers }}
+        run: |
+          if [ -n "$PUBLISHERS" ]; then node scripts/ingest/scan.mjs --publishers "$PUBLISHERS"; else node scripts/ingest/scan.mjs; fi
+
+      - name: Write to PRODUCTION (exits non-zero if the database refused anything)
+        env:
+          URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          CONFIRM_REF: ${{ inputs.confirm_ref }}
+          PUBLISHERS: ${{ inputs.publishers }}
+        run: |
+          umask 077
+          # The writer reads credentials only from this git-ignored file (never from the environment).
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nAPP_ENV=production\n' "$URL" "$KEY" > .env.production.local
+          if [ -n "$PUBLISHERS" ]; then
+            node scripts/ingest/run.mjs --target production --confirm-ref "$CONFIRM_REF" --publishers "$PUBLISHERS"
+          else
+            node scripts/ingest/run.mjs --target production --confirm-ref "$CONFIRM_REF"
+          fi
+
+      - name: Notification baseline (initial population only)
+        if: inputs.initial_population
+        env:
+          CONFIRM_REF: ${{ inputs.confirm_ref }}
+        run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
+
+      - name: Notifications still queued
+        if: success() && !inputs.initial_population
+        env:
+          CONFIRM_REF: ${{ inputs.confirm_ref }}
+        run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF"
+
+      - name: Save the scan cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ingest-cache
+          key: ingest-production-${{ github.run_id }}
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-ingestion-reports
+          path: |
+            .ingest-cache/scans/*.json
+            .ingest-cache/scans/*-production-report.md
+          retention-days: 30
+
+      - name: Remove the credentials file
+        if: always()
+        run: rm -f .env.production.local

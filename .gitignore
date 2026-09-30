@@ -32,3 +32,6 @@ supabase/.branches
 # A production build pointed at the staging project (scripts: see docs/STAGING.md)
 /.next-staging/
 /.next-staging-dev/
+
+# Production database dumps (docs/PRODUCTION-HANDOFF-YONI.md §C): personal data, never committed.
+backups/

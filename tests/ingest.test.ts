@@ -314,15 +314,17 @@ describe("the dry run cannot write", () => {
   });
 });
 
-describe("the staging writer", () => {
-  it("refuses production and anything but an explicit staging target", () => {
-    const src = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
-    expect(src).toContain('PRODUCTION_REFS = ["itpyyexhmvosxcbcagvy"]');
-    expect(src).toContain('flag("target") !== "staging"');
-    expect(src).toContain('env.APP_ENV !== "staging"');
-    // Credentials only from the git-ignored staging file, never from the shell environment.
-    expect(src.includes("process.env")).toBe(false);
-    expect(src).toContain(".env.staging.local");
+describe("the writer's target", () => {
+  it("proves its target through lib/target.mjs and reads credentials only from the git-ignored files", () => {
+    for (const file of ["scripts/ingest/run.mjs", "scripts/ingest/baseline-notifications.mjs"]) {
+      const src = readFileSync(join(__dirname, "..", file), "utf8");
+      expect(src, file).toContain("loadTarget(ROOT, args)");
+      // Never from the shell environment.
+      expect(src.includes("process.env"), file).toBe(false);
+    }
+    const target = readFileSync(join(__dirname, "..", "scripts/ingest/lib/target.mjs"), "utf8");
+    expect(target.includes("process.env")).toBe(false);
+    expect(target).toContain('staging: ".env.staging.local", production: ".env.production.local"');
   });
 });
 
@@ -338,6 +340,32 @@ describe("the daily ingestion workflow", () => {
     // The notification step runs only when everything before it succeeded (the quality gate exits non-zero).
     expect(yml).toMatch(/Ring the staging notification worker[\s\S]*?if: success\(\)/);
     expect(readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8")).toContain("process.exit(2)");
+  });
+});
+
+describe("the production ingestion workflow", () => {
+  const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-production.yml"), "utf8");
+
+  it("is manual only, one run at a time, and reads only PRODUCTION_* secrets", () => {
+    expect(yml).toMatch(/on:\s*\n\s*workflow_dispatch:/);
+    expect(yml).not.toMatch(/^\s*schedule:/m);
+    expect(yml).toMatch(/concurrency:\s*\n\s*group: ingest-production\s*\n\s*cancel-in-progress: false/);
+    const secrets = [...yml.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]);
+    expect(secrets.length).toBeGreaterThan(0);
+    expect(secrets.every((s) => s.startsWith("PRODUCTION_"))).toBe(true);
+  });
+
+  it("fails (not skips) without its secrets, refuses the staging ref, and passes the typed ref to the writer", () => {
+    expect(yml).toMatch(/are not set\. Nothing was written[\s\S]*?exit 1/);
+    expect(yml).toContain('if [ "$CONFIRM_REF" = "qpjwnxptitnmtsznjvkw" ]');
+    expect(yml).toContain('run.mjs --target production --confirm-ref "$CONFIRM_REF"');
+    expect(yml).toContain("APP_ENV=production");
+  });
+
+  it("never rings the notification worker, never resets or rolls back, and baselines the first import", () => {
+    expect(yml).not.toMatch(/api\/notifications\/run|CRON_SECRET/);
+    expect(yml).not.toMatch(/--reprocess|--full|delete from|truncate/i);
+    expect(yml).toMatch(/if: inputs\.initial_population\s*\n[\s\S]*?baseline-notifications\.mjs --target production --confirm-ref "\$CONFIRM_REF" --apply/);
   });
 });
 
