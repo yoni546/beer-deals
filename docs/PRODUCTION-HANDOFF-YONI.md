@@ -7,7 +7,8 @@ staging project holds a full, verified copy of the real data.
 
 **What is not done yet, because only your accounts can do it:**
 
-- the production database: backup, migrations 0006–0018, the first import;
+- the production database: backup, reconciling the migration history (0001–0005 were applied by hand), migrations
+  0006–0018, the first import;
 - the Vercel project behind `beer-deals.vercel.app`: Git connection, settings, deployment.
 
 **The two databases. Never mix them up.**
@@ -32,11 +33,15 @@ Nothing in this document deletes data.
    - the Vercel account that owns the `beer-deals.vercel.app` project;
    - the Supabase account that owns the production project;
    - admin access to GitHub `yoni546/beer-deals` (to add secrets).
-2. **A computer with:**
-   - Git;
-   - Node.js 22;
-   - Python 3.10+ (only if you import from your own computer instead of GitHub Actions: step J, route 2);
-   - Docker Desktop, running (only for the database dump in step C: `supabase db dump` uses it).
+2. **A computer with Git and Node.js 22.** That is all you need for steps B–K: the backup (if the Supabase platform
+   backup exists), migrations, Auth, Vercel, deployment, and the imports through GitHub Actions.
+
+   Two tools are needed later, and only for one step each. Neither blocks the database or the deployment:
+
+   | Tool | Needed for | Not needed for |
+   |---|---|---|
+   | **Docker Desktop** | **only** backup option C2 (`supabase db dump`), and only if the Supabase platform has no backup for you (C1) | migrations, Vercel, deployment, imports |
+   | **Python 3.10+** | **only** importing from your own computer (step J route 2, and the Israel-local import of Victory, Mahsanei and Hatzi Hinam in step L): `scan.mjs` runs the price-file parser, which is written in Python | migrations, Vercel, deployment, and imports through GitHub Actions (the runner installs its own Python) |
 3. **A copy of the repository**, using a terminal (on Windows: Git Bash):
 
    ```bash
@@ -87,98 +92,180 @@ Nothing in this document deletes data.
    ```
 
    Keep the output: it is the "before" picture. Expect:
-   - `latest_migration` about `0005`;
+   - `latest_migration` / `migrations_recorded`: `0005` and `0001,…,0005`. But `no history table`, `empty`, or a
+     shorter list is also possible, because the first tables were pasted in by hand. Step D handles every case.
    - profiles, favourites and legacy deals from the old app;
    - `null` for the tables the new schema adds.
 
 ## C. Back up production (before anything changes)
 
-Do both parts.
+You need **one** verified backup before step D. C1 is enough when your plan has it; you do not need Docker then.
 
-1. **Dashboard:** Supabase → Database → Backups. If your plan lists daily backups, note the newest one's time.
-   If it offers point-in-time recovery, note that too.
-2. **Your own copy** (Docker Desktop must be running). Every file lands in `backups/`, which git ignores: it is
-   real people's data, so never commit or share it.
+### C1. Supabase platform backup (preferred; nothing to install)
 
-   ```bash
-   bash scripts/production/assert-production.sh "$PROD_REF" && mkdir -p backups && export STAMP=$(date +%Y%m%d-%H%M)
-   ```
+1. Supabase dashboard → the production project → left menu **Database** → **Backups**.
+2. **Scheduled backups** tab: paid plans (Pro and up) list one backup per day. Check that:
+   - the newest one is from the **last 24 hours**;
+   - its status is completed;
+   - on Pro, a **Download** button is shown. Download it and keep the file outside the repository; it is real people's
+     data.
+3. **Point in Time** tab: if point-in-time recovery is on, note the earliest and latest restorable times.
+4. Record the backup's date and time, the plan name, and the production ref.
 
-   ```bash
-   npx supabase db dump --linked -f "backups/prod-$STAMP-schema.sql"
-   ```
+Supabase makes these backups automatically; there is no button to take one now. A restore returns the database to
+that moment, so anything written after it would be lost. Before launch, that is only anonymous visits, which is
+acceptable.
 
-   ```bash
-   npx supabase db dump --linked --data-only -f "backups/prod-$STAMP-data.sql"
-   ```
+**If the Backups page says your plan has no backups (Free plan), or the newest one is older than 24 hours**, C1 is
+not enough. Use C2, or upgrade the project to Pro first so a daily backup exists, and wait for it to appear.
 
-   ```bash
-   npx supabase db dump --linked --data-only --schema auth -f "backups/prod-$STAMP-auth.sql"
-   ```
+### C2. Your own dump (only if C1 is not available; needs Docker Desktop)
 
-   ```bash
-   npx supabase db dump --linked --role-only -f "backups/prod-$STAMP-roles.sql"
-   ```
+Install Docker Desktop, start it, and wait until it says it is running. Every file lands in `backups/`, which git
+ignores: it is real people's data, so never commit or share it.
 
-3. **Check the copy is real.** No file may be empty, and the data file must contain the favourites and profiles:
+```bash
+bash scripts/production/assert-production.sh "$PROD_REF" && mkdir -p backups && export STAMP=$(date +%Y%m%d-%H%M)
+```
 
-   ```bash
-   ls -l backups/ && grep -c "user_favorite_beers\|profiles" "backups/prod-$STAMP-data.sql"
-   ```
+```bash
+npx supabase db dump --linked -f "backups/prod-$STAMP-schema.sql"
+```
 
-   Record the time, the method and the production ref. Do not go on without a backup.
+```bash
+npx supabase db dump --linked --data-only -f "backups/prod-$STAMP-data.sql"
+```
 
-## D. Apply the database migrations (0006–0018)
+```bash
+npx supabase db dump --linked --data-only --schema auth -f "backups/prod-$STAMP-auth.sql"
+```
 
-The repository has 18 migrations. Production is expected to have **0001–0005**, so **0006–0018** are to apply.
-Release 0.9.0 needs all 18.
+```bash
+npx supabase db dump --linked --role-only -f "backups/prod-$STAMP-roles.sql"
+```
 
-1. **Compare:**
+Check the copy is real. No file may be empty, and the data file must contain the favourites and profiles:
 
-   ```bash
-   npx supabase migration list --linked
-   ```
+```bash
+ls -l backups/ && grep -c "user_favorite_beers\|profiles" "backups/prod-$STAMP-data.sql"
+```
 
-   Expected: the *Remote* column shows 0001–0005, and 0006–0018 show only under *Local*.
+**Do not go on to step D without a verified backup (C1 or C2).** Record which one, its time, and the production ref.
 
-   **STOP and send Ori the output** if:
-   - *Remote* shows nothing at all (the early migrations were pasted in the SQL editor without being recorded);
-   - *Remote* shows anything above 0005;
-   - there are gaps.
+## D. Apply the database migrations
 
-   Do not run `migration repair` without Ori.
-2. **Dry run.** It lists exactly what it would apply; it must be 0006 … 0018 and nothing else:
+The repository has 18 migrations, named by version `0001` … `0018` (the files `supabase/migrations/0001_schema.sql`
+… `0018_read_model_at_scale.sql`). Release 0.9.0 needs all 18.
 
-   ```bash
-   bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push --dry-run
-   ```
+Production was first built partly by pasting SQL into the Supabase dashboard. So **0001–0005 may be in the database
+without being in the CLI's migration history.** If the history does not have them, `db push` would try to run
+0001–0005 again and fail on objects that already exist. **Do not run `db push` until D1–D4 are done.**
 
-3. **Apply:**
+### D1. Read the migration history
 
-   ```bash
-   bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push
-   ```
+```bash
+npx supabase migration list --linked
+```
 
-   These migrations only add tables, views, functions and rows. 0006 retires the 15 invented "מבצע לדוגמה"
-   deals the old app once seeded; they become `inactive`, and are not deleted.
-4. **Verify.** It must print `passed = total = 22` with `missing` empty:
+Look at the *Remote* column:
 
-   ```bash
-   npx supabase db query --linked -f scripts/production/verify-schema.sql
-   ```
+| What Remote shows | Go to |
+|---|---|
+| exactly `0001`–`0005` | D4 (nothing to reconcile) |
+| nothing, or only some of `0001`–`0005` | D2 |
+| anything above `0005`, or versions that are not in the *Local* column | **STOP.** Send Ori the output. |
 
-   Then take the "after" picture:
-   - `latest_migration` should be `0018`;
-   - `legacy_sample_deals_still_shown` should be `0`;
-   - profiles and favourites unchanged.
+`inspect.sql` from step B says the same in one line: `migrations_recorded` is `no history table`, `empty`, or the
+list of versions.
 
-   ```bash
-   npx supabase db query --linked -f scripts/production/inspect.sql
-   ```
+### D2. Prove 0001–0005 are really in the database (read-only)
 
-5. **Rollback, only if something is wrong after 0017/0018:** `supabase/rollback/0018_read_model_at_scale.down.sql`,
-   then `supabase/rollback/0017_branch_scope.down.sql`. Both were rehearsed on staging. Earlier migrations only add
-   things; the backup from step C is the way back. Ask Ori before using either.
+```bash
+npx supabase db query --linked -f scripts/production/verify-0001-0005.sql
+```
+
+It checks, one migration at a time, the objects that migration creates:
+
+| Migration | What is checked |
+|---|---|
+| `0001` | 4 types, 10 tables, 3 functions, 5 triggers, 5 indexes (27 checks) |
+| `0002` | the `deals_public` view, 14 functions, the public read grant (16 checks) |
+| `0003` | row security on the 10 tables, the 22 table policies, the `deal-images` bucket, its 3 policies (4 checks) |
+| `0004` | the 22 seeded beers and 15 seeded shops, by slug (2 checks) |
+| `0005` | the one-approved-deal-per-shelf index, and the `approve_deal` that explains a duplicate (2 checks) |
+
+It prints one row per migration, and a last row, `later`, that looks for objects of 0007–0018.
+
+- A row that says **`APPLIED — may be marked applied`** proves that migration was applied by hand.
+- A row that says **`NOT PROVEN`** lists what is missing. **Do not mark that version applied.** Stop and send Ori
+  the whole output: the database does not match the migration, and running it again or marking it would both be
+  wrong.
+- The `later` row must say **`none (as expected)`**. If it says `LATER OBJECTS EXIST`, more was pasted by hand than
+  0001–0005. **Stop** and send Ori the output.
+
+### D3. Record the proven migrations in the history
+
+Only for versions that D2 marked `APPLIED` **and** that D1 showed missing from *Remote*. Normally that is all five,
+in one command:
+
+```bash
+bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase migration repair 0001 0002 0003 0004 0005 --status applied --linked
+```
+
+If *Remote* already had some of them, list only the missing ones. For example, if Remote showed 0001–0003, run
+`... migration repair 0004 0005 --status applied --linked`.
+
+`migration repair --status applied` writes only to the migration history table. It runs none of the migration and
+changes no data, so it is safe to repeat. Then read the history again:
+
+```bash
+npx supabase migration list --linked
+```
+
+*Remote* must now show exactly `0001`–`0005`. If not, stop and send Ori the output.
+
+### D4. Dry run: only 0006–0018 may remain
+
+```bash
+bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push --dry-run
+```
+
+It lists what it would apply. **It must be exactly `0006` … `0018` (13 migrations).** **If it lists any of
+0001–0005, STOP:** do not push; send Ori the output.
+
+(0006 is safe even if parts of it were once pasted by hand: its header says "safe to re-run", and D2's `later` row
+has already shown that nothing from 0007 on exists.)
+
+### D5. Apply, only now
+
+Only after the backup (C) is verified, *Remote* shows 0001–0005, and the dry run lists only 0006–0018:
+
+```bash
+bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push
+```
+
+These migrations only add tables, views, functions and rows. 0006 retires the 15 invented "מבצע לדוגמה" deals the
+old app once seeded; they become `inactive`, and are not deleted.
+
+### D6. Verify
+
+```bash
+npx supabase db query --linked -f scripts/production/verify-schema.sql
+```
+
+It must print `passed = total = 22` with `missing` empty. Then take the "after" picture:
+
+```bash
+npx supabase db query --linked -f scripts/production/inspect.sql
+```
+
+- `latest_migration` should be `0018`, and `migrations_recorded` should list `0001` … `0018`;
+- `legacy_sample_deals_still_shown` should be `0`;
+- profiles and favourites should match the "before" picture from step B.
+
+**Rollback, only if something is wrong after 0017/0018:** `supabase/rollback/0018_read_model_at_scale.down.sql`,
+then `supabase/rollback/0017_branch_scope.down.sql`. Both were rehearsed on staging. Earlier migrations only add
+things; the backup from step C is the way back. Ask Ori before using either.
 
 ## E. Supabase Auth settings
 
@@ -299,7 +386,7 @@ marked as the **baseline** (step M).
    - `initial_population` = **checked**
 3. Wait for green (about 10 minutes). The last steps print how many notifications were marked as baseline.
 
-**Route 2: from your computer (needs Python 3)**
+**Route 2: from your computer (needs Python 3.10+; install it only if you choose this route)**
 
 Create `.env.production.local` in the repository folder. It is git-ignored; write it by hand, never copy the staging
 file. It holds three lines:
@@ -387,7 +474,8 @@ Only after J and K pass.
 
 - **Victory, Mahsanei HaShuk and Hatzi Hinam refuse GitHub's servers** ("fetch failed" / HTTP 403, seen on
   2026-09-30). On route 1 they are reported FAILED and imported nothing. Run route 2 once, from a computer in
-  Israel, for those three:
+  Israel, for those three. **This is the one step that needs Python 3.10+ on your computer.** It can wait: the site,
+  the database and every other chain work without it, and these three chains simply show no prices until it is done.
 
   ```bash
   node scripts/ingest/scan.mjs --publishers victory,mahsanei,hatzi-hinam
