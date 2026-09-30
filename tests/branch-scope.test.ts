@@ -148,6 +148,37 @@ describe("scope from real observations", () => {
     expect(await feed(w)).toHaveLength(0);
   });
 
+  it("a promotion still listed in the next day's file stays live, with its evidence moved to the newer file", async () => {
+    const w = await world();
+    const [b] = await chain(w, 1);
+    const s = await w.sku(w.ids.goldstar, "bottle", 330, 6);
+    await w.source("feed-rami-levy", "chain_feed");
+    const dayN = inDays(-1);
+    const dayN1 = inDays(0);
+    const listing = { sku: s, store: w.ids.rami, branch: b, kind: "promotion" as const, promoType: "price_cut" as const, price: 2490, naturalKey: "rami-levy:p:goldstar6", validTo: inDays(5), source: "feed-rami-levy" };
+    const live = () => w.db.query<{ observed_at: Date; natural_key: string }>("select observed_at, natural_key from public.price_observations where branch_id = $1 and kind = 'promotion' and status = 'live'", [b]);
+    // File N lists two promotions; file N+1 lists only the first (the plan hashes each record with its file's time).
+    await w.record({ ...listing, observedAt: dayN, contentHash: "goldstar6|fileN" });
+    await w.record({ ...listing, naturalKey: "rami-levy:p:ended", price: 2290, observedAt: dayN, contentHash: "ended|fileN" });
+    await w.record({ ...listing, observedAt: dayN1, contentHash: "goldstar6|fileN1" });
+    await asUser(w.db, w.admin, () => w.db.query("select public.close_missing_promotions($1, $2)", [b, dayN1]));
+    const rows = (await live()).rows;
+    expect(rows.map((r) => r.natural_key)).toEqual(["rami-levy:p:goldstar6"]); // still running: live; the one file N+1 dropped: closed
+    expect(new Date(rows[0].observed_at).toISOString()).toBe(new Date(dayN1).toISOString()); // freshness moved to file N+1
+    expect(await feed(w)).toHaveLength(1);
+
+    // What the fix prevents: a record whose hash ignores the file's time replays file N's row (its old time)…
+    const w2 = await world();
+    const [b2] = await chain(w2, 1);
+    const s2 = await w2.sku(w2.ids.goldstar, "bottle", 330, 6);
+    await w2.source("feed-rami-levy", "chain_feed");
+    const old = { ...listing, sku: s2, store: w2.ids.rami, branch: b2 };
+    await w2.record({ ...old, observedAt: dayN, contentHash: "goldstar6" });
+    await w2.record({ ...old, observedAt: dayN1, contentHash: "goldstar6" }); // replay: nothing written
+    await asUser(w2.db, w2.admin, () => w2.db.query("select public.close_missing_promotions($1, $2)", [b2, dayN1]));
+    expect(await feed(w2)).toHaveLength(0); // …and closing what file N+1 "no longer lists" closed a running promotion
+  });
+
   it("two different promotions with the same price are two offers (the key is the whole promotion, not the price)", async () => {
     const w = await world();
     const b = await chain(w, 2);
