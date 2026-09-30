@@ -134,15 +134,10 @@ against the local fake ([tests/e2e/fake-supabase](../tests/e2e/fake-supabase)).
 
 1. New numbered file in `supabase/migrations/`, tests, `npm run sql:build`.
 2. **Staging first**: `supabase db push` → `check-environment.mjs` → click through the change.
-3. Then production. Its migration history was applied by hand, so the CLI does not know
-   `0001`–`0005` ran. Tell it once, then push only what is new:
-   ```bash
-   npx supabase link --project-ref itpyyexhmvosxcbcagvy
-   npx supabase migration repair --status applied 0001 0002 0003 0004 0005
-   npx supabase db push --dry-run     # must list only the new files (0006 …)
-   npx supabase db push
-   ```
-   (or paste the new file into the production SQL editor, as before).
+3. Then production, following `docs/PRODUCTION-HANDOFF-YONI.md` §C–§D. Its first migrations were applied by hand,
+   so the CLI history may lack `0001`–`0005`. **Never mark them applied without proof:**
+   `scripts/production/verify-0001-0005.sql` checks each one's objects first, and only versions it proves are
+   repaired. Then `db push --dry-run` must list only the new files, and only then `db push`.
 4. Run the checker with `--expect production`.
 
 ## 8. Rules

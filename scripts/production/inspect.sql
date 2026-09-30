@@ -9,11 +9,23 @@ begin
   execute format('select count(*) from %s where %s', t, filter) into v;
   return v;
 end $$;
+-- The CLI's migration history. The table does not exist on a database the CLI never pushed to.
+create or replace function pg_temp.history(what text) returns text language plpgsql as $$
+declare v text;
+begin
+  if to_regclass('supabase_migrations.schema_migrations') is null then return 'no history table'; end if;
+  if what = 'latest' then
+    select max(version) into v from supabase_migrations.schema_migrations;
+  else
+    select coalesce(string_agg(version, ',' order by version), 'empty') into v from supabase_migrations.schema_migrations;
+  end if;
+  return v;
+end $$;
 
 select
   current_database()                                                            as database,
-  (select max(version) from supabase_migrations.schema_migrations)              as latest_migration,
-  (select count(*) from supabase_migrations.schema_migrations)                  as migrations_recorded,
+  pg_temp.history('latest')                                                     as latest_migration,
+  pg_temp.history('all')                                                        as migrations_recorded,
   pg_temp.n('auth.users')                                                       as auth_users,
   pg_temp.n('auth.users', 'is_anonymous')                                       as auth_users_anonymous,
   pg_temp.n('public.profiles')                                                  as profiles,
