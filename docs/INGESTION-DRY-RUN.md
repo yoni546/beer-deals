@@ -1,6 +1,6 @@
 # Ingestion dry run
 
-**2026-09-29, from the feed files fetched on 2026-09-29.** DRY RUN: nothing was written to any database.
+**2026-09-30, from the feed files fetched on 2026-09-29.** DRY RUN: nothing was written to any database.
 Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed skill's `parse_price_xml.py` (v1.6.0), plus
 `lib/promo-supplement.mjs` for the one field it drops. One branch per retailer; the raw files stay in the git-ignored `.ingest-cache/`.
 
@@ -12,13 +12,13 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | Retailers (chains) covered | 15 |
 | Branches covered | 16 |
 | Raw shelf rows | 175,784 |
-| Beer candidates (beer, non-alcoholic, radler) | 1852 |
-| … of our beers | 1150 |
+| Beer candidates (beer, non-alcoholic, radler) | 1850 |
+| … of our beers | 1148 |
 | … beers the app does not carry | 702 |
 | Out of scope (malt drinks, cider) | 158 |
 | Canonical SKUs | 178 |
 | Resolved products (feed items matched to a SKU) | 948 |
-| Unresolved products (review queue) | 112 |
+| Unresolved products (review queue) | 110 |
 | Regular-price observations | 1027 |
 | Active universal promotions (single pack) | 307 |
 | Mix-and-match (group) promotions published | 70 |
@@ -41,7 +41,7 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 | keshet-taamim | keshet (7290785400000) | 14 פולג | 2026-09-29 21:10 | 17649 | 379 | 127 | 140 | 45 | 12 | 17 | 83 |
 | mahsanei | mahsanei (7290661400001) | 97 97 אינטרנט | 2026-09-29 03:04 | 12456 | 103 | 78 | 81 | 54 | 0 | 0 | 26 |
 | osher-ad | osher-ad (7290103152017) | 3 גבעת שאול | 2026-09-29 11:05 | 7064 | 42 | 40 | 16 | 6 | 7 | 0 | 3 |
-| politzer | politzer (7291059100008) | 2 ויתקין | 2026-09-28 21:10 | 13409 | 99 | 83 | 30 | 16 | 4 | 0 | 8 |
+| politzer | politzer (7291059100008) | 2 ויתקין | 2026-09-28 21:10 | 13409 | 97 | 81 | 30 | 16 | 4 | 0 | 8 |
 | rami-levy | rami-levy (7290058140886) | 2 בזק מחסני מזון | 2026-09-29 21:10 | 11780 | 88 | 68 | 36 | 20 | 6 | 0 | 8 |
 | shufersal | shufersal (7290027600007) | 2 שלי ירושלים- אגרון | 2026-09-29 01:31 | 7577 | 69 | 59 | 24 | 17 | 1 | 0 | 6 |
 | stop-market | stop-market (7290639000004) | 2 ארנה | 2026-09-28 22:00 | 15328 | 225 | 108 | 25 | 3 | 5 | 0 | 16 |
@@ -860,11 +860,11 @@ Produced by `node scripts/ingest/dry-run.mjs` from files parsed by the installed
 * 6 × which malka beer? the name names no known variant
 * 6 × the same barcode reads differently — carrefour: maccabee שנדי לימון ליים radler #×# / carrefour: maccabee שנדי לימון ליים radler #×# / politzer: maccabee שנדי radler #×# bottle / s
 * 4 × which shapiro beer? the name names no known variant
-* 4 × volume unknown; container unknown
 * 4 × pack size unknown
 * 4 × the same barcode reads differently — keshet-taamim: malka בהירה #×# / politzer: malka בהירה #×# / stop-market: malka סטאוט #×# / tiv-taam: malka בהירה #×#
 * 4 × # different items at this branch read as the same pack (…, …) — an unlisted variant
 * 2 × which kasteel beer? the name names no known variant
+* 2 × volume unknown; container unknown
 * 2 × volume unknown; pack size unknown; container unknown
 * 2 × the same barcode reads differently — ampm: paulaner #×# bottle / tiv-taam: paulaner #×# bottle
 * 1 × pack size unknown; container unknown
@@ -888,8 +888,6 @@ Examples:
 | hatzi-hinam | 7290013430625 | אלכסנדר בירה ישראלית פסט לאגר | which alexander beer? the name names no known variant |
 | mahsanei | 7290014056060 | שפירא ניו לאגר ח"פ 330 מ"ל | which shapiro beer? the name names no known variant |
 | politzer | 7290019443124 | בקבוק בירה נגב אואזי | which negev beer? the name names no known variant |
-| politzer | 7290000000344 | ארגז קרלסברג/טובורג | volume unknown; container unknown |
-| politzer | 7290000000446 | ארגז גולדסטאר | volume unknown; container unknown |
 | politzer | 7290012921025 | בירה מלכה | which malka beer? the name names no known variant |
 | politzer | 7290013430250 | בירה אלכסנדר חיטה יש | which alexander beer? the name names no known variant |
 | politzer | 7290017925363 | בקבוק בירה נגב פאטה | which negev beer? the name names no known variant |
@@ -914,6 +912,8 @@ Examples:
 | fresh-market | 7290019398264 | בירה קורונה בקבוק 35 | volume unknown; pack size unknown |
 | keshet-taamim | 4607051150270 | תה מאיסקי קורונה 100 | volume unknown; pack size unknown; container unknown |
 | keshet-taamim | 4008287958201 | מארז קרומבאכר 5 פחיו | volume unknown; pack size unknown; container unknown |
+| mahsanei | 7290010237708 | היינקן בקבוק 250מ"ל | pack size unknown |
+| mahsanei | 7501064191329 | בירה קורונה שישייה | volume unknown; container unknown |
 
 ## Invalid prices
 

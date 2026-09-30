@@ -11,6 +11,10 @@ import type { Offer } from "@/lib/db/types";
  *
  * "במקום ₪X" and the percentage appear only when the database vouched for the reference
  * price (offer.value_pct / reference_agorot are set). Nothing here computes a saving.
+ *
+ * Where it runs (0.9.0, migration 0017) ends the body only when the scope is KNOWN: "בכל הרשת",
+ * "בסניפים משתתפים", or the one branch ("גבעת שאול בלבד"). An unknown scope adds nothing — a notification
+ * never implies the whole chain without evidence.
  */
 
 /** "ב" + a Hebrew chain name ("ברמי לוי"); a Latin name takes a maqaf ("ב־AM:PM"). */
@@ -47,7 +51,8 @@ export function buildOfferNotification(
     | "conditions"
     | "promo_type"
     | "origin"
-  >,
+  > &
+    Partial<Pick<Offer, "scope" | "only_branch_name">>,
 ): PushMessage {
   const multi = offer.conditions?.multi_buy;
   const verified = offer.value_pct !== null && offer.reference_agorot !== null;
@@ -59,6 +64,17 @@ export function buildOfferNotification(
     verified && !multi ? `${price} במקום ${formatPrice(offer.reference_agorot!)}` : price,
   ];
   if (verified) pieces.push(`−${offer.value_pct}%`);
+  const where =
+    offer.scope === "chainwide"
+      ? "בכל הרשת"
+      : offer.scope === "participating_branches"
+        ? "בסניפים משתתפים"
+        : offer.scope === "single_branch"
+          ? offer.only_branch_name
+            ? `${offer.only_branch_name.trim()} בלבד`
+            : "בסניף אחד בלבד"
+          : null;
+  if (where) pieces.push(where);
   // No "members only" wording: an offer that is not for everyone is never announced (migration 0014).
 
   return {

@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { onboard } from "./helpers";
 
 /**
- * The 0.8.0 product rules, checked on REAL feed data: the app running against the STAGING project
+ * The 0.8.0 and 0.9.0 product rules, checked on REAL feed data: the app running against the STAGING project
  * (docs/STAGING.md), at 390×844 and 430×932. Read-only apart from the one anonymous person each run
  * onboards (staging data only; never production).
  *
@@ -16,6 +17,19 @@ test.describe.configure({ mode: "serial" });
 /** Words that name a pack of 2 or more — every line on Home must carry one (no singles on Home). */
 const PACK_WORD = /שישייה|רביעייה|שמינייה|ארגז|זוג|שלישייה|חמישייה|עשירייה|מארז \d/;
 const CHAINS = ["rami-levy", "shufersal", "carrefour", "yeinot-bitan", "victory", "mahsanei", "osher-ad", "tiv-taam", "yochananof", "hatzi-hinam", "ampm", "keshet-taamim", "fresh-market", "stop-market", "politzer"];
+
+/**
+ * Chains the latest scan could not read at all (no branch published a current file — Osher Ad before it publishes
+ * the day's files), from the coverage report (`node scripts/ingest/coverage.mjs`). Their pages must show the
+ * designed empty states, not rows; every other chain must show rows.
+ */
+function chainsNotReadToday(): Set<string> {
+  const dir = ".ingest-cache/scans";
+  const report = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith("-coverage.json")).sort().pop() : undefined;
+  if (!report) return new Set();
+  const { rows } = JSON.parse(readFileSync(`${dir}/${report}`, "utf8")) as { rows: Array<{ slug: string; checked: number }> };
+  return new Set(rows.filter((r) => r.checked === 0).map((r) => r.slug));
+}
 
 let page: Page;
 const shots: string[] = [];
@@ -93,13 +107,19 @@ test("Beer pages: שישיות → ארגזים → בודדים, deals before r
 
 test("Chain pages: every chain with a feed shows its deals and regular prices, by kind, on real data", async () => {
   test.setTimeout(240_000); // fifteen pages, each a round trip to the remote staging database
+  const notRead = chainsNotReadToday();
   for (const slug of CHAINS) {
     const response = await page.goto(`/store/${slug}`);
     expect(response!.status(), slug).toBe(200);
     await layoutHolds(`/store/${slug}`);
     const deals = await page.locator("[data-part='deals'] article").count();
     const regular = await page.locator("[data-part='regular'] article").count();
-    expect(deals + regular, `${slug}: rows on the page`).toBeGreaterThan(0);
+    if (notRead.has(slug)) {
+      expect(deals + regular, `${slug}: not read today, so no rows`).toBe(0);
+      await expect(page.getByText("אין כרגע מבצעים ברשת הזו"), slug).toBeVisible();
+    } else {
+      expect(deals + regular, `${slug}: rows on the page`).toBeGreaterThan(0);
+    }
     await expect(page.getByText("משהו השתבש")).toHaveCount(0);
     if (["rami-levy", "victory", "yochananof"].includes(slug)) await shot(`store-${slug}`);
   }
@@ -168,4 +188,44 @@ test("Settings: the four beers stand on the counter — bottle, rank, name — d
   await expect(page.locator("li[data-rank='1']")).toContainText("גולדסטאר");
   await page.getByRole("button", { name: "שמירה" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
+});
+
+test("0.9.0: every chain deal says where it runs; 'בכל הרשת' only where every known branch was checked; the sheet lists branches", async () => {
+  test.setTimeout(240_000);
+  let opened = false;
+  for (const slug of ["rami-levy", "shufersal", "tiv-taam", "stop-market", "yochananof"]) {
+    await page.goto(`/store/${slug}`);
+    await layoutHolds(`/store/${slug}`);
+    const deals = page.locator("[data-part='deals'] article");
+    const n = await deals.count();
+    for (let i = 0; i < n; i++) {
+      const scope = deals.nth(i).locator("[data-scope]");
+      await expect(scope, `${slug} deal ${i} states its scope`).toHaveCount(1);
+    }
+    // Never "מבצעי שילוב"; mix-and-match says what the shopper does.
+    await expect(page.getByText("מבצעי שילוב")).toHaveCount(0);
+    if (await page.locator("[data-part='deals']").getByText("לבחירה מהמוצרים שבמבצע").count()) {
+      await expect(page.getByRole("heading", { name: "קונים כמה, בוחרים מהמבצע" }).first()).toBeVisible();
+    }
+    const sheet = page.locator("[data-part='deals'] details[data-scope] summary").first();
+    if (!opened && (await sheet.count())) {
+      expect((await sheet.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await sheet.click();
+      const list = page.getByRole("list", { name: "הסניפים שבהם נמצא המבצע" }).first();
+      await expect(list.getByRole("listitem").first()).toBeVisible({ timeout: 20_000 });
+      await shot(`scope-sheet-${slug}`);
+      opened = true;
+    }
+  }
+  expect(opened, "at least one deal's branch list opened").toBe(true);
+});
+
+test("0.9.0: a beer page shows each promotion once, however many branches list it", async () => {
+  for (const slug of ["goldstar", "carlsberg", "heineken"]) {
+    await page.goto(`/beer/${slug}`);
+    await shot(`beer-scope-${slug}`);
+    // The same chain, pack, price and scope twice in one strip would be a duplicate of one promotion.
+    const lines = await page.locator("[data-part='deals'] article").evaluateAll((els) => els.map((el) => el.textContent?.replace(/\s+/g, " ").trim() ?? ""));
+    expect(new Set(lines).size, `${slug}: duplicate deal lines`).toBe(lines.length);
+  }
 });

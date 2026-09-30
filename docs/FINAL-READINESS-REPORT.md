@@ -1,4 +1,31 @@
-# Final readiness report — release 0.7.0 (2026-09-29), updated for 0.8.0 (2026-09-30)
+# Final readiness report — release 0.7.0 (2026-09-29), updated for 0.8.0 and 0.9.0 (2026-09-30)
+
+## 0.9.0 — where each promotion runs, every branch read
+
+- **Scope.** Every promotion says where it runs, from evidence: בכל הרשת only when the chain declares it or every
+  known branch was read in the same scan and every one lists it; בסניפים משתתפים (with "m מתוך c סניפים שנבדקו" and a
+  tappable list of the branches) for a subset; "<branch> בלבד" only when every branch was read and one lists it;
+  otherwise it says what was observed ("נצפה בכל 59 הסניפים שנבדקו") and never claims the chain. One SQL rule
+  (`promotion_scope`, migration 0017); the UI, notifications and the where-sheet only word it.
+- **Coverage.** `scripts/ingest/scan.mjs` reads every branch each publisher's Stores file lists: 1,122 branches known,
+  1,074 read. FULL BRANCH VERIFIED: Rami Levy 99/99, Mahsanei 71/71, Victory 70/70, Tiv Taam 54/54, Hatzi Hinam 13/13,
+  Stop Market 11/11, Politzer 8/8, Fresh Market 8/8, Yeinot Bitan 1/1. SOURCE PARTIAL (the source has no current
+  file for some branches): Shufersal 417/429, Carrefour 141/146, AM:PM 59/60, Yochananof 47/52, Keshet 27/28, King
+  Store (promotions files for 29 of 48, and no beer), Osher Ad (nothing published at scan time). BLOCKED: Super Yuda,
+  Salach Dabach, Yellow (passwords). The 0.8.0 "COMPLETE" below meant one branch; it is superseded by these statuses.
+- **Cost.** Full baseline 887 s (1,507 files, 467 MB, 6.55 M rows parsed); incremental runs 83 s and 497 s
+  (unchanged branches are not downloaded). Staging writes: full 1,005–1,195 s, incremental 110–431 s. Feeds at
+  full-branch scale went from 13–24 s to ~1 s (migration 0018).
+- **Cases.** Every branch's files checked for 12/15/18/20/24 cases: Goldstar, Maccabee, Heineken, Corona, Tuborg — no
+  chain lists a case (A); the Politzer "ארגז גולדסטאר" ₪25.90 is the empty returnable crate. Stella 24×330 (Victory,
+  31 branches) and Carlsberg 24×500 (Yochananof) are read and shown; Victory's "4 שישיות" crates of Carlsberg,
+  Beck's and Budweiser name no bottle size (B — held for review, not guessed).
+- **Staging state.** Staging holds the full-branch import with the promotion identity one refinement behind (dates
+  and ids compared as written): 661 canonical promotions — 31 chainwide, 539 participating, 80 single-branch, 11
+  unknown — from 21,405 branch listings. The final identity gives 531 and removes the 111 same-line duplicates the
+  staging Playwright still finds on the Goldstar page (2 of 16 staging tests). It reaches staging with each
+  branch's next file, or at once after resetting the run rows (step 13 below).
+- **Still the owner's:** migrations **0006–0018** to production, the production import, deploying, and step 13.
 
 ## 0.8.0 — beer for home, and the data behind it
 
@@ -82,9 +109,9 @@ same on the pushed branch.
    me before merging.
 2. **Back up production.** Dashboard → Database → Backups (or `supabase db dump` with the production password) — keep
    the file.
-3. **Apply migrations 0006–0015 to production.** Either give this project's CLI access to that account
+3. **Apply migrations 0006–0018 to production.** Either give this project's CLI access to that account
    (`npx supabase login` with the account that owns `itpyyexhmvosxcbcagvy`, then I run `supabase link` + `db push
-   --dry-run` for you to read), or paste `supabase/RUN_THIS_IN_SUPABASE.sql`'s 0006–0015 part in the SQL editor. All
+   --dry-run` for you to read), or paste `supabase/RUN_THIS_IN_SUPABASE.sql`'s 0006–0018 part in the SQL editor. All
    are additive.
 4. **Anonymous sign-ins** must stay on in production (Authentication → Sign In / Providers).
 5. **Merge the PR and deploy** (Vercel → Deployments, or connect GitHub → Vercel: Project → Settings → Git →
@@ -104,3 +131,7 @@ same on the pushed branch.
     publishing portal; Super Yuda's Cerberus account name.
 12. **Bottle photos:** 17 are retailer pack shots (not freely licensed; used by your decision). Replace any with a
     brand-supplied or licensed photo by editing `scripts/fetch-bottles.mjs` and re-running it.
+13. **Staging reset (0.9.0), your call.** To put the final promotion identity on staging at once instead of with
+    each branch's next file: mark every staging ingestion run's live/held rows rejected and the runs rolled back,
+    empty `branch_scans`, `promotion_occurrences` and `promotions`, then `node scripts/ingest/run.mjs --target
+    staging` (~20 min). It touches staging only; I stopped short of it because it is a bulk delete of that data.

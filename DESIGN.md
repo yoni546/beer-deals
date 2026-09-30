@@ -154,6 +154,14 @@ deals first and its regular prices after (`Part`, a small heading each; a kind w
 deal says so in one quiet line). Strips are named with the pack's word and real count ("שישייה · 6×330 מ״ל
 · פחית"); the container is left out when the chain did not state it.
 
+## Where a deal runs (0.9.0)
+
+One quiet phrase in a deal's facts row — "בכל הרשת", "בסניפים משתתפים", "גבעת שאול בלבד", "נצפה בכל 7 הסניפים
+שנבדקו" — worded by `scopeHe` from the database's scope (never more than it allows). When there are branches to
+list it is a dotted-underline disclosure (≥ 44 px) that opens a compact list (name · city), fetched only then
+(`ScopeLine`); no branch tables on cards. Mix-and-match offers read as what the shopper does: "2 ב־₪35 · לבחירה
+מהמוצרים שבמבצע" under the heading "קונים כמה, בוחרים מהמבצע".
+
 ## My beers (0.8.0)
 
 The four beers stand on the counter, not on cards: each one's own bottle (the approved photo, else the

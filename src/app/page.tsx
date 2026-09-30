@@ -168,7 +168,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               />
             ))}
 
-            <GroupStrip title="מבצעי שילוב על הבירות שלי" offers={myGroups} />
+            <GroupStrip title="קונים כמה, בוחרים מהמבצע · הבירות שלי" offers={myGroups} />
 
             {mine.length === 0 && myGroups.length === 0 && (
               <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">

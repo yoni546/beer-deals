@@ -120,7 +120,7 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
                       headingLevel="h4"
                     />
                   ))}
-                  <GroupStrip title="מבצעי שילוב" offers={mixes} headingLevel="h4" />
+                  <GroupStrip title="קונים כמה, בוחרים מהמבצע" offers={mixes} headingLevel="h4" />
                 </Part>
               ) : (
                 <NoDealLine>

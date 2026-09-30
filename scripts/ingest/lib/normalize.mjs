@@ -183,6 +183,12 @@ export function classify(item) {
   const isCider = /סיידר/.test(name) || brand === "somersby";
   if (!brand && !saysBeer && !isCider) return { verdict: "not_beer", beer: null, category: "", reason: "no beer word, no known brand" };
   for (const [re, reason] of NOT_A_BEER) if (re.test(name)) return { verdict: "not_beer", beer: null, category: "", reason };
+  // "ארגז גולדסטאר" at ₪25.90 (Politzer), "ארגז קרלסברג/טובורג" at ₪19.90: the returnable plastic crate, sold
+  // as a deposit — a crate of 24 bottles costs several times that. A crate named only by its brand, with no
+  // count or size, priced under ₪40, is the empty crate, not beer (0.9.0 case audit).
+  if (/^ארגז(\s|$)/.test(name) && !/\d/.test(name) && !/בירה/.test(name) && Number(item.price) > 0 && Number(item.price) < 40) {
+    return { verdict: "not_beer", beer: null, category: "", reason: "empty returnable crate (deposit), not beer" };
+  }
 
   let category = "beer";
   let reason = brand ? "known brand" : "beer we do not carry";
@@ -204,7 +210,8 @@ const WORD_COUNTS = [
   [/שישי?י?ה|שישיית|6 ?פק/, 6],
   [/רביעי?י?ה|רביעיית/, 4],
   [/שלישי?י?ה/, 3],
-  [/ארגז/, 24],
+  // Not "ארגז" → 24: crates hold 12, 20 or 24. A crate's count comes from the name ("ארגז 12", "4 שישיות"),
+  // the total volume, or the same barcode elsewhere — never from the word alone (0.9.0 case audit).
 ];
 
 /**
@@ -245,13 +252,18 @@ export function parsePack(item) {
     const bare = [...name.matchAll(/(^|\D)(\d{3})(?!\d)/g)].map((m) => Number(m[2])).find((n) => STANDARD_ML.includes(n));
     if (bare) unit = bare;
   }
+  // An explicit count wins over a pack word: "ארגז 12 בקבוקי…", "20 פחיות", "4 שישיות" (= 24).
+  if (!count) {
+    const packs = name.match(/(\d)\s*(שישיות|רביעיות)/);
+    if (packs) count = Number(packs[1]) * (packs[2] === "שישיות" ? 6 : 4);
+  }
+  if (!count) {
+    const pack = name.match(/(מארז|מגש|ארגז)\s*(\d{1,2})(?!\d)/) ?? name.match(/(\d{1,2})\s*(יח|יחידות|פחיות|בקבוקים|בקבוקי|פחיות)(?=\s|$)/);
+    if (pack) count = Number(pack[2] ?? pack[1]);
+  }
   if (!count) for (const [re, n] of WORD_COUNTS) if (re.test(name)) count = n;
   // Names are cut at ~20 characters at several chains ("…שיש", "…6* 3"): a truncated pack word.
   if (!count && /(^|\s)(שיש|שישי|רביע)[^\s]*$/.test(name)) count = /רביע/.test(name) ? 4 : 6;
-  if (!count) {
-    const pack = name.match(/(מארז|מגש|ארגז)\s*(\d{1,2})(?!\d)/) ?? name.match(/(\d{1,2})\s*(יח|יחידות|פחיות|בקבוקים)/);
-    if (pack) count = Number(pack[2] ?? pack[1]);
-  }
 
   // Quantity is a volume only when its unit says so ("קילוגרם" is a common mislabel of litres);
   // "יחידות" counts shelf units and says nothing about volume.
@@ -284,10 +296,13 @@ export function parsePack(item) {
   // Only the total is known (name truncated before the size): accept it when exactly one
   // multipack of a standard size makes it — 1980 → 6×330, 2130 → 6×355 — and mark it derived.
   let derived = false;
-  if (!unit && total && !STANDARD_ML.includes(Math.round(total))) {
+  // …but never for a whole number of litres from 5 L up: that is a keg ("מיני חבית 5 ליטר"), not 20×250.
+  const kegTotal = total && total >= 5000 && Math.round(total) % 1000 === 0 && container !== "can" && !/קרטון|ארגז|מארז/.test(name);
+  if (!unit && total && !kegTotal && !STANDARD_ML.includes(Math.round(total))) {
     const options = [4, 6, 12, 20, 24]
       .filter((n) => !count || n === count)
-      .flatMap((n) => STANDARD_ML.filter((ml) => Math.abs(ml * n - total) <= 2).map((ml) => [n, ml]));
+      // A can is never a litre or more: "פחית קרלסברג קרטון 2…" at 12 L is 24×500, not 12×1000.
+      .flatMap((n) => STANDARD_ML.filter((ml) => (container !== "can" || ml <= 568) && Math.abs(ml * n - total) <= 2).map((ml) => [n, ml]));
     if (options.length === 1) {
       [count, unit] = options[0];
       derived = true;

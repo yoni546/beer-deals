@@ -13,9 +13,9 @@ an account with a browser, so this file is the exact runbook.
 | Project | `beer-deals-staging`, ref **`qpjwnxptitnmtsznjvkw`**, created with the Supabase CLI |
 | Account / organisation | the Supabase account this machine's CLI is logged into (organisation "GanzaxPhotography") — **not** the account that owns production (`itpyyexhmvosxcbcagvy`) |
 | Region | **`ap-northeast-1` (Tokyo)** — the same region production's database address points to, so staging measures what production does. (The Frankfurt move below remains the durable fix for Israeli users; see INFRASTRUCTURE.md.) |
-| Schema | migrations **0001–0016** applied (`supabase db push`) |
+| Schema | migrations **0001–0018** applied (`supabase db push`) |
 | Auth | anonymous sign-ins on (`supabase config push`, site URL `http://127.0.0.1:3100` — no emails are sent) |
-| Data | the **first real ingestion** (9 chains, 10 branches) — `docs/INGESTION-STAGING-REPORT.md`; no sample seed |
+| Data | **every branch** of 15 retailers (release 0.9.0 scan, 2026-09-30) — `docs/RETAILER-COVERAGE.md`; no sample seed |
 | Keys | only in the git-ignored `.env.staging.local` on the machine that created it (URL, anon, service role, DB password, its own VAPID pair and CRON_SECRET), and as GitHub secrets `STAGING_SUPABASE_URL` / `_ANON_KEY` / `_SERVICE_ROLE_KEY` |
 | Real-data checks | with the app on :3300 against staging: `E2E_STAGING=1 E2E_BASE_URL=http://localhost:3300 PW_CHANNEL=chrome npx playwright test` (390×844 and 430×932, `tests/e2e/staging-real-data.spec.ts`), and `node scripts/ingest/coverage.mjs --ui http://localhost:3300` → `docs/RETAILER-COVERAGE.md` |
 | App against it | `set -a; . ./.env.staging.local; set +a; NEXT_DIST_DIR=.next-staging npx next build && NEXT_DIST_DIR=.next-staging npx next start -p 3300` (then revert `tsconfig.json` / `next-env.d.ts`, which the build rewrites) |

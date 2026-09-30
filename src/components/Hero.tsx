@@ -3,7 +3,7 @@ import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { BeerMark } from "@/components/ui/Bottle";
 import { Tape } from "@/components/ui/Tape";
 import type { Hero as HeroPick } from "@/lib/offer-logic";
-import { conditionChips, packText, validUntilHe } from "@/lib/format";
+import { conditionChips, packText, scopeHe, validUntilHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 const REASON: Record<HeroPick["reason"] | "editor", string> = {
@@ -24,6 +24,7 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
   const chips = conditionChips(offer);
   const until = validUntilHe(offer.valid_to, now);
   const verified = offer.value_pct !== null && offer.reference_agorot !== null;
+  const scope = scopeHe(offer);
 
   return (
     <Tape printIn className="relative px-5 py-5" aria-labelledby="hero-title">
@@ -39,6 +40,8 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
       </h2>
       <p className="mt-0.5 text-sm text-ink-2">
         {packText(offer)} · {offer.store_name}
+        {/* Where it runs (0017) — the headline never implies the whole chain without evidence. */}
+        {scope && <> · <span data-scope>{scope.label}</span></>}
       </p>
 
       <div aria-hidden className="tear my-4" />

@@ -340,3 +340,30 @@ describe("the daily ingestion workflow", () => {
     expect(readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8")).toContain("process.exit(2)");
   });
 });
+
+describe("cases, kegs and crates (0.9.0 audit)", () => {
+  const row = (name: string, price: number, quantity = "1.00", unit = "יחידות") => ({ item_code: "7290000000446", item_name: name, manufacturer: "", price, quantity, unit_of_measure: unit, is_weighted: false });
+
+  it("the empty returnable crate ('ארגז גולדסטאר' at ₪25.90) is not beer", () => {
+    expect(classify(row("ארגז גולדסטאר", 25.9, "0.00", "יחידה"))).toMatchObject({ verdict: "not_beer", reason: expect.stringContaining("crate") });
+    expect(classify(row("ארגז קרלסברג/טובורג", 19.9, "0.00", "יחידה")).verdict).toBe("not_beer");
+    // A real case says what it holds and costs what 24 beers cost: it stays beer.
+    expect(classify(row("ארגז בירה 4 שישיות קרלסברג", 160)).verdict).toBe("beer");
+  });
+
+  it("a 5-litre keg is never read as 20×250", () => {
+    expect(parsePack(row("בירה אייל חיטה 5.3%", 99.9, "5.00", "1 ליטר")).pack_quantity).not.toBe(20);
+  });
+
+  it("24- and 12-packs are read as cases", () => {
+    expect(parsePack(row("בירה גולדסטאר 24*330 מ\"ל פחית", 99, "7.92", "ליטר"))).toMatchObject({ pack_quantity: 24, volume_ml: 330 });
+    expect(parsePack(row("ארגז 12 בקבוקי מכבי 500 מ\"ל", 79, "6.00", "ליטר"))).toMatchObject({ pack_quantity: 12, volume_ml: 500 });
+  });
+});
+
+describe("a carton of cans (0.9.0 audit)", () => {
+  it("12 L of cans with the count cut off is 24×500 — a can is never a litre", () => {
+    const row = { item_code: "7290018824450", item_name: "פחית קרלסברג קרטון 2", manufacturer: "", price: 120, quantity: "12.00", unit_of_measure: "1ליטר", is_weighted: false };
+    expect(parsePack(row)).toMatchObject({ container: "can", pack_quantity: 24, volume_ml: 500 });
+  });
+});

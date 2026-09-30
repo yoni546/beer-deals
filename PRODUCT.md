@@ -101,6 +101,14 @@ grocery-deals feed. What a neighbouring product could not truthfully copy:
   called a שישייה. Inside שישיות the default order is 6, then 8, then 4, unless the person picks a price
   sort. Beer and chain pages go שישיות → ארגזים → בודדים, and inside each, deals everyone can use first,
   then regular prices; a kind with nothing is left out.
+- **Where a deal runs (0.9.0).** A promotion seen at one branch is not the chain's. Every deal says only what
+  was checked: **בכל הרשת** only when the chain itself says so, or every branch its Stores file lists was checked
+  in the same scan and every one lists the promotion; **בסניפים משתתפים** when some of several checked branches
+  list it ("12 מתוך 18 סניפים שנבדקו" in the sheet); **<branch> בלבד** when exactly one of several checked does;
+  otherwise it says what was seen ("נצפה בכל 7 הסניפים שנבדקו", "נצפה בסניף X") or "זמינות לפי סניף". A branch that
+  failed, whose file is stale, or that published nothing yet is *not checked* — never counted as lacking a deal.
+  The same promotion at many branches is one deal; tapping its line lists the branches. Eligibility (open to
+  everyone) and scope (where) are separate: a universal deal can run at one branch.
 - **What's New is for the people who run the app** (admins; checked on the server). Every meaningful
   change still ships a release entry (see `CLAUDE.md`). Everyone else gets "אהבתם? שתפו לחברים",
   which shares the production address.

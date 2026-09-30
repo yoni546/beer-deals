@@ -187,7 +187,7 @@ export default async function StorePage({ params, searchParams }: { params: Prom
                   <Part part="deals" title="מבצעים">
                     {head(dealNodes)}
                     <Fold hidden={tail(dealNodes).length}>{tail(dealNodes)}</Fold>
-                    <GroupStrip title="מבצעי שילוב" offers={mixes} showStore={false} headingLevel="h4" />
+                    <GroupStrip title="קונים כמה, בוחרים מהמבצע" offers={mixes} showStore={false} headingLevel="h4" />
                   </Part>
                 ) : (
                   <NoDealLine>

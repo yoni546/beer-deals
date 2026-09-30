@@ -130,6 +130,26 @@ export type OfferConditions = {
   deposit?: { agorot: number | null; included: boolean; basis?: string };
 };
 
+/**
+ * Where a promotion is available (migration 0017), measured against what was checked — never assumed.
+ * Null on offers the scan model does not cover (user-submitted deals, older imports).
+ */
+export type PromotionScope = {
+  promotion_id: number | null;
+  scope: "chainwide" | "participating_branches" | "single_branch" | "unknown" | null;
+  scope_evidence: "source_declared" | "observed_all_known_eligible_branches" | "observed_subset" | "insufficient_coverage" | null;
+  /** Branches the chain's latest scan accounted for (its Stores file). */
+  branches_known: number | null;
+  /** Of those, the ones whose current promotions file was read. */
+  branches_checked: number | null;
+  /** Of those, the ones whose current file lists this promotion. */
+  branches_matching: number | null;
+  coverage_as_of: string | null;
+  /** The one branch, when it runs at exactly one. */
+  only_branch_name: string | null;
+  only_branch_city: string | null;
+};
+
 /** Where a price was seen, and how it relates to the deposit (migrations 0014–0015). */
 export type PriceProvenance = {
   variant: string;
@@ -183,7 +203,8 @@ export type Offer = {
   observed_at: string | null;
   is_sample: boolean;
   notes: string | null;
-} & Partial<PriceProvenance>;
+} & Partial<PriceProvenance> &
+  Partial<PromotionScope>;
 
 /** One row of `regular_prices_feed`: the latest regular (non-promotional) price of a pack at a chain. */
 export type RegularPrice = {
@@ -236,4 +257,4 @@ export type GroupOffer = {
   branch_id: string | null;
   branch_name: string | null;
   branch_city: string | null;
-};
+} & Partial<PromotionScope>;

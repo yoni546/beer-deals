@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conditionChips, daysSince, packText, relativeTimeHe, validUntilHe, volumeHe } from "@/lib/format";
+import { conditionChips, daysSince, packText, relativeTimeHe, scopeHe, validUntilHe, volumeHe } from "@/lib/format";
 import { normalize, score, search, skeleton } from "@/lib/search";
 
 // Thursday 2026-10-01 09:00 in Israel (UTC+3 in summer time → 06:00Z).
@@ -145,5 +145,34 @@ describe("searching", () => {
     expect(search(stores, "ampm", (s) => [s])).toEqual(["AM:PM"]);
     expect(search(stores, "רמי", (s) => [s])).toEqual(["רמי לוי"]);
     expect(search(stores, "ביתן", (s) => [s])).toEqual(["יינות ביתן"]);
+  });
+});
+
+describe("where a deal runs (0.9.0)", () => {
+  const row = (scope: string | null, known: number, checked: number, matching: number, extra = {}) => ({ scope, branches_known: known, branches_checked: checked, branches_matching: matching, ...extra });
+
+  it("'בכל הרשת' only for chainwide", () => {
+    expect(scopeHe(row("chainwide", 11, 11, 11))?.label).toBe("בכל הרשת");
+    for (const r of [row("unknown", 18, 1, 1), row("unknown", 18, 12, 12), row("participating_branches", 18, 18, 12), row("single_branch", 18, 18, 1)]) {
+      expect(scopeHe(r)?.label).not.toBe("בכל הרשת");
+    }
+  });
+
+  it("participating: the label, and the counts behind it in the sheet", () => {
+    expect(scopeHe(row("participating_branches", 18, 18, 12))).toEqual({ label: "בסניפים משתתפים", detail: "12 מתוך 18 סניפים שנבדקו", inspectable: true });
+  });
+
+  it("one branch of several checked: named, with 'בלבד'; one branch seen of one checked: only 'נצפה'", () => {
+    expect(scopeHe(row("single_branch", 18, 18, 1, { only_branch_name: "גבעת שאול" }))?.label).toBe("גבעת שאול בלבד");
+    expect(scopeHe(row("unknown", 18, 1, 1, { branch_name: "גבעת שאול" }))?.label).toBe("נצפה בסניף גבעת שאול");
+  });
+
+  it("all checked branches list it but not all were checked: says exactly that", () => {
+    expect(scopeHe(row("unknown", 18, 12, 12))).toMatchObject({ label: "נצפה בכל 12 הסניפים שנבדקו", detail: "נבדקו 12 מתוך 18 סניפים" });
+  });
+
+  it("nothing current: 'זמינות לפי סניף'; no scope data at all: nothing", () => {
+    expect(scopeHe(row("unknown", 18, 0, 0))?.label).toBe("זמינות לפי סניף");
+    expect(scopeHe(row(null, 0, 0, 0))).toBeNull();
   });
 });

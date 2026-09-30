@@ -1,19 +1,22 @@
 import Link from "next/link";
+import { ScopeLine } from "@/components/ScopeLine";
 import { Price } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import type { GroupOffer } from "@/lib/db/types";
-import { depositHe, packText, validUntilHe, whereSeenHe } from "@/lib/format";
+import { depositHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 /**
  * A mix-and-match offer as the chain states it: "any 2 of these for ₪35". It is ONE offer across
  * several packs (migration 0014), so it is never shown as a price of any single pack — the per-pack
- * figure is secondary, labelled as what it is ("יוצא ₪17.50 לאריזה").
+ * figure is secondary, labelled as what it is ("יוצא ₪17.50 לאריזה"). Worded as what the shopper does
+ * (0.9.0): "2 ב־₪35 · לבחירה מהמוצרים שבמבצע", not as a category name.
  */
 export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { offer: GroupOffer; showStore?: boolean; now?: number }) {
   const until = validUntilHe(offer.valid_to, now);
   const deposit = depositHe(offer.deposit_agorot, offer.deposit_included);
   const where = whereSeenHe(offer);
+  const scope = scopeHe(offer);
   const beers = [...new Set(offer.packs.map((p) => p.beer_name))];
 
   return (
@@ -27,7 +30,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
         <Price agorot={offer.total_agorot} size="md" className="shrink-0 text-price" />
       </Link>
       <p className="text-sm text-ink-2">
-        לבחירה:{" "}
+        <span className="font-semibold text-ink">לבחירה מהמוצרים שבמבצע:</span>{" "}
         {offer.packs.map((pack, i) => (
           <span key={pack.sku_id}>
             {i > 0 && " · "}
@@ -44,7 +47,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
           </span>,
           until ? <span key="t">{until}</span> : null,
           deposit ? <span key="d" className="num">{deposit}</span> : null,
-          where ? <span key="w">{where}</span> : null,
+          scope ? <ScopeLine key="w" text={scope} promotionId={offer.promotion_id} /> : where ? <span key="w">{where}</span> : null,
         ]
           .filter(Boolean)
           .map((node, i) => (
