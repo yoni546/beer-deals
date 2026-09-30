@@ -221,11 +221,21 @@ test("0.9.0: every chain deal says where it runs; 'בכל הרשת' only where e
 });
 
 test("0.9.0: a beer page shows each promotion once, however many branches list it", async () => {
-  for (const slug of ["goldstar", "carlsberg", "heineken"]) {
+  for (const slug of ["goldstar", "maccabee", "carlsberg", "corona", "heineken"]) {
     await page.goto(`/beer/${slug}`);
     await shot(`beer-scope-${slug}`);
-    // The same chain, pack, price and scope twice in one strip would be a duplicate of one promotion.
-    const lines = await page.locator("[data-part='deals'] article").evaluateAll((els) => els.map((el) => el.textContent?.replace(/\s+/g, " ").trim() ?? ""));
-    expect(new Set(lines).size, `${slug}: duplicate deal lines`).toBe(lines.length);
+    // The same chain, pack, price and scope twice in one strip would be a duplicate of one promotion. Each strip
+    // is one pack (its h4 title): one promotion that covers two products — Carrefour's "גולדסטאר / גולדסטאר UF
+    // רביעייה" — is rightly one line under each product's own strip, never twice under the same one.
+    const lines = await page.locator("[data-part='deals'] article").evaluateAll((els) =>
+      els.map((el) => {
+        let strip: Element | null = el.parentElement;
+        while (strip && !strip.querySelector("h4")) strip = strip.parentElement;
+        const pack = strip?.querySelector("h4")?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        return `${pack} ⟶ ${el.textContent?.replace(/\s+/g, " ").trim() ?? ""}`;
+      }),
+    );
+    expect(lines.length, `${slug}: deal lines`).toBeGreaterThan(0);
+    expect(lines.filter((l, i) => lines.indexOf(l) !== i), `${slug}: duplicate deal lines`).toEqual([]);
   }
 });

@@ -20,12 +20,12 @@
   chain lists a case (A); the Politzer "ארגז גולדסטאר" ₪25.90 is the empty returnable crate. Stella 24×330 (Victory,
   31 branches) and Carlsberg 24×500 (Yochananof) are read and shown; Victory's "4 שישיות" crates of Carlsberg,
   Beck's and Budweiser name no bottle size (B — held for review, not guessed).
-- **Staging state.** Staging holds the full-branch import with the promotion identity one refinement behind (dates
-  and ids compared as written): 661 canonical promotions — 31 chainwide, 539 participating, 80 single-branch, 11
-  unknown — from 21,405 branch listings. The final identity gives 531 and removes the 111 same-line duplicates the
-  staging Playwright still finds on the Goldstar page (2 of 16 staging tests). It reaches staging with each
-  branch's next file, or at once after resetting the run rows (step 13 below).
-- **Still the owner's:** migrations **0006–0018** to production, the production import, deploying, and step 13.
+- **Staging state (after the approved reset, 2026-09-30).** Rebuilt with the final identity from the 08:52 scan
+  (1,100 of 1,122 branches read; Osher Ad 24/24): 45,655 regular prices, 16,227 live promotion rows, 2,185 mix-and-
+  match groups, **594 canonical promotions** (38 chainwide, 488 participating, 57 single-branch, 11 unknown) from
+  **21,807** branch listings; 0 chainwide or single-branch labels without full evidence. Before the reset: 661
+  canonical, 42,810 listings, 128 Goldstar deal lines of which 11 repeated. All 16 staging real-data tests pass.
+- **Still the owner's:** migrations **0006–0018** to production, the production import, and deploying.
 
 ## 0.8.0 — beer for home, and the data behind it
 
@@ -131,7 +131,5 @@ same on the pushed branch.
     publishing portal; Super Yuda's Cerberus account name.
 12. **Bottle photos:** 17 are retailer pack shots (not freely licensed; used by your decision). Replace any with a
     brand-supplied or licensed photo by editing `scripts/fetch-bottles.mjs` and re-running it.
-13. **Staging reset (0.9.0), your call.** To put the final promotion identity on staging at once instead of with
-    each branch's next file: mark every staging ingestion run's live/held rows rejected and the runs rolled back,
-    empty `branch_scans`, `promotion_occurrences` and `promotions`, then `node scripts/ingest/run.mjs --target
-    staging` (~20 min). It touches staging only; I stopped short of it because it is a bulk delete of that data.
+13. ~~Staging reset (0.9.0)~~ — done 2026-09-30 with your approval (staging only; users, favourites and roles
+    untouched). Recorded above.
