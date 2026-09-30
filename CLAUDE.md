@@ -96,10 +96,14 @@ always shares the production address, https://beer-deals.vercel.app.
 
 ## Data ingestion
 
-- Pipeline: `scripts/ingest/fetch-sample.mjs` → `parse.mjs` (the installed
-  israeli-grocery-price-intelligence skill's parser; `lib/promo-supplement.mjs` adds only the one field
-  it drops) → `dry-run.mjs` (report) → `run.mjs --target staging` → `verify-staging.mjs`.
-  `lib/plan.mjs` is the single place the rules live; `tests/ingest.test.ts` runs them on real excerpts.
+- Pipeline (0.9.0): `scripts/ingest/scan.mjs` (every branch of every publisher, incremental; runs the
+  installed israeli-grocery-price-intelligence skill's parser; `lib/promo-supplement.mjs` adds only the one
+  field it drops) → `run.mjs --target staging` (inventory, prices, occurrences, scope) → `coverage.mjs`
+  (docs/RETAILER-COVERAGE.md). The one-branch sample path (`fetch-sample.mjs` → `parse.mjs` → `dry-run.mjs`
+  → `run.mjs --day`) still works. `lib/plan.mjs` is the single place the rules live; `tests/ingest.test.ts`
+  runs them on real excerpts.
+- **Never claim chain-wide availability without evidence.** Scope is decided in one SQL function
+  (`promotion_scope`, migration 0017) from branches checked in the same scan; the UI only words it (`scopeHe`).
 - **Only offers everyone can redeem are published.** Club, card, coupon, employee, app-only: recorded,
   held, never shown or announced (`conditions.audience`, `is_universal_offer`, migration 0014).
 - Prices are per branch; the retailer of a branch comes from the publisher's Stores file. Never invent a

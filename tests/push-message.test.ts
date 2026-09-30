@@ -72,3 +72,17 @@ describe("where a tap goes", () => {
     expect(buildBeerPath({ beerSlug: "a b/c" })).toBe("/beer/a%20b%2Fc");
   });
 });
+
+describe("where it runs, in the notification (0.9.0)", () => {
+  it("says 'בכל הרשת' only when the scope is chainwide", () => {
+    expect(buildOfferNotification(offer({ scope: "chainwide" })).body).toMatch(/ · בכל הרשת$/);
+    expect(buildOfferNotification(offer({ scope: "participating_branches" })).body).toMatch(/ · בסניפים משתתפים$/);
+    expect(buildOfferNotification(offer({ scope: "single_branch", only_branch_name: "גבעת שאול" })).body).toMatch(/ · גבעת שאול בלבד$/);
+  });
+
+  it("claims nothing about the chain when the scope is unknown or missing", () => {
+    for (const o of [offer({ scope: "unknown" }), offer({ scope: null }), offer()]) {
+      expect(buildOfferNotification(o).body).not.toMatch(/בכל הרשת|משתתפים|בלבד/);
+    }
+  });
+});

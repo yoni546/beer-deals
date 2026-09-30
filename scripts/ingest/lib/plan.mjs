@@ -94,9 +94,134 @@ export function loadDay(dir) {
 }
 
 /**
+ * Every branch a scan read (scripts/ingest/scan.mjs, 0.9.0): the same units as loadDay, from the slim
+ * per-branch files, plus the scan itself (inventory and every branch's outcome) for the coverage rules.
+ * Branches whose newest file is stale, or that failed, give no unit: they are not current evidence.
+ */
+export function loadScan(cacheDir, scanId) {
+  const dir = join(cacheDir, "scans");
+  let scan;
+  if (scanId) {
+    scan = JSON.parse(readFileSync(join(dir, `${scanId}.json`), "utf8"));
+  } else {
+    // Each publisher as its MOST RECENT scan saw it: a scan of a few publishers does not hide the others.
+    // Every entry keeps its own scan id and time (branch_scans records them as they were).
+    const scans = readdirSync(dir)
+      .filter((n) => /^\d{4}-.*Z\.json$/.test(n))
+      .sort()
+      .map((n) => JSON.parse(readFileSync(join(dir, n), "utf8")));
+    const latest = scans[scans.length - 1];
+    const byPublisher = new Map();
+    // A publisher whose listing FAILED this time keeps its last good scan — a failure to look is not evidence
+    // that its branches changed — and the failure is carried as a note.
+    for (const s of scans) {
+      for (const e of s.publishers) {
+        const previous = byPublisher.get(e.publisher);
+        if (e.status === "FAILED" && previous && previous.status !== "FAILED") {
+          byPublisher.set(e.publisher, { ...previous, lastFailure: { scanId: s.scanId, note: e.note } });
+        } else {
+          byPublisher.set(e.publisher, { scanId: s.scanId, startedAt: s.startedAt, ...e });
+        }
+      }
+    }
+    scan = { ...latest, composite: scans.length > 1, publishers: [...byPublisher.values()] };
+  }
+  const units = [];
+  for (const entry of scan.publishers) {
+    const p = PUBLISHERS[entry.publisher];
+    for (const b of entry.branches ?? []) {
+      if (!["ok", "unchanged", "no_promo_file"].includes(b.status) || !b.slim) continue;
+      const path = join(cacheDir, "files", entry.publisher, b.slim);
+      if (!existsSync(path)) continue;
+      const data = JSON.parse(readFileSync(path, "utf8"));
+      const info = entry.inventory.find((x) => sameStore(x.store, b.store)) ?? { store: b.store };
+      units.push({
+        publisher: entry.publisher,
+        source: p.source,
+        retailer: b.retailer,
+        branch: {
+          feed_chain_code: data.chain_id || p.chainCode,
+          feed_sub_chain_code: data.sub_chain_id || info.subChain || null,
+          feed_store_code: String(Number(b.store)),
+          name_he: info.name || null,
+          address: info.address || null,
+          city: info.city || null,
+        },
+        observedAt: iso(israelTime(parseFileName(b.priceFile).stamp)),
+        files: [b.priceFile, b.promoFile].filter(Boolean),
+        fileHash: sha(b.priceSha, b.promoSha ?? ""),
+        dialect: data.dialect,
+        items: data.items,
+        rowsTotal: data.rows_total,
+        promotionsTotal: data.promotions_total,
+        promotions: data.promotions,
+      });
+    }
+  }
+  return { units, scan };
+}
+
+/**
  * Terms written in a promotion's text that change who gets the price, shown beside it (never dropped):
  * "מעל 75" — only on a basket over ₪75; "מו2" / "מוגבל ל־2" — at most 2 per customer.
  */
+/**
+ * The identity of a promotion across a chain's branches (0.9.0) — the same promotion seen at 30 branches is ONE
+ * offer. Two listings (a promotion in one branch's file) are the same promotion when:
+ *   1. their TERMS are identical — the kind, quantity and price, who may redeem it, the written terms (minimum
+ *      basket, per-customer limit) and the day it ends (termsKey, below); AND
+ *   2. they share at least one item, or the chain's promotion id (connected through listings that do —
+ *      computed over the whole chain; Victory lists "2ב26 מלכה/נגב" as one id twice, once per item).
+ * Measured on the 2026-09-30 baseline scan, both halves are needed:
+ *   - a branch lists only the items it stocks (Tiv Taam's "ויינשטפן 3 ב 33": 3 items at some branches, 4 at
+ *     others) — the item LIST cannot be part of the identity (it split one promotion into six);
+ *   - chains issue one deal under several ids, one per group of branches (Mahsanei's "ג/…" and "ק/…" copies,
+ *     Keshet, Rami Levy) — the id cannot be the identity either;
+ *   - "2 ב־35" on different beers shares no item — never merged; the same items ending another day, or with
+ *     other terms, are a different promotion;
+ *   - the day it STARTED is not part of it: only promotions in force at the scan are listings at all, and two
+ *     ids that started on different days but run now, on the same items, at the same price, to the same day
+ *     (Rami Levy's "קורונה שישייה ב29.90 נקודתי" and "…כולל נתניה") are one deal where a shopper stands — its
+ *     branches are the union of both;
+ *   - one chain writes one promotion two ways in different branches' files (Keshet's 1153220: "2026-10-03" with
+ *     end_hour "23:59:00" at some, "2026-10-03T23:59:00.000" and id "0001153220" at others) — so dates are
+ *     compared as calendar days and ids and item codes without leading zeros (111 duplicate lines on staging,
+ *     2026-09-30, before this).
+ */
+const day = (text) => String(text ?? "").replace(/\D/g, "").slice(0, 8);
+const code = (value) => String(value ?? "").replace(/^0+(?=.)/, "");
+export function termsKey(retailer, promo, read) {
+  const terms = termsOf(promo.description);
+  const price = read.kind === "multi_buy" ? `${read.qty}/${read.total_agorot}` : String(read.price_agorot);
+  return sha(retailer, read.kind, price, read.audience, terms.min_basket_agorot ?? "", terms.max_qty ?? "", day(promo.end));
+}
+
+/**
+ * Canonical keys for every listing: listings with the same terms that share an item (directly or through
+ * others) are one promotion. The key is stable for the same promotion: its terms and its smallest item code.
+ * @param {Array<{retailer: string, terms: string, id: string, items: string[]}>} listings
+ * @returns {string[]} one key per listing
+ */
+export function canonicalKeys(listings) {
+  const parent = listings.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const firstWithItem = new Map();
+  listings.forEach((l, i) => {
+    for (const item of [...l.items, `id:${l.id}`]) {
+      const k = `${l.retailer}|${l.terms}|${item}`;
+      if (firstWithItem.has(k)) parent[find(i)] = find(firstWithItem.get(k));
+      else firstWithItem.set(k, i);
+    }
+  });
+  const smallest = new Map();
+  listings.forEach((l, i) => {
+    const root = find(i);
+    const min = [...l.items].sort()[0] ?? `#${i}`;
+    if (!smallest.has(root) || min < smallest.get(root)) smallest.set(root, min);
+  });
+  return listings.map((l, i) => `${l.retailer}:p:${sha(l.terms, smallest.get(find(i)))}`);
+}
+
 export function termsOf(description) {
   const text = clean(description);
   const terms = {};
@@ -112,6 +237,7 @@ export function termsOf(description) {
  * @param {number} now epoch ms — promotions not in force at `now` are not written
  */
 export function buildPlan(units, now = Date.now()) {
+  const listings = [];
   const readings = [];
   const packless = [];
   const unresolved = [];
@@ -140,7 +266,7 @@ export function buildPlan(units, now = Date.now()) {
 
   // Pass 1 — every row of every branch: classify, read the pack and variant, check the price.
   for (const u of units) {
-    const stats = { publisher: u.publisher, retailer: u.retailer, store: u.branch.feed_store_code, name: u.branch.name_he, rows: u.items.length, promosInFile: u.promotions.length, duplicates: 0, beer: 0, ours: 0, otherBeer: 0, outOfScope: 0 };
+    const stats = { publisher: u.publisher, retailer: u.retailer, store: u.branch.feed_store_code, name: u.branch.name_he, rows: u.rowsTotal ?? u.items.length, promosInFile: u.promotionsTotal ?? u.promotions.length, duplicates: 0, beer: 0, ours: 0, otherBeer: 0, outOfScope: 0 };
     const rows = new Map();
     for (const item of u.items) {
       if (rows.has(item.item_code)) stats.duplicates++;
@@ -322,7 +448,22 @@ export function buildPlan(units, now = Date.now()) {
       const read = readPromotion(promo, new Set(beerItems.map((i) => i.item_code)));
       const start = israelTime(promo.start);
       const end = israelTime(promo.end);
-      const log = { retailer: u.retailer, store: u.branch.feed_store_code, id: promo.promotion_id, description: promo.description, items: promo.items.length, beerItems: beerItems.length, ...read };
+      const log = {
+        retailer: u.retailer,
+        store: u.branch.feed_store_code,
+        id: promo.promotion_id,
+        description: promo.description,
+        items: promo.items.length,
+        beerItems: beerItems.length,
+        ...read,
+        // Where it is listed (0.9.0): a promotion in force now is a listing, for its canonical identity (filled in
+        // after every branch is read); the file and the dates, for promotion_occurrences.
+        listing: (read.kind === "price_cut" || read.kind === "multi_buy") && inForce(promo, now) ? listings.push({ retailer: u.retailer, terms: termsKey(u.retailer, promo, read), id: code(promo.promotion_id), items: [...new Set(promo.items.map((i) => code(i.item_code)))] }) - 1 : null,
+        file: u.files[1] ?? null,
+        observedAt: u.observedAt,
+        validFrom: iso(start),
+        validTo: iso(end),
+      };
       promoLog.push(log);
       if (read.audience !== "everyone" && read.kind !== "excluded") stats.promo.restricted++;
       if (read.kind === "excluded") {
@@ -411,29 +552,41 @@ export function buildPlan(units, now = Date.now()) {
             ...termsOf(promo.description),
             note_he: clean(promo.description),
           },
-          natural_key: skuSet.length === 1 ? `${u.publisher}:${promo.promotion_id}` : `${u.publisher}:${promo.promotion_id}:${sku}`,
-          content_hash: sha(u.publisher, u.branch.feed_store_code, promo.promotion_id, sku, total, qty, promo.start, promo.end),
+          natural_key: "", // the canonical key, filled in below once every branch is read
+          listing: log.listing,
+          // The file's time is part of the record, as for a regular price: each file re-records what it lists (the
+          // newer row supersedes the older under the same identity), so close_missing_promotions closes only what
+          // the newest file no longer lists — never a promotion that is still running.
+          content_hash: sha(u.publisher, u.branch.feed_store_code, promo.promotion_id, sku, total, qty, promo.start, promo.end, u.observedAt),
         });
         log.outcome = status === "live" ? (read.audience === "everyone" ? "published" : "restricted") : `held: ${reasons.join("; ")}`;
+        log.shape = "price";
         if (status === "live") stats.promo.published++;
       } else {
         groups.push({
           ...common,
           skus: skuSet,
-          natural_key: `${u.publisher}:${promo.promotion_id}`,
+          natural_key: "", // the canonical key, filled in below once every branch is read
+          listing: log.listing,
           description_he: clean(promo.description).slice(0, 200),
           required_qty: read.qty,
           total_agorot: read.total_agorot,
           audience: read.audience,
           deposit_agorot: deposit ? deposit : null,
           deposit_included: deposit ? false : null,
-          content_hash: sha(u.publisher, u.branch.feed_store_code, promo.promotion_id, skuSet.join(","), read.total_agorot, read.qty, promo.start, promo.end),
+          content_hash: sha(u.publisher, u.branch.feed_store_code, promo.promotion_id, skuSet.join(","), read.total_agorot, read.qty, promo.start, promo.end, u.observedAt),
         });
         log.outcome = status === "live" ? (read.audience === "everyone" ? "published as a group" : "restricted") : `held: ${reasons.join("; ")}`;
+        log.shape = "group";
         if (status === "live" && read.audience === "everyone") stats.promo.groups++;
       }
     }
   }
+
+  // Canonical identity (0.9.0): one key per promotion across the chain's branches.
+  const keys = canonicalKeys(listings);
+  for (const row of [...promotions, ...groups]) row.natural_key = keys[row.listing];
+  for (const l of promoLog) l.canonical = l.listing === null || l.listing === undefined ? null : keys[l.listing];
 
   // The same offer published twice (two promotion ids, same pack, price, terms and dates — Rami Levy does
   // this): one line, not two identical ones.
@@ -443,8 +596,10 @@ export function buildPlan(units, now = Date.now()) {
   };
   // (Both are in force today, so their start dates do not matter to the shopper — the end date does.)
   const where = (row) => `${row.retailer}|${row.branch.feed_chain_code}|${row.branch.feed_store_code}|${row.status}|${row.valid_to}`;
-  const uniquePromotions = promotions.filter(once((p) => `${where(p)}|${p.sku}|${p.promo_type}|${p.price_agorot}|${JSON.stringify(p.conditions.multi_buy ?? null)}`));
-  const uniqueGroups = groups.filter(once((g) => `${where(g)}|${[...g.skus].sort().join(",")}|${g.required_qty}|${g.total_agorot}`));
+  // Lowest promotion id first, so every branch keeps the same one of the two.
+  const byId = (x, y) => String(x.raw.promotion_id).localeCompare(String(y.raw.promotion_id));
+  const uniquePromotions = [...promotions].sort(byId).filter(once((p) => `${where(p)}|${p.sku}|${p.promo_type}|${p.price_agorot}|${JSON.stringify(p.conditions.multi_buy ?? null)}`));
+  const uniqueGroups = [...groups].sort(byId).filter(once((g) => `${where(g)}|${[...g.skus].sort().join(",")}|${g.required_qty}|${g.total_agorot}`));
 
   return {
     units: perUnit.map(({ unit, stats }) => ({ ...stats, source: unit.source, branch: unit.branch, observedAt: unit.observedAt, fileHash: unit.fileHash, files: unit.files, dialect: unit.dialect })),
@@ -458,6 +613,32 @@ export function buildPlan(units, now = Date.now()) {
     outOfScope,
     otherBeers,
     promoLog,
+    // Every public promotion a branch's current file lists, shown or not (promotion_occurrences, 0017): the
+    // evidence of where it runs. One the source did not describe clearly enough to identify is left out.
+    occurrences: promoLog
+      .filter((l) => l.audience === "everyone" && l.canonical && l.file && !/not in force|invalid dates/.test(l.outcome ?? ""))
+      // A file can list the same promotion twice: one listing per branch, file, promotion and id.
+      .filter(once((l) => `${l.retailer}|${l.store}|${l.file}|${l.canonical}|${l.id}`))
+      .map((l) => {
+        const published = /^published/.test(l.outcome ?? "");
+        return {
+          retailer: l.retailer,
+          store: l.store,
+          canonical_key: l.canonical,
+          source_promotion_id: l.id,
+          source_file: l.file,
+          observed_at: l.observedAt,
+          valid_from: l.validFrom,
+          valid_to: l.validTo,
+          kind: l.shape ?? (l.kind === "multi_buy" && l.beerItems > 1 ? "group" : "price"),
+          price_agorot: l.kind === "price_cut" ? (l.price_agorot ?? null) : l.total_agorot && l.qty ? Math.ceil(l.total_agorot / l.qty) : null,
+          required_qty: l.qty ?? null,
+          total_agorot: l.total_agorot ?? null,
+          conditions: { audience: l.audience, ...termsOf(l.description) },
+          published,
+          reason: published ? null : (l.outcome ?? null),
+        };
+      }),
     barcodeConflicts: [...barcodes.entries()].filter(([, v]) => !v.agree).map(([code, v]) => ({ code, why: v.why })),
     multiChainBarcodes: [...barcodes.keys()].filter((code) => new Set(readings.filter((r) => r.code === code).map((r) => r.retailer)).size > 1).length,
   };

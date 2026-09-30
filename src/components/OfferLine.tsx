@@ -2,8 +2,9 @@ import Link from "next/link";
 import { ChevronDownIcon } from "@/components/ui/icons";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { ReportDealButton } from "@/components/ReportDealButton";
+import { ScopeLine } from "@/components/ScopeLine";
 import type { Offer } from "@/lib/db/types";
-import { conditionChips, depositHe, packText, validUntilHe, whereSeenHe } from "@/lib/format";
+import { conditionChips, depositHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 export type LineLead = "chain" | "beer" | "pack";
@@ -18,7 +19,8 @@ export type LineLead = "chain" | "beer" | "pack";
  *   beer   → on Home, where nothing has been said yet: "גולדסטאר · 6 × 330 ········ ₪25"
  *
  * Two levels, one unit per deal: the line (name ····· saving · price), then ONE quiet row of facts
- * (what it replaces, where, until when, the deposit, the multi-buy terms). Nothing to unfold.
+ * (what it replaces, where, WHERE IT RUNS, until when, the deposit, the multi-buy terms). The only thing that
+ * unfolds is the list of branches, when the deal runs at some of them (ScopeLine, 0.9.0).
  * The saving chip only ever shows the database's VERIFIED value (offers_feed.value_pct).
  * Without one there is no strikethrough and no "you save" — just the price, and a market
  * comparison when there is one.
@@ -88,7 +90,11 @@ export function OfferLine({
   if (until) facts.push(<span key="u">{until}</span>);
   if (deposit) facts.push(<span key="d" className="num">{deposit}</span>);
   if (perLiter && offer.unit_price_per_liter_agorot !== null) facts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);
-  if (where && !showStore) facts.push(<span key="w">{where}</span>);
+  // Where it runs (0017): never implies the whole chain without evidence. Without scope data (a user-submitted
+  // deal), the branch it was seen at, as before.
+  const scope = scopeHe(offer);
+  if (scope) facts.push(<ScopeLine key="w" text={scope} promotionId={offer.promotion_id} />);
+  else if (where && !showStore) facts.push(<span key="w">{where}</span>);
 
   return (
     <article className="px-4 pt-2 pb-3.5">

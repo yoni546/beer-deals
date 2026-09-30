@@ -72,9 +72,30 @@ async function loadOffer(db: SupabaseClient, offerKey: string): Promise<Offer | 
   }
   const result = await db.from("offers_ranked").select("*").eq("observation_id", Number(offerKey.slice(4))).maybeSingle();
   if (result.error) throw new Error(`offers unavailable: ${result.error.message}`);
-  const row = result.data as (Omit<Offer, "offer_key" | "origin" | "pack_label" | "notes"> & { observation_id: number; sku_name: string }) | null;
+  const row = result.data as (Omit<Offer, "offer_key" | "origin" | "pack_label" | "notes"> & { observation_id: number; sku_name: string; identity_key: string }) | null;
   if (!row) return null;
-  return { ...row, offer_key: offerKey, origin: "catalog", pack_label: row.sku_name, notes: null } as Offer;
+  // Where the promotion runs (0017), so the text never claims more than was checked.
+  const scope = await db
+    .from("promotions")
+    .select("id, scope, scope_evidence, branches_known, branches_checked, branches_matching, coverage_as_of, only_branch_id")
+    .eq("store_id", row.store_id)
+    .eq("canonical_key", row.identity_key)
+    .maybeSingle();
+  const promotion = scope.error ? null : (scope.data as ({ id: number; only_branch_id: string | null } & Record<string, unknown>) | null);
+  type BranchName = { name_he: string | null; city: string | null };
+  let onlyBranch: BranchName | null = null;
+  if (promotion?.only_branch_id) {
+    const branch = await db.from("branches").select("name_he, city").eq("id", promotion.only_branch_id).maybeSingle();
+    onlyBranch = (branch.data as BranchName | null) ?? null;
+  }
+  return {
+    ...row,
+    offer_key: offerKey,
+    origin: "catalog",
+    pack_label: row.sku_name,
+    notes: null,
+    ...(promotion ? { ...promotion, promotion_id: promotion.id, only_branch_name: onlyBranch?.name_he ?? null, only_branch_city: onlyBranch?.city ?? null } : {}),
+  } as Offer;
 }
 
 const toSettings = (row: SettingsRow): NotifySettings => ({

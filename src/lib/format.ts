@@ -140,6 +140,63 @@ export function whereSeenHe(row: { branch_count?: number | null; branch_name?: s
   return null;
 }
 
+export type ScopeText = {
+  /** The short line on the deal. */
+  label: string;
+  /** What the sheet adds, when there is more to say. */
+  detail: string | null;
+  /** There are branches to list (the sheet can open). */
+  inspectable: boolean;
+};
+
+/**
+ * What a deal may say about WHERE it runs (0.9.0, migration 0017). The database decides the scope with one
+ * rule (promotion_scope); this only words it, and never says more than the scope allows:
+ *
+ *   chainwide                 "בכל הרשת"               — the chain's word, or every known branch checked and listing it
+ *   participating_branches    "בסניפים משתתפים"        — "12 מתוך 18 סניפים שנבדקו" in the sheet
+ *   single_branch             "<branch> בלבד"          — the one branch of several checked that lists it
+ *   unknown, all checked list it   "נצפה בכל 12 הסניפים שנבדקו"   (not "בכל הרשת": not every branch was checked)
+ *   unknown, one branch seen       "נצפה בסניף <branch>"
+ *   unknown, nothing current       "זמינות לפי סניף"
+ *
+ * Null for offers the scan model does not cover (a user-submitted deal): the caller says nothing about scope.
+ */
+export function scopeHe(row: {
+  scope?: string | null;
+  scope_evidence?: string | null;
+  branches_known?: number | null;
+  branches_checked?: number | null;
+  branches_matching?: number | null;
+  only_branch_name?: string | null;
+  branch_name?: string | null;
+}): ScopeText | null {
+  if (!row.scope) return null;
+  const known = row.branches_known ?? 0;
+  const checked = row.branches_checked ?? 0;
+  const matching = row.branches_matching ?? 0;
+  const name = (row.only_branch_name ?? row.branch_name ?? "").trim();
+  switch (row.scope) {
+    case "chainwide":
+      return {
+        label: "בכל הרשת",
+        detail: row.scope_evidence === "source_declared" ? "לפי הרשת עצמה" : `נמצא בכל ${known} הסניפים של הרשת`,
+        inspectable: false,
+      };
+    case "participating_branches":
+      return { label: "בסניפים משתתפים", detail: `${matching} מתוך ${checked} סניפים שנבדקו`, inspectable: true };
+    case "single_branch":
+      return { label: name ? `${name} בלבד` : "בסניף אחד בלבד", detail: `נמצא בסניף אחד מתוך ${checked} שנבדקו`, inspectable: true };
+    default:
+      if (checked >= 2 && matching === checked) {
+        return { label: `נצפה בכל ${checked} הסניפים שנבדקו`, detail: known > checked ? `נבדקו ${checked} מתוך ${known} סניפים` : null, inspectable: true };
+      }
+      if (matching === 1) return { label: name ? `נצפה בסניף ${name}` : "נצפה בסניף אחד", detail: known > 1 ? `נבדקו ${checked} מתוך ${known} סניפים` : null, inspectable: true };
+      if (matching > 1) return { label: `נצפה ב־${matching} סניפים`, detail: `נבדקו ${checked} מתוך ${known} סניפים`, inspectable: true };
+      return { label: "זמינות לפי סניף", detail: null, inspectable: false };
+  }
+}
+
 /** "החל מ־": the lowest of several branch prices that differ. */
 export const isFromPrice = (row: { branch_count?: number | null; price_agorot: number; max_price_agorot?: number | null }) =>
   (row.branch_count ?? 0) > 1 && (row.max_price_agorot ?? row.price_agorot) > row.price_agorot;

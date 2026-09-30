@@ -69,3 +69,41 @@ without `E2E_DEV`, and check that `tests/e2e/redesign.spec.ts › sorting lives 
   browser context per screenshot runs into it; reuse one visitor per scenario.
 - `supabase config push --project-ref <staging>` applies `supabase/config.toml` (anonymous sign-ins on);
   it shows the diff first. Never run it against production without reading that diff.
+
+## 2026-09-30 — Scanning every branch (0.9.0)
+
+- **A sample is not coverage.** One branch per chain proved the pipeline; it said nothing about where a
+  promotion runs. Scope is now measured against branches checked in the same scan (migration 0017).
+- **A branch lists only the items it stocks, and a chain issues one deal under several ids.** The same
+  promotion lists 3 items at some Tiv Taam branches and 4 at others; Mahsanei, Keshet and Rami Levy publish one
+  deal under a different id per group of branches. The identity is: identical terms (kind, price, audience,
+  written terms, end DAY) AND a shared item or id, connected across the chain — never the item list, the id or
+  the price alone.
+- **One chain writes one promotion two ways.** Keshet's 1153220 is "2026-10-03" + end_hour at some branches
+  and "2026-10-03T23:59:00.000" with id "0001153220" at others. Compare dates as days, ids and codes without
+  leading zeros — 111 duplicate lines on staging came from raw string comparison.
+- **A replayed record keeps its old time.** A promotion's content hash lacked the file's time (a regular
+  price's has it), so the next day's file would have replayed every unchanged promotion with yesterday's
+  observed_at and close_missing_promotions would have closed them all. Every record carries its file's time;
+  a same-file `--reprocess` rewrites nothing, so a changed identity reaches the database with each branch's
+  next file (within the day), not on a re-run.
+- **"Only here" needs every branch checked.** With 2 of 71 Mahsanei branches read, "X בלבד" was a false claim;
+  `promotion_scope` gives single_branch only when every known branch was checked.
+- **Where a branch lists a promotion is evidence even when our own check held its copy** (a shelf price that
+  did not confirm it at that branch). Occurrences are recorded for every public listing, published or not.
+- **Sources rotate at midnight.** Laib Catalog (Victory, Mahsanei HaShuk), Carrefour's day folder and some
+  Cerberus accounts (Osher Ad) list nothing, or only the Stores file, until the chain publishes the new day.
+  Right after midnight that is "not published yet", never "no promotions"; the inventory comes from the last
+  Stores file read.
+- **Shufersal's listing pages answer in ~20 s each**; read them in parallel and download with the listed
+  signed links (valid ~30 min), re-listing a store only if its link expired. Per-file re-listing took 2 min a
+  branch.
+- **Rami Levy serves some files as ZIP under a ".gz" name**; Keshet's account also holds another chain's old
+  files. Unpack ZIPs; take only files of the publisher's own chain code.
+- **Rolling back a full-scan run exceeds the API statement timeout** (10,000+ rows). Run
+  `begin; set local role service_role; set local statement_timeout = 0; select public.rollback_ingestion_run(...); commit;`
+  with `npx supabase db query --linked` (staging). Even that gives up on a 15,000-row run (the management
+  API's own request limit): **before production daily ingestion, make rollback work in batches** (reject a
+  run's rows N at a time, then restore) — tracked in docs/INGESTION-READINESS.md.
+- **"ארגז" is not 24.** Crates hold 12, 20 or 24; read the count from the name, the volume or the barcode. The
+  ₪19.90–₪25.90 "ארגז גולדסטאר" rows are the empty returnable crate, and a 5 L total is a keg, not 20×250.

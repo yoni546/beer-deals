@@ -1,5 +1,31 @@
 [
   {
+    "version": "0.9.0",
+    "date": "2026-09-30",
+    "title_he": "זמינות מבצעים לפי סניף, כיסוי רחב יותר של הרשתות ובדיקה משופרת של ארגזים",
+    "highlights_he": [
+      "ליד כל מבצע כתוב איפה הוא באמת קיים: בכל הרשת, בסניפים משתתפים, או בסניף אחד. \"בכל הרשת\" מופיע רק כשבדקנו את כל הסניפים.",
+      "אפשר ללחוץ על השורה ולראות באילו סניפים נמצא המבצע.",
+      "אנחנו בודקים עכשיו את כל הסניפים של כל רשת, ולא סניף אחד לדוגמה.",
+      "מבצע שמופיע בהרבה סניפים מוצג פעם אחת, ולא שוב ושוב.",
+      "מבצעים של \"כמה ביחד\" כתובים עכשיו במילים פשוטות: 2 ב־₪35, לבחירה מהמוצרים שבמבצע."
+    ],
+    "kind": [
+      "feature",
+      "data"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0017 (STAGING only): branches.listed_in_stores_file/source_listed_at; branch_scans (every known branch's outcome per scan); promotions (canonical, with scope + evidence + known/checked/matching/coverage_as_of/only_branch_id); promotion_occurrences (every public promotion a branch's current file lists, published or not); promotion_scope() — the one rule; record_branch_scan, record_promotion_occurrences, close_missing_promotions, refresh_promotion_scope; offers_feed/group_offers_feed carry scope; promotion_branches view for the where-sheet. Rollback: supabase/rollback/0017_branch_scope.down.sql (rehearsed on staging).",
+      "Canonical promotion identity (lib/plan.mjs termsKey + canonicalKeys): listings in force with identical terms (kind, qty/price, audience, written terms, end day) that share an item or the chain's promotion id, connected over the whole chain (union-find). Dates as days; ids and item codes without leading zeros. Never the price alone, never the item list, never the id alone.",
+      "Promotion and group content hashes include the file's time (as regular prices already did): a promotion still listed in the next file is re-recorded, so close_missing_promotions never closes a running promotion. A same-file --reprocess replays and rewrites nothing.",
+      "Migration 0018 (STAGING only): offers_ranked computes the per-chain lowest price and the other-chains median once per query (materialized CTEs) instead of once per promotion row, plus index price_obs_live_store. offers_feed 13–24 s → ~1 s at full-branch scale. Same columns. Rollback: the 0014 definition of offers_ranked.",
+      "scripts/ingest/scan.mjs: every branch from each publisher's Stores file; newest PriceFull/PromoFull per branch; fresh ≤ 36 h; incremental by file name (manifest) — unchanged branches are not downloaded, parsed or re-written; slim per-branch JSON (beer rows + their promotions). run.mjs reads a scan, writes inventory, scans, occurrences, closes what a branch's newest file no longer lists, refreshes scope.",
+      "Cases: 'ארגז' no longer means 24 by itself (explicit counts win: 'ארגז 12', '4 שישיות'); 5 L kegs are not derived as 20×250; the empty returnable crate ('ארגז גולדסטאר' ₪25.90) is not beer.",
+      "UI: ScopeLine (lazy branch list from /api/promotions/[id]/branches), scope in the headline and in notifications (only when known); mix-and-match copy."
+    ]
+  },
+  {
     "version": "0.8.0",
     "date": "2026-09-30",
     "title_he": "שישיות וארגזים קודם, ועוד הרבה רשתות ובירות",
