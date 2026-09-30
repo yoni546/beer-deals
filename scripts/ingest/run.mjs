@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * WRITES one day's ingestion plan (lib/plan.mjs — the same plan the dry run reports) to a database.
- * STAGING ONLY until docs/INGESTION-READINESS.md says otherwise.
+ * WRITES an ingestion plan (lib/plan.mjs — the same plan the dry run reports) to a database.
  *
- *   node scripts/ingest/run.mjs --target staging [--scan <id>] [--reprocess]   # a branch scan (scan.mjs, 0.9.0; default: each publisher's latest)
+ *   node scripts/ingest/run.mjs --target staging [--scan <id>] [--reprocess] [--publishers a,b]
+ *   node scripts/ingest/run.mjs --target production --confirm-ref <production ref> [--publishers rami-levy]
  *   node scripts/ingest/run.mjs --target staging --day 2026-09-29     # a one-branch sample day (fetch-sample.mjs)
  *
  * From a scan it also writes the branch INVENTORY (every branch the Stores files list), each branch's scan
@@ -12,8 +12,10 @@
  * Incremental: branches whose newest files were already imported are not sent again.
  *
  * Safety:
- *   - reads credentials ONLY from .env.staging.local (git-ignored), never from the shell or .env.local;
- *   - refuses the production project (PRODUCTION_REFS) and any APP_ENV other than "staging";
+ *   - reads credentials ONLY from the target's git-ignored file (.env.staging.local / .env.production.local),
+ *     never from the shell; production needs APP_ENV=production AND --confirm-ref equal to the file's project
+ *     ref AND a ref that is not staging's (lib/target.mjs) — docs/PRODUCTION-HANDOFF-YONI.md;
+ *   - --publishers limits the run to some publishers (the production canary: --publishers rami-levy);
  *   - every publisher's files are one ingestion run: start_ingestion_run(source, file hash) answers
  *     already_imported for a file seen before, so a re-run writes nothing;
  *   - prices go through record_prices (sanity gates hold implausible ones), group promotions through
@@ -22,47 +24,41 @@
  */
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildPlan, loadDay, loadScan } from "./lib/plan.mjs";
 import { renderReport } from "./lib/report.mjs";
+import { loadTarget } from "./lib/target.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-/** The production project (docs/for-collaborators.md). Never a target of this script. */
-export const PRODUCTION_REFS = ["itpyyexhmvosxcbcagvy"];
-
 const args = process.argv.slice(2);
 const flag = (name) => {
   const i = args.indexOf(`--${name}`);
   return i === -1 ? "" : (args[i + 1] ?? "");
 };
 
-if (flag("target") !== "staging") {
-  console.error("Refusing: pass --target staging. Production ingestion is not enabled (docs/INGESTION-READINESS.md).");
-  process.exit(1);
-}
-const envFile = join(ROOT, ".env.staging.local");
-if (!existsSync(envFile)) {
-  console.error("Refusing: .env.staging.local not found (docs/STAGING.md).");
-  process.exit(1);
-}
-const env = Object.fromEntries(
-  readFileSync(envFile, "utf8")
-    .split(/\r?\n/)
-    .filter((l) => /^[A-Z_]+=/.test(l))
-    .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]),
-);
-const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const ref = (url.match(/^https:\/\/([a-z0-9]{20})\.supabase\.co/) ?? [])[1];
-if (!ref || PRODUCTION_REFS.includes(ref) || env.APP_ENV !== "staging" || !env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Refusing: .env.staging.local does not describe a staging project (URL, APP_ENV=staging, service key).");
-  process.exit(1);
-}
+const { target, ref, env, url } = loadTarget(ROOT, args);
+const onlyPublishers = flag("publishers") ? new Set(flag("publishers").split(",").map((p) => p.trim()).filter(Boolean)) : null;
 
 const cache = join(ROOT, ".ingest-cache");
 const FROM_DAY = Boolean(flag("day"));
-const { units, fetchReport, scan } = FROM_DAY ? loadDay(join(cache, flag("day"))) : loadScan(cache, flag("scan") || undefined);
+if (FROM_DAY && target !== "staging") {
+  console.error("Refusing: a one-branch sample day (--day) is for staging; production writes a branch scan (scan.mjs).");
+  process.exit(1);
+}
+const loaded = FROM_DAY ? loadDay(join(cache, flag("day"))) : loadScan(cache, flag("scan") || undefined);
+const { fetchReport } = loaded;
+const units = onlyPublishers ? loaded.units.filter((u) => onlyPublishers.has(u.publisher)) : loaded.units;
+const scan = loaded.scan && onlyPublishers ? { ...loaded.scan, publishers: loaded.scan.publishers.filter((p) => onlyPublishers.has(p.publisher)) } : loaded.scan;
+if (onlyPublishers) {
+  const unknown = [...onlyPublishers].filter((p) => !loaded.units.some((u) => u.publisher === p));
+  if (unknown.length) {
+    console.error(`Refusing: nothing scanned for ${unknown.join(", ")} (run scan.mjs --publishers ${[...onlyPublishers].join(",")} first)`);
+    process.exit(1);
+  }
+  console.log(`publishers: ${[...onlyPublishers].join(", ")} only`);
+}
 const DAY = FROM_DAY ? flag("day") : scan.israeliDay;
 const OUT = FROM_DAY ? join(cache, DAY) : join(cache, "scans");
 const plan = buildPlan(units);
@@ -323,12 +319,12 @@ for (const r of runs.values()) {
 
 // Every branch and promotion of a full scan is megabytes: that report stays beside the scan (the committed
 // summary is docs/RETAILER-COVERAGE.md, from coverage.mjs). A one-branch sample run still writes the doc.
-const reportPath = scan ? join(OUT, `${scan.scanId}-staging-report.md`) : join(ROOT, "docs", "INGESTION-STAGING-REPORT.md");
-writeFileSync(reportPath, renderReport(plan, { mode: "staging", day: DAY, fetchReport: fetchReport ?? { publishers: scan.publishers.map((p) => ({ publisher: p.publisher, status: p.status, note: p.note, files: [] })) }, written, generatedAt: new Date().toISOString() }));
+const reportPath = scan ? join(OUT, `${scan.scanId}-${target}-report.md`) : join(ROOT, "docs", "INGESTION-STAGING-REPORT.md");
+writeFileSync(reportPath, renderReport(plan, { mode: target, day: DAY, fetchReport: fetchReport ?? { publishers: scan.publishers.map((p) => ({ publisher: p.publisher, status: p.status, note: p.note, files: [] })) }, written, generatedAt: new Date().toISOString() }));
 written.seconds = Math.round((Date.now() - t0) / 1000);
 written.branchesWritten = toSend.length;
 written.branchesSkippedAsImported = plan.units.length - toSend.length;
-writeFileSync(join(OUT, scan ? `${scan.scanId}-staging-write.json` : "staging-write.json"), JSON.stringify(written, null, 2));
+writeFileSync(join(OUT, scan ? `${scan.scanId}-${target}-write.json` : `${target}-write.json`), JSON.stringify(written, null, 2));
 console.log(JSON.stringify({ seconds: written.seconds, branchesWritten: toSend.length, regular: written.regular, promotions: written.promotions, groups: written.groups, closed: written.closed, errors: written.errors.length }));
 if (written.errors.length) console.log(written.errors.slice(0, 10));
 console.log(`wrote ${reportPath}`);

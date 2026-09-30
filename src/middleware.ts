@@ -55,6 +55,6 @@ export const config = {
      * outside the page's credential context. The notification worker's endpoint has its own
      * bearer-token check and must not mint an anonymous user for every scheduler call.
      */
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|screenshots/|api/notifications/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|screenshots/|api/notifications/|api/version).*)",
   ],
 };

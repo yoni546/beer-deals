@@ -1,12 +1,12 @@
 name: Daily price ingestion (STAGING)
 
-# Once a day: fetch the chains' price-transparency files → parse them with the installed skill →
-# build the plan (dry-run report) → write it to the STAGING database → read it back → only if the
-# quality gate passed, ring the staging notification worker.
+# Once a day (0.9.0): scan every branch of every publisher (scan.mjs, incremental, read-only) → write the
+# scan to the STAGING database (inventory, prices, occurrences, scope) → read it back per chain
+# (coverage.mjs) → only if the quality gate passed, ring the staging notification worker.
 #
-# STAGING ONLY. Production ingestion is not enabled: it needs the owner's staging sign-off and the
-# production gates in docs/FINAL-READINESS-REPORT.md. scripts/ingest/run.mjs refuses the production
-# project whatever it is given.
+# STAGING ONLY. Production has its own manual workflow (ingest-production.yml) with its own secrets.
+# Sources that refuse GitHub's runners (the Laib portal — Victory, Mahsanei HaShuk — and Hatzi Hinam answered
+# "fetch failed" / 403 on 2026-09-30) are reported FAILED; their previous data is left as it was.
 #
 # Needs (Settings → Secrets and variables → Actions); without them it exits quietly and writes nothing:
 #   secret    STAGING_SUPABASE_URL                the staging project's URL
@@ -35,7 +35,7 @@ jobs:
   ingest:
     name: Fetch, plan, write to staging
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     steps:
       - name: Check the staging secrets are configured
         id: configured
@@ -68,17 +68,17 @@ jobs:
         if: steps.configured.outputs.ok == 'true'
         run: npm ci
 
-      - name: Fetch today's feed files (read-only)
+      - name: Restore the scan cache
         if: steps.configured.outputs.ok == 'true'
-        run: node scripts/ingest/fetch-sample.mjs
+        uses: actions/cache/restore@v4
+        with:
+          path: .ingest-cache
+          key: ingest-staging-${{ github.run_id }}
+          restore-keys: ingest-staging-
 
-      - name: Parse them with the israeli-grocery-price-intelligence skill
+      - name: Scan every branch (read-only)
         if: steps.configured.outputs.ok == 'true'
-        run: node scripts/ingest/parse.mjs
-
-      - name: Dry run (the plan, as a report)
-        if: steps.configured.outputs.ok == 'true'
-        run: node scripts/ingest/dry-run.mjs
+        run: node scripts/ingest/scan.mjs
 
       - name: Write to STAGING (quality gate — exits non-zero if the database refused anything)
         if: steps.configured.outputs.ok == 'true'
@@ -93,9 +93,16 @@ jobs:
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_ANON_KEY=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nAPP_ENV=staging\n' "$URL" "$ANON" "$KEY" > .env.staging.local
           node scripts/ingest/run.mjs --target staging
 
-      - name: Read back what the public sees
+      - name: Read back what the public sees, per chain (docs/RETAILER-COVERAGE.md)
         if: steps.configured.outputs.ok == 'true'
-        run: node scripts/ingest/verify-staging.mjs
+        run: node scripts/ingest/coverage.mjs
+
+      - name: Save the scan cache
+        if: always() && steps.configured.outputs.ok == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ingest-cache
+          key: ingest-staging-${{ github.run_id }}
 
       - name: Keep the reports
         if: always() && steps.configured.outputs.ok == 'true'
@@ -103,10 +110,9 @@ jobs:
         with:
           name: ingestion-reports
           path: |
-            docs/INGESTION-DRY-RUN.md
-            docs/INGESTION-STAGING-REPORT.md
-            .ingest-cache/*/fetch-report.json
-            .ingest-cache/*/staging-write.json
+            docs/RETAILER-COVERAGE.md
+            .ingest-cache/scans/*.json
+            .ingest-cache/scans/*-staging-report.md
           retention-days: 30
 
       - name: Ring the staging notification worker (only after a clean import)

@@ -104,6 +104,11 @@ same on the pushed branch.
 
 ## What only the owner can do — exactly
 
+**Superseded for the production release by `docs/PRODUCTION-HANDOFF-YONI.md`** (the ordered steps with exact
+commands) and `docs/PRODUCTION-GO-LIVE-CHECKLIST.md` (the tick list). 0.9.0 is on `main` (merge `e04d09c`,
+2026-09-30); production is untouched: no backup, migration, import or deployment has been made there. The list below
+is kept for the items the handoff does not cover (legal terms, bottle photos, blocked chains).
+
 1. **Confirm the production database region.** Supabase dashboard → project `itpyyexhmvosxcbcagvy` → Project
    Settings → General → **Region**. If it says *Northeast Asia (Tokyo)*, `vercel.json` (`hnd1`) is right; if not, tell
    me before merging.

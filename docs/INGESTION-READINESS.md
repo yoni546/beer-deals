@@ -31,7 +31,7 @@ something essential is missing · **BLOCKED** = needs something only the owner (
 
 | Who | Action | Unblocks |
 | --- | --- | --- |
-| Owner | Give this project access to the production Supabase project (or run §1 there), after the go-ahead in `docs/FINAL-READINESS-REPORT.md` | 2, 15, the production import |
+| Owner | Follow `docs/PRODUCTION-HANDOFF-YONI.md` (backup, migrations 0006–0018, canary, full import, notification baseline) | 2, 15, the production import |
 | Owner / legal | Each chain's terms and attribution | 14 |
 | Owner | Real-device notification checklist (`docs/NOTIFICATIONS.md` §5) | 15 |
 | Owner | Super Yuda's feed account; confirm whether Victory and Mahsanei HaShuk still publish (Laibcatalog lists them but serves no files) | 16 |
