@@ -1,0 +1,150 @@
+name: Database backup (PRODUCTION, manual)
+
+# A one-off logical backup of the PRODUCTION database: roles, schema, data.
+# docs/PRODUCTION-HANDOFF-YONI.md §C.
+#
+# Why it runs here rather than on a laptop: `supabase db dump` shells out to
+# pg_dump inside a container, so it needs Docker. On Windows that means
+# installing WSL2 and Docker Desktop and rebooting. A hosted Ubuntu runner has
+# Docker already, so the backup costs nothing to set up and runs the same
+# Supabase-supported dump the handoff asks for.
+#
+# MANUAL ONLY: no schedule, ever. Actions → this workflow → Run workflow.
+#
+# Needs one repository secret (Settings → Secrets and variables → Actions):
+#   PRODUCTION_DB_URL   the production Postgres connection URI, from
+#                       Supabase → Project Settings → Database → Connection string → URI,
+#                       with [YOUR-PASSWORD] replaced by the real password.
+#
+# Safety:
+#   - the operator types the production ref (confirm_ref), and the run fails
+#     unless the secret's URL actually contains it;
+#   - the staging ref is rejected outright, whether typed or found in the secret;
+#   - nothing is written to the database — pg_dump only reads;
+#   - the dumps are uploaded as a private Actions artifact and are never
+#     committed;
+#   - no file contents and no connection string are ever printed. GitHub masks
+#     the secret in logs, and every command that touches the URL is quiet.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_ref:
+        description: "The PRODUCTION Supabase project ref (Project Settings → General → Reference ID). Never qpjwnxptitnmtsznjvkw (staging)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-production
+  cancel-in-progress: false
+
+env:
+  STAGING_REF: qpjwnxptitnmtsznjvkw
+
+jobs:
+  backup:
+    name: Dump roles, schema and data
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Everything that could identify the wrong database is checked before a
+      # single byte is read. The connection string itself is never echoed: only
+      # decisions about it are.
+      - name: Prove this is production, not staging
+        env:
+          DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          CONFIRM_REF: ${{ inputs.confirm_ref }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          [ -n "${DB_URL:-}" ] || fail "The PRODUCTION_DB_URL secret is not set. See the header of this workflow."
+
+          case "$CONFIRM_REF" in
+            [a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z]) ;;
+            *) fail "confirm_ref does not look like a Supabase project ref (20 lowercase letters)." ;;
+          esac
+
+          [ "$CONFIRM_REF" != "$STAGING_REF" ] || fail "That is the STAGING ref. This workflow only backs up production."
+
+          case "$DB_URL" in
+            *"$STAGING_REF"*) fail "The PRODUCTION_DB_URL secret points at STAGING. Refusing." ;;
+          esac
+
+          case "$DB_URL" in
+            *"$CONFIRM_REF"*) ;;
+            *) fail "The PRODUCTION_DB_URL secret does not point at the ref you typed. Refusing." ;;
+          esac
+
+          echo "OK — the secret points at $CONFIRM_REF, which is not staging."
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump roles, schema and data
+        env:
+          DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p dump
+
+          # Three separate dumps, in the order they must be restored. Splitting
+          # them is what makes a partial restore possible: schema without data
+          # to rebuild an empty copy, data alone to refill one.
+          supabase db dump --db-url "$DB_URL" --role-only -f dump/roles.sql
+          supabase db dump --db-url "$DB_URL"             -f dump/schema.sql
+          supabase db dump --db-url "$DB_URL" --data-only -f dump/data.sql
+
+      # A dump that "succeeded" and produced an empty file is the failure mode
+      # that matters: it is discovered when it is needed, which is the worst
+      # possible moment.
+      - name: Verify the dumps are real
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          for f in dump/roles.sql dump/schema.sql dump/data.sql; do
+            [ -f "$f" ] || fail "$f was not created."
+            size=$(stat -c%s "$f")
+            [ "$size" -gt 0 ] || fail "$f is empty."
+            echo "$f — $size bytes"
+          done
+
+          # Sizes alone would pass on a file holding only an error message, so
+          # each dump is checked for something only a real dump contains.
+          grep -q "CREATE TABLE" dump/schema.sql || fail "schema.sql has no CREATE TABLE — it is not a schema dump."
+          grep -qE "^(COPY|INSERT INTO)" dump/data.sql || fail "data.sql has no COPY or INSERT — it is not a data dump."
+
+          # Proof the right database was read, without printing any of it.
+          grep -q "public.deals" dump/schema.sql || fail "schema.sql does not mention public.deals — wrong database?"
+
+          {
+            echo "### Production backup"
+            echo ""
+            echo "| file | bytes |"
+            echo "| --- | ---: |"
+            for f in dump/roles.sql dump/schema.sql dump/data.sql; do
+              echo "| \`$(basename "$f")\` | $(stat -c%s "$f") |"
+            done
+            echo ""
+            echo "Tables in the schema dump: $(grep -c 'CREATE TABLE' dump/schema.sql)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the backup as a private artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-backup-${{ github.run_id }}
+          path: dump/
+          # Real people's data. Short retention on purpose: download it and keep
+          # your own copy rather than leaving it here.
+          retention-days: 7
+          if-no-files-found: error

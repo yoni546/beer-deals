@@ -35,3 +35,8 @@ supabase/.branches
 
 # Production database dumps (docs/PRODUCTION-HANDOFF-YONI.md §C): personal data, never committed.
 backups/
+
+# Backup dumps produced by the production backup workflow. Real data — never
+# committed; the workflow uploads them as a private artifact instead.
+dump/
+backups/
