@@ -28,10 +28,33 @@ function layoutDirs(dir: string, found: string[] = []): string[] {
 }
 
 describe("the admin login page is reachable", () => {
+  // Both of these fix a problem that locks the user out, so both have to live
+  // outside the guard that creates it.
   const loginDir = join(APP, "admin", "login");
+  const resetDir = join(APP, "admin", "reset");
 
   it("exists", () => {
     expect(existsSync(join(loginDir, "page.tsx"))).toBe(true);
+  });
+
+  it("so is the password reset page", () => {
+    expect(existsSync(join(resetDir, "page.tsx"))).toBe(true);
+  });
+
+  it("neither is wrapped by a layout that redirects to the login page", () => {
+    const guards = layoutDirs(join(APP, "admin")).filter((dir) =>
+      readFileSync(join(dir, "layout.tsx"), "utf8").includes("/admin/login"),
+    );
+
+    for (const guard of guards) {
+      for (const dir of [loginDir, resetDir]) {
+        expect(
+          dir.startsWith(guard + "\\") || dir.startsWith(guard + "/"),
+          `${guard} redirects to /admin/login and also wraps ${dir}`,
+        ).toBe(false);
+      }
+    }
+    expect(guards.length).toBeGreaterThan(0);
   });
 
   it("is not wrapped by any layout that redirects to it", () => {

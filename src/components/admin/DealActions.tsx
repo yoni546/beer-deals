@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
 import { SparkIcon } from "@/components/ui/icons";
 import { Price, Saving } from "@/components/ui/Price";
-import { approveDeal, setDealStatus, setWeeklyDeal, updateDeal } from "@/lib/actions/admin";
+import { approveDeal, deleteDeal, setDealStatus, setWeeklyDeal, updateDeal } from "@/lib/actions/admin";
 import { CATEGORY_LABEL, CATEGORY_LABEL_ONE, DEAL_CATEGORIES } from "@/lib/categories";
 import { formatAgorot, formatPrice } from "@/lib/money";
 import type { AdminDeal, Beer, DealStatus, Store } from "@/lib/db/types";
@@ -35,13 +35,21 @@ export function AdminDealRow({
   stores,
   isWeekly = false,
   canFeature = false,
+  canDelete = false,
 }: {
   deal: AdminDeal;
   beers: Beer[];
   stores: Store[];
   isWeekly?: boolean;
   canFeature?: boolean;
+  /**
+   * Super admins only. "Remove from the site" keeps the record of who approved
+   * the deal and when; deleting destroys it. So it asks first, and it is not
+   * the button that falls under your thumb.
+   */
+  canDelete?: boolean;
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -128,6 +136,26 @@ export function AdminDealRow({
         >
           {editing ? "ביטול עריכה" : "עריכה"}
         </button>
+        {canDelete &&
+          (confirmingDelete ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => deleteDeal(deal.id))}
+                className="btn btn-danger"
+              >
+                כן, למחוק לצמיתות
+              </button>
+              <button type="button" onClick={() => setConfirmingDelete(false)} className="btn btn-quiet">
+                ביטול
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setConfirmingDelete(true)} className="btn btn-quiet">
+              מחיקה
+            </button>
+          ))}
         {canFeature && deal.status === "approved" && (
           <button
             type="button"

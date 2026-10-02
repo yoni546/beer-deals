@@ -26,7 +26,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!viewer.isAdmin) redirect("/admin/login");
 
   const tabs = [
-    { href: "/admin", label: "ממתינים" },
+    { href: "/admin", label: "בית" },
+    { href: "/admin/queue", label: "ממתינים" },
     { href: "/admin/reports", label: "דיווחים" },
     { href: "/admin/weekly", label: "מבצע השבוע" },
     ...(viewer.isSuperAdmin

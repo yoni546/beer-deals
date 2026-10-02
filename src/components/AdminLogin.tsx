@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/Chrome";
@@ -88,6 +89,13 @@ export function AdminLogin() {
         <button type="submit" disabled={pending} className="btn w-full">
           {pending ? "נכנסים…" : "כניסה"}
         </button>
+
+        <Link
+          href="/admin/reset"
+          className="block py-1 text-center text-sm text-ink underline underline-offset-4"
+        >
+          שכחתי את הסיסמה
+        </Link>
       </Tape>
 
       <p className="mt-6 text-center text-sm leading-relaxed text-on-ground-2">

@@ -45,3 +45,50 @@ export async function getAdminRoster() {
     .order("created_at");
   return data ?? [];
 }
+
+export type AdminOverview = {
+  people: { total: number; onboarded: number; this_week: number; notifiable: number };
+  deals: {
+    live: number;
+    pending: number;
+    added_this_week: number;
+    taken_down_this_week: number;
+    submitted_this_week: number;
+  };
+  reports: { open: number };
+  offers: { live: number; retailers: number; expiring: number };
+  notifications: { pending: number; sent_ever: number };
+  expiring_within_days: number;
+  as_of: string;
+};
+
+/**
+ * Everything the admin home shows, in one round trip.
+ *
+ * Counted by `admin_overview()` in the database rather than here, because most
+ * of it is over rows an admin deliberately cannot read — `profiles` is readable
+ * only by its owner. The function returns the numbers and never the rows.
+ */
+export async function getAdminOverview(expiringWithinDays = 7): Promise<AdminOverview | null> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_overview", {
+    p_expiring_within_days: expiringWithinDays,
+  });
+  if (error) return null;
+  return data as AdminOverview;
+}
+
+/** The offers that end soonest, so somebody can look before they vanish. */
+export async function getExpiringOffers(withinDays = 7, limit = 12) {
+  const supabase = await supabaseServer();
+  const until = new Date(Date.now() + withinDays * 86_400_000).toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("offers_feed")
+    .select("offer_key, beer_name, store_name, pack_label, effective_agorot, valid_to, scope")
+    .not("valid_to", "is", null)
+    .gte("valid_to", new Date().toISOString().slice(0, 10))
+    .lt("valid_to", until)
+    .order("valid_to", { ascending: true })
+    .limit(limit);
+  return data ?? [];
+}

@@ -154,3 +154,51 @@ export async function revokeAdmin(userId: string): Promise<ActionResult> {
   revalidateAdmin();
   return { ok: true, message: "ההרשאה הוסרה." };
 }
+
+/**
+ * An admin typing a deal in is vouching for it, so it goes up approved and
+ * attributed to them. `notify` is off by default: a hand-entered deal should not
+ * ring anyone's phone unless the admin deliberately asks for it.
+ */
+export async function addDeal(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
+  const dealAgorot = shekelsToAgorot(String(formData.get("dealPrice") ?? ""));
+  const regularAgorot = shekelsToAgorot(String(formData.get("regularPrice") ?? ""));
+
+  if (dealAgorot === null) return { ok: false, error: "מחיר המבצע לא תקין — למשל 24.90" };
+  if (regularAgorot === null) return { ok: false, error: "המחיר הרגיל לא תקין — למשל 39.90" };
+  if (dealAgorot >= regularAgorot) {
+    return { ok: false, error: "מחיר המבצע צריך להיות נמוך מהמחיר הרגיל." };
+  }
+
+  const supabase = await supabaseServer();
+  const { error } = await supabase.rpc("admin_add_deal", {
+    p_beer_id: String(formData.get("beerId") ?? ""),
+    p_store_id: String(formData.get("storeId") ?? ""),
+    p_category: String(formData.get("category") ?? "sixpack") as DealCategory,
+    p_deal_price_agorot: dealAgorot,
+    p_regular_price_agorot: regularAgorot,
+    p_notes: (formData.get("notes") as string) || null,
+    p_notify: formData.get("notify") === "on",
+  });
+
+  if (error) return { ok: false, error: describeDbError(error) };
+
+  revalidateAdmin();
+  return { ok: true, message: "המבצע נוסף ופורסם." };
+}
+
+/**
+ * Deletion, not deactivation.
+ *
+ * Taking a deal off the site keeps the record of who approved it; deleting
+ * destroys it. Super admin only, and the database refuses while a report still
+ * points at the deal.
+ */
+export async function deleteDeal(dealId: string): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase.rpc("admin_delete_deal", { p_deal_id: dealId });
+  if (error) return { ok: false, error: describeDbError(error) };
+
+  revalidateAdmin();
+  return { ok: true, message: "המבצע נמחק." };
+}
