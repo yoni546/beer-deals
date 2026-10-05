@@ -19,9 +19,11 @@ name: Daily price ingestion (STAGING)
 # GitHub only runs scheduled workflows from the default branch: this starts the day it is merged.
 
 on:
-  schedule:
-    # 04:23 UTC = 07:23 in Israel (summer) / 06:23 (winter): after the chains' early-morning full files.
-    - cron: "23 4 * * *"
+  # PAUSED (2026-10-05) while the daily write's statement timeouts are fixed: every scheduled run since
+  # 2026-09-30 failed. Restored, unchanged, once two manual runs are green.
+  # schedule:
+  #   # 04:23 UTC = 07:23 in Israel (summer) / 06:23 (winter): after the chains' early-morning full files.
+  #   - cron: "23 4 * * *"
   workflow_dispatch:
 
 permissions:
