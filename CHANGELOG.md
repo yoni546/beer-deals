@@ -22,12 +22,13 @@ Internal:
 - Flow: name → pick four → rank (new, separate step) → reveal. The save still happens once, through completeOnboarding/save_preferences, with beerIds in ranked order; the last step still appears only after a successful save and stays until the button is pressed. No schema change, no migration.
 - RankedBeers (drag by grip + arrows + announcements) extracted from FavouritesEditor and shared by Settings and onboarding. Same labels and data attributes as before.
 - Motion levels on main.ob[data-motion]: full / lite (hardwareConcurrency or deviceMemory < 4: no idle loops) / off (the in-page switch; not stored anywhere). prefers-reduced-motion lands every scene in its final state.
-- Design data: BLANK_BOTTLE (bottles.ts) for 'nobody's beer yet' and for a beer without an identity; pourFor() (themes.ts) for the beer and head colours. BottleArt's cap is its own <g class="bottle-cap">.
+- Design data: pourFor() (themes.ts) gives the beer and head colours and the kind of glass.
 - Tests: tests/e2e/onboarding.spec.ts (flow, mid-pour exit, back, reduced motion, the switch, no-identity beer, quality floor + axe in light and dark, 360×640 / 412×915 / 1280×800). e2e helper and the unit test walk the extra step; floorViolations moved to tests/e2e/helpers.ts.
 - Home arrival: cross-document view transition (globals.css @view-transition + names hero-bottle / page / tab-bar). The inline pagereveal script in the root layout adds the type from-welcome for /welcome → / and calls skipTransition() for every other page load, so nothing else in the app changes. prefers-reduced-motion: navigation none; the in-page switch skips it on pageswap.
 - Real cap: bottle-photos.json gains `cap` (fraction of height where the crown ends), measured from the cut-out's outline by scripts/lib/bottle-cutout.mjs capBottom(); scripts/measure-caps.mjs re-measures all, prepare-bottle.mjs records it for a new photo. Tuborg, Tuborg Red (pull-ring) and Leffe (foil) have none and simply pour. The photo files are unchanged.
-- Haptics (navigator.vibrate) and tilt (deviceorientation → --gyro) live in Onboarding.tsx, gated by the motion level. Pour.glass picks the glass outline. The opening bottle is a dedicated SVG (BlankBottle) using BLANK_BOTTLE colours; Blender was considered and is not installed on the build machine.
+- Haptics (navigator.vibrate) and tilt (deviceorientation → --gyro) live in Onboarding.tsx, gated by the motion level.
 - Dev note: the service worker caches /_next/static, so a running `next dev` can serve stale client chunks after an edit — unregister it in DevTools when the page and the server disagree.
+- The opening bottle is a Blender (Cycles) render of our own — scripts/render-opening-bottle.py builds it from numbers (a lathed profile, no model file, texture or brand); scripts/render-opening-bottle.mjs runs it, crops, and writes public/onboarding/{bottle,cap}.webp (40 KB + 4 KB) and src/design/opening-bottle.json. The cap is a separate piece so it can come off. It also stands in for a beer without an identity. Needs Blender only to re-render, never to build or test.
 
 ## 0.9.0 — 2026-09-30
 

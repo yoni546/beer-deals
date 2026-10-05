@@ -147,7 +147,8 @@ Onboarding is four short steps under one **stage**: the bottles themselves, stan
 (`OnboardingStage`, `src/app/welcome/onboarding.css`).
 
 - **name** — one unlabelled bottle, centre stage: lit amber glass, beaded with cold, a blank paper label
-  ruled like a receipt — nobody's beer yet. Drawn (SVG), not photographed.
+  ruled top and bottom — nobody's beer yet. A render of our own (`scripts/render-opening-bottle.mjs`,
+  Blender; built from numbers, no brand), with its crown as a separate piece.
 - **pick** — its cap comes off and it steps to the head of a line of four. Each beer chosen turns into
   place as its own real bottle; the first one chosen takes the page's colours at once.
 - **rank** — the same list as Settings (`RankedBeers`: grip or arrows), and a bottle can be carried along
@@ -164,7 +165,7 @@ Rules that keep it honest and fast:
 - **The real bottle, as photographed.** Depth is CSS perspective on the approved photo — a slow turn and a
   band of light masked by the photo's own outline. No 3D model (it would mean redrawing the label), no
   WebGL, no new dependency. A beer without a photo uses its drawn bottle; one without an identity, the
-  blank bottle.
+  unlabelled bottle.
 - **Motion never blocks.** Every button works while something is moving; the last step's button is there
   before the pour starts. Only transforms and opacity move.
 - **In the hand.** On Android a short vibration marks the cap, a choice, a change of rank and the full

@@ -110,7 +110,7 @@
 }
 /* A beer's drawn bottle is slim (it was made to be a small mark); on the stage it stands beside real
    photographs, so it is widened to a real bottle's proportions. */
-svg.ob-art:not(.ob-house) {
+svg.ob-art {
   transform: scaleX(1.42);
 }
 
@@ -190,7 +190,8 @@ svg.ob-art:not(.ob-house) {
 /* ------------------------------------------------------------- the cap comes off */
 
 .ob-blank .bottle-cap {
-  transform-box: fill-box;
+  position: absolute;
+  height: auto;
   transform-origin: 50% 100%;
 }
 .ob-stage:not([data-scene="name"]) .ob-blank .bottle-cap {
@@ -200,13 +201,13 @@ svg.ob-art:not(.ob-house) {
   0% { transform: none; opacity: 1; }
   14% { transform: translateY(8%); opacity: 1; }
   70% { opacity: 1; }
-  100% { transform: translate(-300%, -520%) rotate(-230deg); opacity: 0; }
+  100% { transform: translate(-150%, -460%) rotate(-230deg); opacity: 0; }
 }
 
 /* …and a breath of foam follows it out. Four dots, once. */
 .ob-fizz i {
   position: absolute;
-  top: 6%;
+  top: 2%;
   left: 50%;
   width: 8%;
   aspect-ratio: 1;

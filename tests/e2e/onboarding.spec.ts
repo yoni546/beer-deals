@@ -200,7 +200,8 @@ test("a beer without its own identity leads with the unlabelled bottle — never
   await toRanking(page, [NO_IDENTITY_BEER, "גולדסטאר", "מכבי", "קורונה"]);
   await expect(stage(page)).toHaveAttribute("data-bottle", "none");
   await expect(head(page)).toHaveClass(/ob-blank/);
-  await expect(head(page).locator("img")).toHaveCount(0);
+  await expect(head(page).locator("img").first()).toHaveAttribute("src", "/onboarding/bottle.webp");
+  await expect(page.locator(".ob-item img[src^='/bottles/']:not(.ob-cap)")).toHaveCount(3); // the other three are themselves
 });
 
 for (const scheme of ["light", "dark"] as const) {
