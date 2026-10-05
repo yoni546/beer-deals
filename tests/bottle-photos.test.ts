@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
-import { cutout } from "../scripts/lib/bottle-cutout.mjs";
+import { capBottom, cutout } from "../scripts/lib/bottle-cutout.mjs";
+import photos from "@/design/bottle-photos.json";
 
 /**
  * The path for a real, licensed bottle photo: the white background goes, the bottle stays exactly
@@ -105,5 +106,37 @@ describe("the real bottle photos on record", () => {
       // Small enough to load fast as a background (only favourite #1's is ever requested).
       expect(Number(photo.height), slug).toBeLessThanOrEqual(1600);
     }
+  });
+});
+
+describe("finding the crown cap in a cut-out bottle (onboarding takes the real cap off)", () => {
+  /** A silhouette: a cap `capW` wide and 30 px tall over a neck 60 px wide, on a 200 × 1000 canvas. */
+  const silhouette = (capW: number, capH = 30) => {
+    const [width, height] = [200, 1000];
+    const data = new Uint8Array(width * height * 4);
+    const fill = (x0: number, x1: number, y0: number, y1: number) => {
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) data[(y * width + x) * 4 + 3] = 255;
+    };
+    fill(100 - capW / 2, 100 + capW / 2, 0, capH);
+    fill(70, 130, capH, height);
+    return capBottom(data, width, height);
+  };
+
+  it("finds where a crown — wider than the glass under it — ends", () => {
+    expect(silhouette(80)).toBeCloseTo(0.03, 2);
+  });
+
+  it("finds nothing on a neck with no crown, or one wrapped in foil far down the neck", () => {
+    expect(silhouette(60)).toBeNull(); // no wider than the neck
+    expect(silhouette(80, 70)).toBeNull(); // 7% of the height: foil, not a cap
+  });
+
+  it("has a plausible cap on record for every photo that has one", () => {
+    for (const [slug, photo] of Object.entries(photos as Record<string, { cap?: number }>)) {
+      if (photo.cap === undefined) continue;
+      expect(photo.cap, slug).toBeGreaterThanOrEqual(0.012);
+      expect(photo.cap, slug).toBeLessThanOrEqual(0.055);
+    }
+    expect((photos as Record<string, { cap?: number }>).goldstar.cap).toBeCloseTo(0.028, 3);
   });
 });

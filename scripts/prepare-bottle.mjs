@@ -20,7 +20,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { cutout } from "./lib/bottle-cutout.mjs";
+import { capBottom, cutout } from "./lib/bottle-cutout.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -57,6 +57,8 @@ const out = await sharp(Buffer.from(cut), { raw: { width: info.width, height: in
   .resize({ height: Math.min(1600, box.height), withoutEnlargement: true })
   .webp({ quality: 86, alphaQuality: 90 })
   .toBuffer({ resolveWithObject: true });
+const final = await sharp(out.data).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+const cap = capBottom(final.data, final.info.width, final.info.height);
 
 mkdirSync(join(ROOT, "public/bottles"), { recursive: true });
 writeFileSync(join(ROOT, "public/bottles", `${slug}.webp`), out.data);
@@ -69,6 +71,7 @@ manifest[slug] = {
   height: out.info.height,
   ...provenance,
   ...extra,
+  ...(cap === null ? {} : { cap }),
   addedOn: new Date().toISOString().slice(0, 10),
 };
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");

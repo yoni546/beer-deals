@@ -79,6 +79,9 @@ export const BOTTLES = {
   // krombacher, kronenbourg, miller: the retailer catalogues show only cans and multipacks (a single bottle
   //   would have to be cut out of a pack shot, which alters the photo). Drawn stand-ins.
   // estrella: the catalogue has no image for its barcodes (HTTP 403). Drawn stand-in.
+  // Tried 2026-10-05 and rejected, so nobody repeats it: Commons "KrombacherPils.jpg" (garden fence),
+  //   "Estrella2014.jpg" (a street) and "Desperados original 25cl.jpg" (grey wall and table). None is on a
+  //   plain white background, so the cut-out leaves the scenery in.
 };
 
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(BOTTLES);
