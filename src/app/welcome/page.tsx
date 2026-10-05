@@ -4,6 +4,7 @@ import { Onboarding } from "@/components/Onboarding";
 import { Tape } from "@/components/ui/Tape";
 import { getViewer } from "@/lib/session";
 import { getBeers } from "@/lib/queries";
+import "./onboarding.css";
 
 export const dynamic = "force-dynamic";
 

@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.10.0",
+    "date": "2026-10-05",
+    "title_he": "כניסה ראשונה חדשה: הבקבוקים שלכם על הבמה",
+    "highlights_he": [
+      "ההיכרות עם האפליקציה היא עכשיו ארבעה צעדים קצרים: שם, ארבע בירות, הסדר שלהן, וסיום.",
+      "הבירות שבחרתם עומדות בשורה בראש המסך, כבקבוקים אמיתיים. הראשונה היא הגבוהה ביותר.",
+      "את הסדר קובעים בצעד נפרד, בגרירה או בחצים, והצבעים של האפליקציה מתחלפים מיד לפי הבירה הראשונה.",
+      "בסוף הבירה הראשונה מוזגת לעצמה כוס, ומשם נכנסים לאפליקציה שכבר נראית כמוה.",
+      "מי שמעדיף בלי תנועה: יש כפתור \"בלי אנימציה\", והאפליקציה מכבדת גם את ההגדרה של המכשיר."
+    ],
+    "kind": [
+      "feature",
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "No WebGL, no new dependency, no new assets: the stage (src/components/OnboardingStage.tsx + src/app/welcome/onboarding.css, loaded by /welcome only) is the approved bottle photos in CSS perspective — a slow turn, a band of light masked by the photo's own outline, a drawn cap that pops, and a pour into a drawn glass. Transforms and opacity only.",
+      "Flow: name → pick four → rank (new, separate step) → reveal. The save still happens once, through completeOnboarding/save_preferences, with beerIds in ranked order; the last step still appears only after a successful save and stays until the button is pressed. No schema change, no migration.",
+      "RankedBeers (drag by grip + arrows + announcements) extracted from FavouritesEditor and shared by Settings and onboarding. Same labels and data attributes as before.",
+      "Motion levels on main.ob[data-motion]: full / lite (hardwareConcurrency or deviceMemory < 4: no idle loops) / off (the in-page switch; not stored anywhere). prefers-reduced-motion lands every scene in its final state.",
+      "Design data: BLANK_BOTTLE (bottles.ts) for 'nobody's beer yet' and for a beer without an identity; pourFor() (themes.ts) for the beer and head colours. BottleArt's cap is its own <g class=\"bottle-cap\">.",
+      "Tests: tests/e2e/onboarding.spec.ts (flow, mid-pour exit, back, reduced motion, the switch, no-identity beer, quality floor + axe in light and dark, 360×640 / 412×915 / 1280×800). e2e helper and the unit test walk the extra step; floorViolations moved to tests/e2e/helpers.ts."
+    ]
+  },
+  {
     "version": "0.9.0",
     "date": "2026-09-30",
     "title_he": "זמינות מבצעים לפי סניף, כיסוי רחב יותר של הרשתות ובדיקה משופרת של ארגזים",

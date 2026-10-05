@@ -101,8 +101,9 @@ component (`src/design/`):
 - **Empty** is blank paper with one dotted line and a next action. **Error** is a paper jam: what
   happened, and a retry.
 - **Stale / unverified / review** is hatched paper plus words ("לא עודכן 9 ימים"), never colour alone.
-- **Motion.** One authored moment: the print-in of a strip on first paint (whole line-heights, a
-  single overshoot). Everything else is instant. Fully disabled under `prefers-reduced-motion`.
+- **Motion.** Two authored moments: the print-in of a strip on first paint (whole line-heights, a
+  single overshoot), and the first run's stage (below). Everything else is instant. Fully disabled
+  under `prefers-reduced-motion`.
 
 ## Favourite #1 is the app: the bottle on the counter
 
@@ -139,6 +140,33 @@ almost in focus (the label reads); the sides are further back. Home leaves an op
 greeting where nothing covers the hero, with a small caption ("הבירה שלכם · גולדסטאר") that links to the
 beer; onboarding's last step does the same. The tone filter still guarantees contrast for every counter
 text over any bottle pixel; a top scrim keeps the greeting calm over the label.
+
+## The first run (0.10.0)
+
+Onboarding is four short steps under one **stage**: the bottles themselves, standing on the counter
+(`OnboardingStage`, `src/app/welcome/onboarding.css`).
+
+- **name** — one unlabelled bottle (amber glass, blank paper label: nobody's beer yet), centre stage.
+- **pick** — its cap comes off and it steps to the head of a line of four. Each beer chosen turns into
+  place as its own real bottle; the first one chosen takes the page's colours at once.
+- **rank** — the same list as Settings (`RankedBeers`: grip or arrows). The line re-forms with every
+  move; #1 stands tallest, and the palette follows it.
+- **reveal** — the other three step back, #1 leans over and pours itself a glass (the beer's own colour:
+  `pourFor`), then stands beside it. Leaving, the counter rises over the screen and Home arrives on it.
+
+Rules that keep it honest and fast:
+
+- **The real bottle, as photographed.** Depth is CSS perspective on the approved photo — a slow turn and a
+  band of light masked by the photo's own outline. No 3D model (it would mean redrawing the label), no
+  WebGL, no new dependency. A beer without a photo uses its drawn bottle; one without an identity, the
+  blank bottle.
+- **Motion never blocks.** Every button works while something is moving; the last step's button is there
+  before the pour starts. Only transforms and opacity move.
+- **Three levels:** full; *lite* on a weak device (no idle loops); *off* through the "בלי אנימציה" switch
+  or the phone's reduced-motion setting, where every scene is simply in its final state. The switch is for
+  this visit only and is not a stored preference.
+- **Still one primary action per step,** minimal copy, and the stage is decorative (`aria-hidden`): the
+  steps say everything in words, and each new step takes focus at its heading.
 
 ## Calm controls (0.7.1)
 

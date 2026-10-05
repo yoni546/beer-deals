@@ -139,10 +139,10 @@ test("onboarding repaints the page — colours and bottle — as soon as beer #1
   await page.getByRole("button", { name: "ממשיכים" }).click(); // the name is optional
   const ground = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--ground").trim());
   const before = await ground();
-  await expect(page.locator(".bottle-stage[data-bottle='photo'], .bottle-stage[data-bottle='drawn']")).toHaveCount(0);
+  await expect(page.locator(".ob-stage[data-bottle='none']")).toHaveCount(1);
   await page.locator("button[aria-pressed]", { hasText: "גולדסטאר" }).first().click();
   await expect.poll(ground).not.toBe(before);
-  await expect(page.locator(".bottle-stage[data-beer='goldstar'][data-bottle='photo']")).toHaveCount(1);
+  await expect(page.locator(".ob-stage[data-beer='goldstar'][data-bottle='photo'] img[src='/bottles/goldstar.webp']")).toHaveCount(1);
 });
 
 test.describe("notification settings", () => {
