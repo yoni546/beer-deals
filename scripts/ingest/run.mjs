@@ -65,22 +65,43 @@ const plan = buildPlan(units);
 const t0 = Date.now();
 const db = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-const must = async (what, promise) => {
-  const { data, error } = await promise;
-  if (error) throw new Error(`${what}: ${error.message}`);
-  return data;
+// A statement the database cancels for its timeout (PostgREST: 8 s) was rolled back whole, so asking again is
+// safe. A busy or cold staging instance hits that limit now and then: such a call is retried after a pause.
+// Anything else — or a timeout that keeps coming back — ends the write, and the runs it started are closed as
+// failed (never left "running": a running run blocks its files from being imported again).
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const isTimeout = (error) => error?.code === "57014" || /statement timeout/.test(error?.message ?? "");
+const PAUSES = [5_000, 20_000, 60_000];
+const runs = new Map();
+async function abort(message) {
+  for (const r of runs.values()) {
+    if (r.already) continue;
+    const { error } = await db.rpc("finish_ingestion_run", { p_run_id: r.run_id, p_status: "failed", p_stats: { error: message } });
+    console.error(`${r.publisher}: run ${r.run_id} closed as failed${error ? ` (could not record it: ${error.message})` : ""}`);
+  }
+  throw new Error(message);
+}
+/** `call` makes the request (a function, so a retry sends it again). */
+const must = async (what, call) => {
+  for (let attempt = 0; ; attempt++) {
+    const { data, error } = await call();
+    if (!error) return data;
+    if (!isTimeout(error) || attempt === PAUSES.length) await abort(`${what}: ${error.message}`);
+    console.warn(`${what}: statement timeout — asking again in ${PAUSES[attempt] / 1000}s`);
+    await sleep(PAUSES[attempt]);
+  }
 };
 
 // Reference data.
-const stores = new Map((await must("stores", db.from("stores").select("id, slug"))).map((s) => [s.slug, s.id]));
-const beers = new Map((await must("beers", db.from("beers").select("id, slug, name_he"))).map((b) => [b.slug, b]));
+const stores = new Map((await must("stores", () => db.from("stores").select("id, slug"))).map((s) => [s.slug, s.id]));
+const beers = new Map((await must("beers", () => db.from("beers").select("id, slug, name_he"))).map((b) => [b.slug, b]));
 
 // 1. Branches: the inventory (every branch a Stores file lists, read or not) and every branch read.
 //    Keyed by the publisher's chain code and store number (sub-chain codes are written differently in the
 //    Stores file and the price file: "1" / "001").
 const branchIds = new Map();
 const branchKey = (b) => `${b.feed_chain_code}|${Number(b.feed_store_code)}`;
-const existingBranches = await must("branches", db.from("branches").select("id, store_id, feed_chain_code, feed_store_code").not("feed_chain_code", "is", null).limit(10000));
+const existingBranches = await must("branches", () => db.from("branches").select("id, store_id, feed_chain_code, feed_store_code").not("feed_chain_code", "is", null).limit(10000));
 for (const b of existingBranches) branchIds.set(branchKey(b), b.id);
 // One write per branch at a time (a Stores file can list a branch twice; the inventory and the files name it again).
 const inFlight = new Map();
@@ -95,18 +116,18 @@ async function writeBranch(key, retailer, b, patchRow) {
   const store_id = stores.get(retailer);
   if (!store_id) throw new Error(`unknown retailer ${retailer}`);
   if (branchIds.has(key)) {
-    await must("branch update", db.from("branches").update(patchRow).eq("id", branchIds.get(key)));
+    await must("branch update", () => db.from("branches").update(patchRow).eq("id", branchIds.get(key)));
     return branchIds.get(key);
   }
   const external_ref = `${b.feed_chain_code}-${b.feed_sub_chain_code ?? ""}-${String(Number(b.feed_store_code))}`;
-  const found = await must("branch lookup", db.from("branches").select("id").eq("store_id", store_id).in("external_ref", [external_ref, `${b.feed_chain_code}-${b.feed_sub_chain_code ?? ""}-${b.feed_store_code}`]));
+  const found = await must("branch lookup", () => db.from("branches").select("id").eq("store_id", store_id).in("external_ref", [external_ref, `${b.feed_chain_code}-${b.feed_sub_chain_code ?? ""}-${b.feed_store_code}`]));
   if (found[0]) {
     branchIds.set(key, found[0].id);
-    await must("branch update", db.from("branches").update({ ...patchRow, feed_chain_code: b.feed_chain_code, feed_store_code: String(Number(b.feed_store_code)) }).eq("id", found[0].id));
+    await must("branch update", () => db.from("branches").update({ ...patchRow, feed_chain_code: b.feed_chain_code, feed_store_code: String(Number(b.feed_store_code)) }).eq("id", found[0].id));
     return found[0].id;
   }
   const row = { store_id, external_ref, feed_chain_code: b.feed_chain_code, feed_sub_chain_code: b.feed_sub_chain_code ?? "", feed_store_code: String(Number(b.feed_store_code)), ...patchRow };
-  const id = (await must("branch insert", db.from("branches").insert(row).select("id")))[0].id;
+  const id = (await must("branch insert", () => db.from("branches").insert(row).select("id")))[0].id;
   branchIds.set(key, id);
   return id;
 }
@@ -130,7 +151,7 @@ let alreadyImported = new Set();
 if (scan && !args.includes("--reprocess")) {
   const files = [...new Set(plan.units.map((u) => u.files[0]))];
   for (let i = 0; i < files.length; i += 200) {
-    const seen = await must("imported files", db.from("branch_scans").select("branch_id, price_file").in("price_file", files.slice(i, i + 200)).in("status", ["ok", "unchanged", "no_promo_file"]));
+    const seen = await must("imported files", () => db.from("branch_scans").select("branch_id, price_file").in("price_file", files.slice(i, i + 200)).in("status", ["ok", "unchanged", "no_promo_file"]));
     for (const s of seen) alreadyImported.add(`${s.branch_id}|${s.price_file}`);
   }
 }
@@ -140,13 +161,12 @@ const isSent = (o) => sendKey.has(`${o.retailer}|${Number(o.branch.feed_store_co
 console.log(`branches in the plan ${plan.units.length} · already imported ${plan.units.length - toSend.length} · to write ${toSend.length}`);
 
 // 2. Runs: one per publisher, keyed by the hash of the files actually written.
-const runs = new Map();
 for (const publisher of [...new Set(toSend.map((u) => u.publisher))]) {
   const us = toSend.filter((u) => u.publisher === publisher);
   // One hash for the set of files (hundreds of branches do not fit an index as a joined list).
   const joined = us.map((u) => u.fileHash).sort().join(":");
   const hash = us.length === 1 ? joined : createHash("sha256").update(joined).digest("hex");
-  const started = await must(`start run ${publisher}`, db.rpc("start_ingestion_run", { p_source_slug: us[0].source, p_file_hash: hash }));
+  const started = await must(`start run ${publisher}`, () => db.rpc("start_ingestion_run", { p_source_slug: us[0].source, p_file_hash: hash }));
   runs.set(publisher, { publisher, source: us[0].source, run_id: started.run_id, already: started.already_imported });
   console.log(`${publisher}: ${started.already_imported ? "already imported — skipped" : `run ${started.run_id}`}`);
 }
@@ -160,19 +180,19 @@ const displayHe = (s) =>
 const skuIds = new Map();
 // All SKUs and chain-wide barcodes in two reads, then only what is missing is written.
 const identity = (beerId, s) => `${beerId}|${s.variant}|${s.container}|${s.volume_ml}|${s.pack_quantity}`;
-const knownSkus = new Map((await must("skus", db.from("skus").select("id, beer_id, variant, container, volume_ml, pack_quantity").limit(20000))).map((k) => [identity(k.beer_id, k), k.id]));
-const knownBarcodes = new Map((await must("barcodes", db.from("sku_barcodes").select("barcode, sku_id").is("store_id", null).limit(50000))).map((b) => [b.barcode, b.sku_id]));
+const knownSkus = new Map((await must("skus", () => db.from("skus").select("id, beer_id, variant, container, volume_ml, pack_quantity").limit(20000))).map((k) => [identity(k.beer_id, k), k.id]));
+const knownBarcodes = new Map((await must("barcodes", () => db.from("sku_barcodes").select("barcode, sku_id").is("store_id", null).limit(50000))).map((b) => [b.barcode, b.sku_id]));
 for (const s of plan.skus) {
   const beer = beers.get(s.beer);
-  if (!beer) throw new Error(`unknown beer ${s.beer}`);
+  if (!beer) await abort(`unknown beer ${s.beer}`);
   let id = knownSkus.get(identity(beer.id, s));
   if (!id) {
-    id = (await must("sku insert", db.from("skus").insert({ beer_id: beer.id, variant: s.variant, category: s.category, container: s.container, volume_ml: s.volume_ml, pack_quantity: s.pack_quantity, display_he: displayHe(s) }).select("id")))[0].id;
+    id = (await must("sku insert", () => db.from("skus").insert({ beer_id: beer.id, variant: s.variant, category: s.category, container: s.container, volume_ml: s.volume_ml, pack_quantity: s.pack_quantity, display_he: displayHe(s) }).select("id")))[0].id;
     knownSkus.set(identity(beer.id, s), id);
   }
   skuIds.set(s.key, id);
   const fresh = s.barcodes.filter((code) => !knownBarcodes.has(code));
-  if (fresh.length) await must("barcode insert", db.from("sku_barcodes").insert(fresh.map((code) => ({ sku_id: id, barcode: code, is_gtin: true }))));
+  if (fresh.length) await must("barcode insert", () => db.from("sku_barcodes").insert(fresh.map((code) => ({ sku_id: id, barcode: code, is_gtin: true }))));
   for (const code of fresh) knownBarcodes.set(code, id);
   for (const code of s.barcodes) if (knownBarcodes.get(code) !== id) console.warn(`barcode ${code} already belongs to another SKU — left as it is, review it`);
 }
@@ -191,7 +211,7 @@ for (let i = 0; i < plan.sourceProducts.length; i += 200) {
     reason: p.reason,
     last_seen_at: now,
   }));
-  await must("source products", db.from("source_products").upsert(batch, { onConflict: "feed_chain_code,item_code" }));
+  await must("source products", () => db.from("source_products").upsert(batch, { onConflict: "feed_chain_code,item_code" }));
 }
 
 // 5. Prices and single-pack promotions, through record_prices (sanity gates apply).
@@ -217,14 +237,26 @@ for (const [kind, list] of [["regular", plan.regular], ["promotions", plan.promo
     if (!active(publisher)) continue;
     const theirs = new Set(toSend.filter((u) => u.publisher === publisher).map((u) => `${u.retailer}|${Number(u.branch.feed_store_code)}`));
     const mine = list.filter((o) => theirs.has(`${o.retailer}|${Number(o.branch.feed_store_code)}`));
-    for (let i = 0; i < mine.length; i += 100) {
-      const res = await must(`record ${kind}`, db.rpc("record_prices", { p_source_slug: runs.get(publisher).source, p_items: mine.slice(i, i + 100).map(toItem), p_run_id: runs.get(publisher).run_id }));
-      written[kind].accepted += res.accepted - res.held;
-      written[kind].held += res.held;
-      written[kind].rejected += res.rejected;
-      for (const e of res.errors) written.errors.push({ kind, publisher, ...e });
-    }
+    for (let i = 0; i < mine.length; i += 100) await recordPrices(kind, publisher, mine.slice(i, i + 100).map(toItem));
   }
+}
+// A batch the database cancels for its timeout is sent again as two halves (it was rolled back whole, and each
+// row is idempotent by its content hash); a single row falls back to must()'s pauses.
+async function recordPrices(kind, publisher, items) {
+  const call = () => db.rpc("record_prices", { p_source_slug: runs.get(publisher).source, p_items: items, p_run_id: runs.get(publisher).run_id });
+  const first = await call();
+  if (first.error && isTimeout(first.error) && items.length > 1) {
+    console.warn(`record ${kind}: statement timeout on ${items.length} rows — sending them as two halves`);
+    const half = Math.ceil(items.length / 2);
+    await recordPrices(kind, publisher, items.slice(0, half));
+    await recordPrices(kind, publisher, items.slice(half));
+    return;
+  }
+  const res = first.error ? await must(`record ${kind}`, call) : first.data;
+  written[kind].accepted += res.accepted - res.held;
+  written[kind].held += res.held;
+  written[kind].rejected += res.rejected;
+  for (const e of res.errors) written.errors.push({ kind, publisher, ...e });
 }
 
 // 6. Group promotions.
@@ -233,7 +265,7 @@ for (const g of plan.groups.filter(isSent)) {
   if (!active(publisher)) continue;
   await must(
     "group promotion",
-    db.rpc("record_promotion_group", {
+    () => db.rpc("record_promotion_group", {
       p_source_slug: g.source,
       p_run_id: runs.get(publisher).run_id,
       p_group: {
@@ -274,7 +306,7 @@ if (scan) {
   }
   written.occurrences = 0;
   for (const [store, rows] of byStore) {
-    for (let i = 0; i < rows.length; i += 500) written.occurrences += await must("occurrences", db.rpc("record_promotion_occurrences", { p_store_id: store, p_rows: rows.slice(i, i + 500) }));
+    for (let i = 0; i < rows.length; i += 500) written.occurrences += await must("occurrences", () => db.rpc("record_promotion_occurrences", { p_store_id: store, p_rows: rows.slice(i, i + 500) }));
   }
 }
 
@@ -283,7 +315,7 @@ if (scan) {
   written.closed = 0;
   // Only where a promotions file was read: without one, nothing is known about the branch's promotions.
   await pool(toSend.filter((u) => u.files.length === 2), 8, async (u) => {
-    written.closed += await must("close missing", db.rpc("close_missing_promotions", { p_branch_id: branchIds.get(branchKey(u.branch)), p_observed_at: u.observedAt }));
+    written.closed += await must("close missing", () => db.rpc("close_missing_promotions", { p_branch_id: branchIds.get(branchKey(u.branch)), p_observed_at: u.observedAt }));
   });
 }
 
@@ -303,8 +335,8 @@ if (scan) {
   }
   written.scope = {};
   for (const [store, { scanId, startedAt, rows }] of byStore) {
-    for (let i = 0; i < rows.length; i += 500) await must("branch scan", db.rpc("record_branch_scan", { p_scan_id: scanId, p_store_id: store, p_scanned_at: startedAt, p_branches: rows.slice(i, i + 500) }));
-    written.scope[[...stores].find(([, id]) => id === store)[0]] = await must("scope", db.rpc("refresh_promotion_scope", { p_store_id: store }));
+    for (let i = 0; i < rows.length; i += 500) await must("branch scan", () => db.rpc("record_branch_scan", { p_scan_id: scanId, p_store_id: store, p_scanned_at: startedAt, p_branches: rows.slice(i, i + 500) }));
+    written.scope[[...stores].find(([, id]) => id === store)[0]] = await must("scope", () => db.rpc("refresh_promotion_scope", { p_store_id: store }));
   }
 }
 
@@ -314,7 +346,7 @@ for (const r of runs.values()) {
   const stats = {
     branches: plan.units.filter((u) => u.publisher === r.publisher).map((u) => ({ retailer: u.retailer, store: u.store, rows: u.rows, beer: u.beer, promo: u.promo })),
   };
-  await must("finish run", db.rpc("finish_ingestion_run", { p_run_id: r.run_id, p_status: "succeeded", p_stats: stats }));
+  await must("finish run", () => db.rpc("finish_ingestion_run", { p_run_id: r.run_id, p_status: "succeeded", p_stats: stats }));
 }
 
 // Every branch and promotion of a full scan is megabytes: that report stays beside the scan (the committed

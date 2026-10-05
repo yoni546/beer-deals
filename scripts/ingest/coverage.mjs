@@ -41,9 +41,11 @@ const svc = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE
 async function all(make) {
   const rows = [];
   for (let from = 0; ; from += 1000) {
-    // A page that hits the statement timeout while the database is busy is asked again (twice) before giving up.
+    // A page that hits the statement timeout while the database is busy is asked again (three times, after a
+    // growing pause — right after a full write the instance is still catching up) before giving up.
     let data, error;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt) await new Promise((resolve) => setTimeout(resolve, [0, 5_000, 20_000, 60_000][attempt]));
       ({ data, error } = await make().range(from, from + 999));
       if (!error || !/statement timeout/.test(error.message)) break;
     }

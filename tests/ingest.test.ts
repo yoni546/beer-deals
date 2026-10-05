@@ -341,6 +341,17 @@ describe("the daily ingestion workflow", () => {
     expect(yml).toMatch(/Ring the staging notification worker[\s\S]*?if: success\(\)/);
     expect(readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8")).toContain("process.exit(2)");
   });
+
+  it("the writer survives a statement timeout and never leaves a run 'running' when it stops", () => {
+    const run = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
+    // Every database call is passed as a function, so a timed-out (rolled-back) statement can be sent again.
+    expect(run).not.toMatch(/must\(\s*("[^"]*"|`[^`]*`),\s*db\./);
+    expect(run).toMatch(/error\?\.code === "57014"/);
+    // A price batch that times out is split rather than given up on.
+    expect(run).toMatch(/sending them as two halves/);
+    // Any failure closes the runs this write started as failed, then stops with a non-zero exit.
+    expect(run).toMatch(/async function abort[\s\S]*?finish_ingestion_run[\s\S]*?p_status: "failed"[\s\S]*?throw new Error\(message\)/);
+  });
 });
 
 describe("the production ingestion workflow", () => {
