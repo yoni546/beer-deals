@@ -5,10 +5,10 @@
     "title_he": "כניסה ראשונה חדשה: הבקבוקים שלכם על הבמה",
     "highlights_he": [
       "ההיכרות עם האפליקציה היא עכשיו ארבעה צעדים קצרים: שם, ארבע בירות, הסדר שלהן, וסיום.",
-      "הבירות שבחרתם עומדות בשורה בראש המסך, כבקבוקים אמיתיים. הראשונה היא הגבוהה ביותר.",
-      "את הסדר קובעים בצעד נפרד, בגרירה או בחצים, והצבעים של האפליקציה מתחלפים מיד לפי הבירה הראשונה.",
-      "בסוף הבירה הראשונה מוזגת לעצמה כוס, ומשם נכנסים לאפליקציה שכבר נראית כמוה.",
-      "מי שמעדיף בלי תנועה: יש כפתור \"בלי אנימציה\", והאפליקציה מכבדת גם את ההגדרה של המכשיר."
+      "הבירות שבחרתם עומדות בשורה בראש המסך, כבקבוקים אמיתיים. את הסדר קובעים בגרירה של בקבוק או של שורה, והצבעים מתחלפים מיד לפי הבירה הראשונה.",
+      "בסוף הפקק עף מהבירה הראשונה והיא מוזגת לעצמה כוס, בצבע ובכוס שמתאימים לה.",
+      "בכניסה לאפליקציה הבקבוק עובר מהבמה אל מסך הבית, והאפליקציה כבר נראית כמו הבירה שלכם.",
+      "באנדרואיד יש רטט קצר ברגעים החשובים, והבקבוק מסתובב כשמטים את הטלפון. כפתור \"בלי אנימציה\" מכבה את הכל."
     ],
     "kind": [
       "feature",
@@ -21,7 +21,11 @@
       "RankedBeers (drag by grip + arrows + announcements) extracted from FavouritesEditor and shared by Settings and onboarding. Same labels and data attributes as before.",
       "Motion levels on main.ob[data-motion]: full / lite (hardwareConcurrency or deviceMemory < 4: no idle loops) / off (the in-page switch; not stored anywhere). prefers-reduced-motion lands every scene in its final state.",
       "Design data: BLANK_BOTTLE (bottles.ts) for 'nobody's beer yet' and for a beer without an identity; pourFor() (themes.ts) for the beer and head colours. BottleArt's cap is its own <g class=\"bottle-cap\">.",
-      "Tests: tests/e2e/onboarding.spec.ts (flow, mid-pour exit, back, reduced motion, the switch, no-identity beer, quality floor + axe in light and dark, 360×640 / 412×915 / 1280×800). e2e helper and the unit test walk the extra step; floorViolations moved to tests/e2e/helpers.ts."
+      "Tests: tests/e2e/onboarding.spec.ts (flow, mid-pour exit, back, reduced motion, the switch, no-identity beer, quality floor + axe in light and dark, 360×640 / 412×915 / 1280×800). e2e helper and the unit test walk the extra step; floorViolations moved to tests/e2e/helpers.ts.",
+      "Home arrival: cross-document view transition (globals.css @view-transition + names hero-bottle / page / tab-bar). The inline pagereveal script in the root layout adds the type from-welcome for /welcome → / and calls skipTransition() for every other page load, so nothing else in the app changes. prefers-reduced-motion: navigation none; the in-page switch skips it on pageswap.",
+      "Real cap: bottle-photos.json gains `cap` (fraction of height where the crown ends), measured from the cut-out's outline by scripts/lib/bottle-cutout.mjs capBottom(); scripts/measure-caps.mjs re-measures all, prepare-bottle.mjs records it for a new photo. Tuborg, Tuborg Red (pull-ring) and Leffe (foil) have none and simply pour. The photo files are unchanged.",
+      "Haptics (navigator.vibrate) and tilt (deviceorientation → --gyro) live in Onboarding.tsx, gated by the motion level. Pour.glass picks the glass outline. The opening bottle is a dedicated SVG (BlankBottle) using BLANK_BOTTLE colours; Blender was considered and is not installed on the build machine.",
+      "Dev note: the service worker caches /_next/static, so a running `next dev` can serve stale client chunks after an edit — unregister it in DevTools when the page and the server disagree."
     ]
   },
   {

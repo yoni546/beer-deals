@@ -76,13 +76,14 @@ export const SHAPES: Record<BottleShape, ShapeGeometry> = {
  * The bottle nobody has claimed yet: amber glass and a blank paper label. Onboarding opens with it,
  * and it stands in for a beer that has no identity — never another beer's colours.
  */
-export const BLANK_BOTTLE: BottleSpec = {
-  shape: "longneck",
-  glass: "#8a4712",
-  cap: "#b9b2a3",
-  neck: "#efe9dc",
-  label: { form: "band", base: "#efe9dc", band: "#efe9dc", detail: "#d9d1c0" },
-};
+export const BLANK_BOTTLE = {
+  /** Across the glass, edge to edge: dark rim, the lit side, beer glowing through, the far rim. */
+  glass: ["#4f2306", "#8a4712", "#c0701f", "#a85a18", "#74390d", "#421d05"],
+  label: "#f1ebdd",
+  labelShade: "#cfc6b2",
+  cap: "#c4bdae",
+  capShade: "#8f887a",
+} as const;
 
 /** The same colour, lighter or darker by `dL` in OKLab lightness (hue and chroma kept). */
 export function shade(hex: string, dL: number): string {

@@ -142,7 +142,7 @@ test("onboarding repaints the page — colours and bottle — as soon as beer #1
   await expect(page.locator(".ob-stage[data-bottle='none']")).toHaveCount(1);
   await page.locator("button[aria-pressed]", { hasText: "גולדסטאר" }).first().click();
   await expect.poll(ground).not.toBe(before);
-  await expect(page.locator(".ob-stage[data-beer='goldstar'][data-bottle='photo'] img[src='/bottles/goldstar.webp']")).toHaveCount(1);
+  await expect(page.locator(".ob-stage[data-beer='goldstar'][data-bottle='photo'] img:not(.ob-cap)[src='/bottles/goldstar.webp']")).toHaveCount(1);
 });
 
 test.describe("notification settings", () => {

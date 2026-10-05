@@ -146,13 +146,18 @@ text over any bottle pixel; a top scrim keeps the greeting calm over the label.
 Onboarding is four short steps under one **stage**: the bottles themselves, standing on the counter
 (`OnboardingStage`, `src/app/welcome/onboarding.css`).
 
-- **name** — one unlabelled bottle (amber glass, blank paper label: nobody's beer yet), centre stage.
+- **name** — one unlabelled bottle, centre stage: lit amber glass, beaded with cold, a blank paper label
+  ruled like a receipt — nobody's beer yet. Drawn (SVG), not photographed.
 - **pick** — its cap comes off and it steps to the head of a line of four. Each beer chosen turns into
   place as its own real bottle; the first one chosen takes the page's colours at once.
-- **rank** — the same list as Settings (`RankedBeers`: grip or arrows). The line re-forms with every
-  move; #1 stands tallest, and the palette follows it.
-- **reveal** — the other three step back, #1 leans over and pours itself a glass (the beer's own colour:
-  `pourFor`), then stands beside it. Leaving, the counter rises over the screen and Home arrives on it.
+- **rank** — the same list as Settings (`RankedBeers`: grip or arrows), and a bottle can be carried along
+  the line itself. The line re-forms with every move; #1 stands tallest, and the palette follows it.
+- **reveal** — the other three step back, #1's real cap comes off (the photo shown as two pieces, split
+  where `scripts/measure-caps.mjs` found the crown), it leans over and pours itself a glass — the beer's
+  own colour in its own kind of glass (`pourFor`: pint, wheat-beer glass, stout tulip) — then stands beside it.
+- **Home** — where the browser supports cross-document view transitions, the bottle travels from the stage
+  to its place on Home's counter and the page rises in around it. That is the only animated navigation in
+  the app (the layout's `pagereveal` script skips every other). Elsewhere the counter rises over the screen.
 
 Rules that keep it honest and fast:
 
@@ -162,6 +167,9 @@ Rules that keep it honest and fast:
   blank bottle.
 - **Motion never blocks.** Every button works while something is moving; the last step's button is there
   before the pour starts. Only transforms and opacity move.
+- **In the hand.** On Android a short vibration marks the cap, a choice, a change of rank and the full
+  glass, and tipping the phone turns #1's bottle (`deviceorientation`; no permission prompt, so not on iOS).
+  Both are part of the motion and stop with it.
 - **Three levels:** full; *lite* on a weak device (no idle loops); *off* through the "בלי אנימציה" switch
   or the phone's reduced-motion setting, where every scene is simply in its final state. The switch is for
   this visit only and is not a stored preference.

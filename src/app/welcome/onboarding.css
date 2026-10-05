@@ -15,7 +15,10 @@
   --u: min(1vw, 0.3rem);
   --b: min(36svh, calc(76 * var(--u)));
   --pour-time: 3s;
-  --pour-delay: 0.55s;
+  /* Things fly on this page (a cap, a tipped bottle); none of it may make the page scroll sideways. */
+  overflow-x: clip;
+  /* The cap comes off first; then the pour. */
+  --pour-delay: 0.9s;
 }
 
 .ob-stage {
@@ -97,7 +100,7 @@
 .ob-turn {
   position: relative;
   /* A bottle arrives by turning into place. */
-  animation: ob-turn-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: ob-turn-in 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .ob-art {
   display: block;
@@ -105,9 +108,9 @@
   height: 100%;
   overflow: visible;
 }
-/* A drawn bottle is slim (it was made to be a small mark); on the stage it stands beside real
+/* A beer's drawn bottle is slim (it was made to be a small mark); on the stage it stands beside real
    photographs, so it is widened to a real bottle's proportions. */
-svg.ob-art {
+svg.ob-art:not(.ob-house) {
   transform: scaleX(1.42);
 }
 
@@ -144,8 +147,15 @@ svg.ob-art {
    round bottle, not a flat photograph. Only at full motion. */
 .ob[data-motion="full"] .ob-item[data-rank="0"] .ob-turn {
   animation:
-    ob-turn-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    ob-turn-in 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
     ob-sway 9s ease-in-out 700ms infinite;
+}
+/* On a phone that reports how it is held, the bottle follows the hand instead (--gyro, in degrees,
+   is set by Onboarding.tsx): tip the phone and you look around the glass. */
+.ob[data-motion="full"][data-gyro] .ob-item[data-rank="0"] .ob-turn {
+  animation: ob-turn-in 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transform: rotateY(calc(var(--gyro, 0) * 1deg));
+  transition: transform 140ms linear;
 }
 @keyframes ob-sway {
   0%, 100% { transform: rotateY(0deg); }
@@ -190,7 +200,7 @@ svg.ob-art {
   0% { transform: none; opacity: 1; }
   14% { transform: translateY(8%); opacity: 1; }
   70% { opacity: 1; }
-  100% { transform: translate(-520%, -760%) rotate(-230deg); opacity: 0; }
+  100% { transform: translate(-300%, -520%) rotate(-230deg); opacity: 0; }
 }
 
 /* …and a breath of foam follows it out. Four dots, once. */
@@ -214,7 +224,48 @@ svg.ob-art {
   100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -900%) scale(1); }
 }
 
+/* --------------------------------------------------------- a hand on the line */
+
+/* Ranking: a bottle can be picked up and carried along the line. The line re-forms around it. */
+.ob-stage[data-scene="rank"] .ob-item:not(.ob-empty) {
+  cursor: grab;
+  touch-action: none;
+}
+.ob-tilt {
+  transition: transform 200ms ease;
+}
+.ob-item[data-dragging] {
+  cursor: grabbing;
+}
+.ob-item[data-dragging] .ob-tilt {
+  transform: translateY(-5%) scale(1.07);
+}
+
 /* ------------------------------------------------------------------ the pour */
+
+/* First the real cap comes off the real bottle: the photo is shown twice, once without its top
+   (--cap, measured from the photo's outline by scripts/measure-caps.mjs) and once as only its top,
+   and that piece flies. Nothing is redrawn. A bottle without a plain crown simply pours. */
+.ob-cap {
+  position: absolute;
+  inset: 0;
+  display: none;
+  clip-path: inset(0 0 calc(100% - var(--cap)) 0);
+  transform-origin: 50% calc(var(--cap) / 2);
+}
+.ob-stage[data-scene="reveal"] .ob-item[data-rank="0"] .ob-body {
+  clip-path: inset(calc(var(--cap) - 0.5px) 0 0 0);
+}
+.ob-stage[data-scene="reveal"] .ob-item[data-rank="0"] .ob-cap {
+  display: block;
+  animation: ob-cap-off 640ms cubic-bezier(0.2, 0.8, 0.3, 1) 260ms both;
+}
+@keyframes ob-cap-off {
+  0% { transform: none; opacity: 1; }
+  14% { transform: translateY(0.5%); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(-75%, -17%) rotate(-230deg); opacity: 0; }
+}
 
 /* #1 lifts, leans over the glass and pours; the glass fills and grows a head; the bottle sets
    itself down again. One timeline (--pour-time), four parts reading the same clock. Turned 105°
@@ -248,6 +299,15 @@ svg.ob-art {
 }
 .ob-stage[data-scene="reveal"] .ob-stream i {
   animation: ob-stream var(--pour-time) linear var(--pour-delay) both;
+}
+/* A poured stream is never perfectly even. */
+.ob[data-motion="full"] .ob-stage[data-scene="reveal"] .ob-stream i {
+  animation:
+    ob-stream var(--pour-time) linear var(--pour-delay) both,
+    ob-wobble 170ms ease-in-out infinite alternate;
+}
+@keyframes ob-wobble {
+  to { scale: 0.62 1; }
 }
 @keyframes ob-stream {
   0%, 22% { transform: translateY(-101%); }
@@ -294,7 +354,7 @@ svg.ob-art {
 }
 @keyframes ob-fill {
   0%, 26% { transform: translateY(140px); }
-  71%, 100% { transform: translateY(40px); }
+  71%, 100% { transform: translateY(44px); }
 }
 .ob-head {
   transform-box: fill-box;
@@ -330,6 +390,11 @@ svg.ob-art {
   mask-image: linear-gradient(to bottom, black calc(100% - 1.75rem), transparent);
 }
 
+/* A step's heading takes focus when the step opens (so a screen reader starts there); it is not a
+   control, so it shows no ring. */
+.ob h2:focus-visible {
+  outline: none;
+}
 .ob-panel {
   animation: ob-panel-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -338,7 +403,14 @@ svg.ob-art {
   to { opacity: 1; transform: none; }
 }
 
-/* Leaving for the app: the counter rises like a poured glass, head first, and the home page arrives
+/* Leaving for the app, where the browser can do it (cross-document view transitions): #1's bottle
+   does not disappear — it travels from the stage to its place on Home's counter. The other half of
+   this is in globals.css. */
+.ob-stage[data-scene="reveal"] .ob-item[data-rank="0"] .ob-turn {
+  view-transition-name: hero-bottle;
+}
+
+/* Everywhere else, and underneath: the counter rises like a poured glass, head first, and the home page arrives
    on the same counter. Runs while the next page loads; it delays nothing. */
 .ob-flood {
   position: fixed;

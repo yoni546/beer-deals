@@ -9,7 +9,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290006764072/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290006764072",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.028
   },
   "heineken": {
     "src": "/bottles/heineken.webp",
@@ -21,7 +22,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290010237890/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290010237890",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.029
   },
   "carlsberg": {
     "src": "/bottles/carlsberg.webp",
@@ -33,7 +35,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290002871361/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290002871361",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.041
   },
   "maccabee": {
     "src": "/bottles/maccabee.webp",
@@ -45,7 +48,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290005896439/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290005896439",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.028
   },
   "tuborg": {
     "src": "/bottles/tuborg.webp",
@@ -81,7 +85,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290019398288/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290019398288",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.033
   },
   "guinness": {
     "src": "/bottles/guinness.webp",
@@ -93,7 +98,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/5000213000359/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "5000213000359",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.034
   },
   "budweiser": {
     "src": "/bottles/budweiser.webp",
@@ -105,7 +111,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/5410228267508/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "5410228267508",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.036
   },
   "becks": {
     "src": "/bottles/becks.webp",
@@ -117,7 +124,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/42149996/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "42149996",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.042
   },
   "leffe": {
     "src": "/bottles/leffe.webp",
@@ -141,7 +149,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/4066600611028/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "4066600611028",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.032
   },
   "weihen": {
     "src": "/bottles/weihen.webp",
@@ -153,7 +162,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/4105120623941/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "4105120623941",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.032
   },
   "erdinger": {
     "src": "/bottles/erdinger.webp",
@@ -165,7 +175,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/4002103250487/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "4002103250487",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.035
   },
   "malka": {
     "src": "/bottles/malka.webp",
@@ -177,7 +188,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290012921025/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290012921025",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.031
   },
   "shapiro": {
     "src": "/bottles/shapiro.webp",
@@ -189,7 +201,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290014056015/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290014056015",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.04
   },
   "alexander": {
     "src": "/bottles/alexander.webp",
@@ -201,7 +214,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290013430083/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290013430083",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.036
   },
   "negev": {
     "src": "/bottles/negev.webp",
@@ -213,7 +227,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290013276124/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290013276124",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.028
   },
   "corona": {
     "src": "/bottles/corona.webp",
@@ -224,7 +239,8 @@
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
     "sourceUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Corona%20Extra%20beer%20bottle%20(2019).png?width=1600",
     "sourceName": "Wikimedia Commons",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.037
   },
   "eagle": {
     "src": "/bottles/eagle.webp",
@@ -236,7 +252,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290006764096/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290006764096",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.032
   },
   "staropramen": {
     "src": "/bottles/staropramen.webp",
@@ -248,7 +265,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/8593868000302/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "8593868000302",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.036
   },
   "chouffe": {
     "src": "/bottles/chouffe.webp",
@@ -260,7 +278,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/5410769100081/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "5410769100081",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.038
   },
   "kasteel": {
     "src": "/bottles/kasteel.webp",
@@ -272,7 +291,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/5411081003654/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "5411081003654",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.049
   },
   "hoegaarden": {
     "src": "/bottles/hoegaarden.webp",
@@ -284,7 +304,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/7290019398295/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "7290019398295",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.038
   },
   "franziskaner": {
     "src": "/bottles/franziskaner.webp",
@@ -296,7 +317,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/4072700003649/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "4072700003649",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.035
   },
   "blue-moon": {
     "src": "/bottles/blue-moon.webp",
@@ -308,7 +330,8 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/5010038454831/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "5010038454831",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.037
   },
   "benediktiner": {
     "src": "/bottles/benediktiner.webp",
@@ -320,6 +343,7 @@
     "sourceUrl": "https://img.rami-levy.co.il/product/4052197000017/large.jpg",
     "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
     "barcode": "4052197000017",
-    "addedOn": "2026-09-29"
+    "addedOn": "2026-09-29",
+    "cap": 0.029
   }
 }

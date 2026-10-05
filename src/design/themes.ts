@@ -167,6 +167,8 @@ export type BottlePhoto = {
   sourceUrl?: string;
   sourceName?: string;
   barcode?: string;
+  /** Where the crown cap ends, as a fraction of the height (scripts/measure-caps.mjs); absent = no plain crown. */
+  cap?: number;
 };
 
 const PHOTOS = photos as Record<string, BottlePhoto>;
@@ -181,11 +183,11 @@ export const identityFor = (slug: string | null | undefined): BeerIdentity => (s
  * What comes out of the bottle when onboarding pours it: the beer and its head. A lager gold unless
  * the beer is plainly something else (a stout is not golden; a wheat beer is hazy and pale).
  */
-export type Pour = { beer: string; foam: string };
+export type Pour = { beer: string; foam: string; glass: "pint" | "weizen" | "tulip" };
 
-const LAGER: Pour = { beer: "#dfa32b", foam: "#f7f0dd" };
-const WHEAT: Pour = { beer: "#e6b955", foam: "#f8f3e4" };
-const POURS: Record<string, Pour> = { guinness: { beer: "#1d120b", foam: "#e6d3ad" } };
+const LAGER: Pour = { beer: "#dfa32b", foam: "#f7f0dd", glass: "pint" };
+const WHEAT: Pour = { beer: "#e6b955", foam: "#f8f3e4", glass: "weizen" };
+const POURS: Record<string, Pour> = { guinness: { beer: "#1d120b", foam: "#e6d3ad", glass: "tulip" } };
 
 export const pourFor = (slug: string | null | undefined): Pour =>
   (slug && POURS[slug]) || (identityFor(slug).bottle?.shape === "wheat" ? WHEAT : LAGER);

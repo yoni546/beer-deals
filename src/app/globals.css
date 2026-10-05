@@ -357,6 +357,55 @@ svg.bottle-art {
   }
 }
 
+/* ------------------------------------------------------ arriving from onboarding */
+
+/* The first arrival on Home, straight from onboarding: #1's bottle travels from the stage it was
+   chosen on to its place on the counter, and the page rises in around it. That is the one navigation
+   that is animated — the script in the root layout tags it (from-welcome) and skips every other.
+   Browsers without cross-document view transitions just load the page. */
+@view-transition {
+  navigation: auto;
+}
+:root:active-view-transition-type(from-welcome) .bottle-hero {
+  view-transition-name: hero-bottle;
+}
+/* Named so they are drawn over the travelling bottle, as they are on the page. */
+:root:active-view-transition-type(from-welcome) main {
+  view-transition-name: page;
+}
+:root:active-view-transition-type(from-welcome) body > nav {
+  view-transition-name: tab-bar;
+}
+::view-transition-group(hero-bottle) {
+  animation-duration: 780ms;
+  /* Eases out of the stage as well as into the counter, so the journey is seen, not just its end. */
+  animation-timing-function: cubic-bezier(0.5, 0, 0.2, 1);
+}
+::view-transition-old(hero-bottle),
+::view-transition-new(hero-bottle) {
+  height: 100%;
+  animation-duration: 780ms;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+}
+::view-transition-new(page),
+::view-transition-new(tab-bar) {
+  animation: page-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) 280ms both;
+}
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
 /* ---------------------------------------------------------------- the stage */
 
 /* On Home, the open stretch of counter under the greeting where the hero bottle's label shows. Its

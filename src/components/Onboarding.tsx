@@ -23,7 +23,7 @@ const SCENES: Scene[] = ["name", "pick", "rank", "reveal"];
  * Choosing and ranking are separate on purpose. Choosing is tapping: quick, reachable with a
  * screen reader, and the order of the taps is a first guess at the ranking. Ranking is the same
  * list Settings uses (RankedBeers: drag by the grip, or the arrows), with the line of bottles above
- * following every move.
+ * following every move — and a bottle can be carried along the line itself.
  *
  * Whoever is #1 becomes the app straight away — the tallest bottle on the stage, and the page takes
  * its colours. That is the product rule ("favourite #1 is the app") shown instead of explained. The
@@ -64,12 +64,61 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
     if ((device.deviceMemory ?? 8) < 4 || (device.hardwareConcurrency ?? 8) < 4) setMotion("lite");
   }, []);
 
+  // A tick in the hand where the phone can give one (Android): the cap, a choice, a change of rank,
+  // the glass filling. Part of the motion, so the same switch silences it.
+  const buzz = (pattern: number | number[]) => {
+    if (motion !== "off" && "vibrate" in navigator) navigator.vibrate(pattern);
+  };
+  useEffect(() => {
+    if (scene !== "reveal" || motion === "off" || !("vibrate" in navigator)) return;
+    // The same clock as the pour in onboarding.css: the cap leaves, then the glass is full.
+    const cap = setTimeout(() => navigator.vibrate(10), 320);
+    const full = setTimeout(() => navigator.vibrate([12, 60, 18]), 3050);
+    return () => {
+      clearTimeout(cap);
+      clearTimeout(full);
+    };
+  }, [scene, motion]);
+
+  // Tip the phone and #1's bottle turns with it (where the phone reports how it is held without
+  // being asked — Android; elsewhere the bottle keeps its own slow turn).
+  const root = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (motion !== "full" || !el) return;
+    let frame = 0;
+    const onTilt = (event: DeviceOrientationEvent) => {
+      if (event.gamma == null) return;
+      const degrees = Math.max(-14, Math.min(14, event.gamma * 0.6));
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        el.dataset.gyro = "";
+        el.style.setProperty("--gyro", degrees.toFixed(1));
+      });
+    };
+    window.addEventListener("deviceorientation", onTilt);
+    return () => {
+      window.removeEventListener("deviceorientation", onTilt);
+      cancelAnimationFrame(frame);
+      delete el.dataset.gyro;
+    };
+  }, [motion]);
+
+  // With the motion switched off, the bottle does not fly to Home either (see globals.css).
+  useEffect(() => {
+    if (motion !== "off") return;
+    const onSwap = (event: Event) => (event as Event & { viewTransition?: { skipTransition(): void } }).viewTransition?.skipTransition();
+    window.addEventListener("pageswap", onSwap);
+    return () => window.removeEventListener("pageswap", onSwap);
+  }, [motion]);
+
   // A new step starts at its heading, for a keyboard and a screen reader alike.
   const heading = useRef<HTMLHeadingElement>(null);
-  const firstScene = useRef(true);
+  const shown = useRef(scene);
   useEffect(() => {
-    if (firstScene.current) firstScene.current = false;
-    else heading.current?.focus();
+    if (shown.current === scene) return;
+    shown.current = scene;
+    heading.current?.focus();
   }, [scene]);
 
   // Back from the app into a page the browser kept in memory: the exit cover must not still be down.
@@ -82,6 +131,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
   }, []);
 
   function toggle(beer: Beer) {
+    buzz(8);
     setPicked((current) => {
       const at = current.findIndex((b) => b.id === beer.id);
       // Removing one closes the gap, so the remaining ranks stay 1,2,3 with no hole to explain.
@@ -91,6 +141,11 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
     });
   }
 
+  function move(from: number, to: number) {
+    buzz(8);
+    setPicked((current) => moveItem(current, from, to));
+  }
+
   const greeting = name.trim() ? `אהלן, ${name.trim()}` : "אהלן";
 
   return (
@@ -98,6 +153,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
       // Choosing and ranking scroll their own list, so the stage and the button stay where they are.
       className={`ob mx-auto flex w-full max-w-[30rem] flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${scene === "pick" || scene === "rank" ? "h-dvh" : "min-h-dvh"}`}
       data-motion={motion}
+      ref={root}
     >
       <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center">
         <div>
@@ -135,13 +191,14 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
         </button>
       </header>
 
-      <OnboardingStage scene={scene} picked={picked} />
+      <OnboardingStage scene={scene} picked={picked} onMove={move} />
 
       {scene === "name" && (
         <form
           className="ob-panel flex flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
+            buzz(12);
             setStep(2);
           }}
         >
@@ -218,10 +275,10 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
           <h2 ref={heading} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold text-on-ground outline-none">
             מי במקום הראשון?
           </h2>
-          <p className="mt-1 mb-2 text-sm text-on-ground-2">הראשונה היא האפליקציה שלכם: המראה וההתראות.</p>
+          <p className="mt-1 mb-2 text-sm text-on-ground-2">גררו בקבוק או שורה. הראשונה היא האפליקציה שלכם.</p>
 
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
-            <RankedBeers beers={picked} onMove={(from, to) => setPicked((current) => moveItem(current, from, to))} />
+            <RankedBeers beers={picked} onMove={move} />
           </div>
 
           <form action={submit} className="shrink-0 space-y-2 pt-4">
