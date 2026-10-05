@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { inventoryPatch, withoutBlanks } from "../scripts/ingest/lib/branches.mjs";
 import { kindOf, parseFileName } from "../scripts/ingest/lib/files.mjs";
 import { audienceOf, checkPrice, classify, inForce, isGtin, israelTime, parsePack, readPromotion, reconcileBarcodes, variantOf } from "../scripts/ingest/lib/normalize.mjs";
 import { discountedPrices, withDiscountedPrices } from "../scripts/ingest/lib/promo-supplement.mjs";
@@ -307,10 +308,38 @@ describe("publishers and their branches", () => {
 
 describe("the dry run cannot write", () => {
   it("imports no database client, reads no keys and opens no connection", () => {
-    for (const file of ["scripts/ingest/dry-run.mjs", "scripts/ingest/lib/normalize.mjs", "scripts/ingest/lib/files.mjs", "scripts/ingest/lib/promo-supplement.mjs", "scripts/ingest/lib/plan.mjs", "scripts/ingest/lib/report.mjs", "scripts/ingest/lib/publishers.mjs", "scripts/ingest/lib/stores-file.mjs", "scripts/ingest/make-fixtures.mjs"]) {
+    for (const file of ["scripts/ingest/dry-run.mjs", "scripts/ingest/lib/normalize.mjs", "scripts/ingest/lib/files.mjs", "scripts/ingest/lib/promo-supplement.mjs", "scripts/ingest/lib/plan.mjs", "scripts/ingest/lib/report.mjs", "scripts/ingest/lib/publishers.mjs", "scripts/ingest/lib/stores-file.mjs", "scripts/ingest/lib/branches.mjs", "scripts/ingest/make-fixtures.mjs"]) {
       const src = readFileSync(join(__dirname, "..", file), "utf8");
       expect(src, file).not.toMatch(/@supabase|createClient|SERVICE_ROLE|SUPABASE_|process\.env|fetch\(|\.rpc\(/);
     }
+  });
+});
+
+describe("a scan without a Stores file (Fresh Market) keeps what is known about its branches", () => {
+  const at = "2026-10-05T04:50:00.000Z";
+
+  it("with a Stores file read, writes the branch's name, place and whether the file lists it", () => {
+    expect(inventoryPatch({ name: "פרשמרקט גליל ים", city: "הרצליה", address: "" }, { at, storesFileRead: true })).toEqual({
+      name_he: "פרשמרקט גליל ים", city: "הרצליה", listed_in_stores_file: true, source_listed_at: at,
+    });
+    // Listed in price files but not in the Stores file that WAS read: that is real evidence.
+    expect(inventoryPatch({ name: "", notInStoresFile: true }, { at, storesFileRead: true })).toEqual({ listed_in_stores_file: false, source_listed_at: at });
+  });
+
+  it("without one, a branch known only from its price file changes nothing: no blank name, no 'not listed'", () => {
+    expect(inventoryPatch({ name: "", city: "", address: "", notInStoresFile: true }, { at, storesFileRead: false })).toEqual({});
+  });
+
+  it("never sends an empty value to overwrite a stored one", () => {
+    expect(withoutBlanks({ name_he: null, city: undefined, address: "", last_seen_at: at })).toEqual({ last_seen_at: at });
+  });
+
+  it("the writer uses it for every branch it writes, and skips an update with nothing in it", () => {
+    const run = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
+    expect(run).toContain("inventoryPatch(b, { at, storesFileRead })");
+    expect(run).toContain("...withoutBlanks({ name_he: u.branch.name_he");
+    expect(run).toContain('if (Object.keys(patchRow).length) await must("branch update"');
+    expect(run).not.toContain("name_he: b.name || null");
   });
 });
 

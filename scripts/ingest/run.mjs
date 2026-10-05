@@ -27,6 +27,7 @@ import { createClient } from "@supabase/supabase-js";
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inventoryPatch, withoutBlanks } from "./lib/branches.mjs";
 import { buildPlan, loadDay, loadScan } from "./lib/plan.mjs";
 import { renderReport } from "./lib/report.mjs";
 import { loadTarget } from "./lib/target.mjs";
@@ -116,7 +117,7 @@ async function writeBranch(key, retailer, b, patchRow) {
   const store_id = stores.get(retailer);
   if (!store_id) throw new Error(`unknown retailer ${retailer}`);
   if (branchIds.has(key)) {
-    await must("branch update", () => db.from("branches").update(patchRow).eq("id", branchIds.get(key)));
+    if (Object.keys(patchRow).length) await must("branch update", () => db.from("branches").update(patchRow).eq("id", branchIds.get(key)));
     return branchIds.get(key);
   }
   const external_ref = `${b.feed_chain_code}-${b.feed_sub_chain_code ?? ""}-${String(Number(b.feed_store_code))}`;
@@ -136,14 +137,14 @@ async function pool(items, limit, work) {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => { while (next < items.length) { const i = next++; await work(items[i]); } }));
 }
 if (scan) {
-  const inventory = scan.publishers.flatMap((e) => (e.inventory ?? []).map((b) => ({ publisher: e.publisher, chain: e.chainCode, at: e.startedAt ?? scan.startedAt, b })));
-  await pool(inventory, 8, ({ chain, at, b }) =>
-    upsertBranch(b.retailer, { feed_chain_code: chain, feed_sub_chain_code: b.subChain || "", feed_store_code: b.store }, {
-      name_he: b.name || null, city: b.city || null, address: b.address || null, listed_in_stores_file: !b.notInStoresFile, source_listed_at: at,
-    }),
+  // Without a Stores file (Fresh Market lists none; a cold runner has no earlier copy) a branch is known only
+  // from its price file: nothing empty overwrites what is stored (lib/branches.mjs).
+  const inventory = scan.publishers.flatMap((e) => (e.inventory ?? []).map((b) => ({ chain: e.chainCode, at: e.startedAt ?? scan.startedAt, storesFileRead: Boolean(e.storesFile), b })));
+  await pool(inventory, 8, ({ chain, at, storesFileRead, b }) =>
+    upsertBranch(b.retailer, { feed_chain_code: chain, feed_sub_chain_code: b.subChain || "", feed_store_code: b.store }, inventoryPatch(b, { at, storesFileRead })),
   );
 }
-await pool(plan.units, 8, (u) => upsertBranch(u.retailer, u.branch, { last_seen_at: u.observedAt, name_he: u.branch.name_he, city: u.branch.city, address: u.branch.address }));
+await pool(plan.units, 8, (u) => upsertBranch(u.retailer, u.branch, { last_seen_at: u.observedAt, ...withoutBlanks({ name_he: u.branch.name_he, city: u.branch.city, address: u.branch.address }) }));
 
 // Incremental: a branch whose newest price file was already imported is not sent again.
 // --reprocess: send every branch again (after a change to the rules); replays of identical rows are no-ops.
