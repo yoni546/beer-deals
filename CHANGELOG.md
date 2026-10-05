@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.9.1 — 2026-10-05
+
+**ארגזים הם ארגזים של בקבוקים** · Fix
+
+- תחת "ארגזים" מופיעים רק ארגזים של בקבוקים, למשל 24 בקבוקים של 330 מ״ל או 20 של 500 מ״ל.
+- מגש של 24 פחיות הוא מארז, והוא מופיע תחת "שישיות" בשם "מארז 24".
+- ארגז מופיע תחת "ארגזים" גם כשאין עליו מבצע, עם המחיר הרגיל שלו.
+
+Internal:
+
+- src/lib/offer-logic.ts: classOfPack({pack_quantity, container}) replaces classOfQuantity — 'case' (bottle crate) only for 12+ units in BOTTLES; cans of any count and packs of unknown container are 'small_multipack' (multipack). Identifiers unchanged (?pack=case stays valid). packNameHe(quantity, container): 24 cans = 'מארז 24'. Manual/legacy deals labelled ארגז stay crates. No schema change.
+- Production audit 2026-10-05: one genuine bottle crate (Stella 24×330, regular price only, one chain); Carlsberg 24×500 cans moves from ארגזים to שישיות. supabase/seed/dev-catalog.sql (sample data only): Goldstar 24×330 is now bottles.
+- Admin: /admin/queue renders AddDealForm (it was imported but never rendered in 0.9.0, so deals could not be added by hand). New tests: tests/admin-rpcs.test.ts (admin_overview / admin_add_deal / admin_delete_deal authorization, notify default off, delete refused with an open report) and tests/e2e/admin.spec.ts.
+
 ## 0.9.0 — 2026-09-30
 
 **זמינות מבצעים לפי סניף, כיסוי רחב יותר של הרשתות ובדיקה משופרת של ארגזים** · Feature, Data

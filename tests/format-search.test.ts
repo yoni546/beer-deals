@@ -50,7 +50,8 @@ describe("packs", () => {
     // The real count, always: a four is a רביעייה and an eight a שמינייה — never a שישייה.
     expect(packText({ ...can, pack_quantity: 4, container: "bottle" })).toBe("רביעייה · 4×330 מ״ל · בקבוק");
     expect(packText({ ...can, pack_quantity: 8, volume_ml: 500 })).toBe("שמינייה · 8×500 מ״ל · פחית");
-    expect(packText({ ...can, pack_quantity: 24 })).toBe("ארגז · 24×330 מ״ל · פחית");
+    expect(packText({ ...can, pack_quantity: 24, container: "bottle" })).toBe("ארגז · 24×330 מ״ל · בקבוק");
+    expect(packText({ ...can, pack_quantity: 24 })).toBe("מארז 24 · 24×330 מ״ל · פחית"); // cans: never a ארגז
     expect(packText({ ...can, container: "other" })).toBe("שישייה · 6×330 מ״ל"); // the chain did not say
     expect(packText({ ...can, pack_quantity: 1, container: "bottle" })).toBe("330 מ״ל · בקבוק");
     expect(packText({ ...can, volume_ml: 1500, pack_quantity: 1 })).toBe("1.5 ל׳ · פחית");

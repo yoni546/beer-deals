@@ -9,7 +9,8 @@ import { getViewer } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 /**
- * The queue. Pending first, because that is the only list with work in it.
+ * The queue. Pending first, because that is the only list with work in it. Above it, collapsed, the
+ * occasional job: adding a deal by hand (AddDealForm).
  */
 export default async function AdminQueuePage() {
   const [pending, approved, beers, stores, viewer] = await Promise.all([
@@ -22,6 +23,8 @@ export default async function AdminQueuePage() {
 
   return (
     <div className="space-y-10">
+      <AddDealForm beers={beers} stores={stores} />
+
       <AdminSection
         title={
           <>
