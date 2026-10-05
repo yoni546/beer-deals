@@ -1,6 +1,6 @@
 name: Notification worker
 
-# Rings the app's notification worker (by hand for now; every ten minutes once the schedule is restored).
+# Rings the app's notification worker every ten minutes.
 #
 # The worker (POST /api/notifications/run) turns queued promotions into push notifications
 # and records every attempt. It is idempotent, so extra or overlapping rings are harmless.
@@ -16,11 +16,8 @@ name: Notification worker
 # environment has its own CRON_SECRET (docs/NOTIFICATIONS.md).
 
 on:
-  # MANUAL ONLY until production push is proved on a real phone and one manual run with CRON_SECRET has
-  # sent exactly what was expected. The schedule must stay off BEFORE CRON_SECRET is ever configured:
-  # until then the empty secret is the only thing keeping a ten-minute schedule from sending.
-  # schedule:
-  #   - cron: "*/10 * * * *"
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions: {}

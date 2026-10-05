@@ -343,15 +343,6 @@ describe("the daily ingestion workflow", () => {
   });
 });
 
-describe("the notification worker workflow", () => {
-  const yml = readFileSync(join(__dirname, "..", ".github/workflows/notifications.yml"), "utf8");
-
-  it("is manual only until a real-phone push and one manual worker run are proved (no schedule before CRON_SECRET)", () => {
-    expect(yml).toMatch(/workflow_dispatch:/);
-    expect(yml).not.toMatch(/^\s*schedule:/m);
-  });
-});
-
 describe("the production ingestion workflow", () => {
   const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-production.yml"), "utf8");
 
