@@ -6,6 +6,16 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.10.2 — 2026-10-06
+
+**עמודי מבצעים מהירים יותר** · Fix
+
+- עמודי הרשתות והבירות נטענים מהר יותר, גם כשיש הרבה סניפים ומחירים.
+
+Internal:
+
+- Migration 0022: offers_ranked's reference regular price found by two one-row probes of the new partial index price_obs_live_regular (sku, store, branch, observed_at desc, id desc) INCLUDE (price_agorot, source_id) WHERE kind='regular' AND status='live', instead of reading every branch's price of the pack and sorting. Same rows as 0018 (except all both ways on staging: 13,728 rows; tests/offers-reference.test.ts). Staging, warm, as the public: Rami Levy 0.42 → 0.22 s, Shufersal 1.7 → 0.46 s, Victory 0.30 → 0.14 s, a beer page 2.36 → 0.89 s; buffers 467k → 43k. Rollback: supabase/rollback/0022_offers_reference_probe.down.sql.
+
 ## 0.10.1 — 2026-10-06
 
 **ארגזים הם ארגזים של בקבוקים** · Fix, Data
