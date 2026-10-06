@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { FEEDS_TAG } from "@/lib/offers";
 import { supabaseServer } from "@/lib/supabase/server";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
 import { runNotifications } from "@/lib/push/run";
@@ -17,6 +18,8 @@ import type { AdminLevel, DealStatus, ReportStatus } from "@/lib/db/types";
 function revalidateAdmin() {
   revalidatePath("/admin", "layout");
   revalidatePath("/", "layout");
+  // The shared whole-feed reads (src/lib/offers.ts) show a moderated deal at once, not after five minutes.
+  revalidateTag(FEEDS_TAG);
 }
 
 export async function approveDeal(dealId: string): Promise<ActionResult> {
