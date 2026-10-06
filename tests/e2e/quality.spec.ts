@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { NO_IDENTITY_BEER, addBeerWithoutIdentity, onboard, resetDb, seedRealCatalog } from "./helpers";
+import { NO_IDENTITY_BEER, addBeerWithoutIdentity, floorViolations, onboard, resetDb, seedRealCatalog } from "./helpers";
 
 /**
  * The quality floor for every screen, checked in a real browser at both phone widths:
@@ -29,53 +29,6 @@ test.beforeAll(async () => {
   await seedRealCatalog();
   await addBeerWithoutIdentity();
 });
-
-type Finding = string;
-
-/** Runs in the page. Returns human-readable descriptions of everything that breaks the floor. */
-async function floorViolations(page: Page): Promise<Finding[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    const describe = (el: Element, why: string) => {
-      const r = el.getBoundingClientRect();
-      const text = (el.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
-      return `${why}: <${el.tagName.toLowerCase()}> "${text}" ${Math.round(r.width)}×${Math.round(r.height)}`;
-    };
-    const visible = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      if (r.width <= 1 || r.height <= 1) return false; // sr-only and collapsed
-      const style = getComputedStyle(el);
-      return style.visibility !== "hidden" && style.display !== "none";
-    };
-
-    if (document.documentElement.scrollWidth > window.innerWidth + 1) {
-      out.push(`sideways scroll: page is ${document.documentElement.scrollWidth}px wide in a ${window.innerWidth}px window`);
-    }
-
-    const controls = document.querySelectorAll(
-      "a[href], button, summary, select, textarea, [role=button], input:not([type=hidden]):not([type=radio]):not([type=checkbox])",
-    );
-    for (const el of controls) {
-      if (!visible(el)) continue;
-      if (el.closest("nextjs-portal, [data-nextjs-toast]")) continue; // the dev-server overlay is not ours
-      if (el.closest("details:not([open])") && el.tagName !== "SUMMARY") continue;
-      const r = el.getBoundingClientRect();
-      if (r.height < 43.5 || r.width < 43.5) out.push(describe(el, "touch target under 44px"));
-    }
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    const seen = new Set<Element>();
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const el = node.parentElement;
-      if (!el || seen.has(el) || !(node.textContent ?? "").trim() || !visible(el)) continue;
-      seen.add(el);
-      if (el.closest("nextjs-portal, script, style")) continue;
-      const size = parseFloat(getComputedStyle(el).fontSize);
-      if (size < 11.99) out.push(describe(el, `text at ${size}px`));
-    }
-    return out;
-  });
-}
 
 test("no screen scrolls sideways, every control is a real touch target, no text is under 12px", async ({ page }) => {
   await onboard(page);

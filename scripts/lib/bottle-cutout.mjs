@@ -69,3 +69,38 @@ export function cutout(rgba, width, height, { tolerance = 30 } = {}) {
   const box = maxX < 0 ? null : { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
   return { data, box };
 }
+
+/**
+ * Where a cut-out bottle's crown cap ends, as a fraction of the image's height — or null when the
+ * silhouette shows no plain crown (a pull-ring, a foil-wrapped neck). Read from the outline alone:
+ * a crown is the widest thing near the top, and the glass under it is narrower. Onboarding uses it
+ * to take the real cap off the real photo; nothing is redrawn.
+ */
+export function capBottom(data, width, height) {
+  const rowWidth = (y) => {
+    let left = -1;
+    let right = -1;
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] > 128) {
+        if (left === -1) left = x;
+        right = x;
+      }
+    }
+    return left === -1 ? 0 : right - left + 1;
+  };
+  const limit = Math.round(height * 0.09);
+  let widest = 0;
+  let widestAt = 0;
+  for (let y = 0; y < Math.round(height * 0.05); y++) {
+    const w = rowWidth(y);
+    if (w >= widest) [widest, widestAt] = [w, y];
+  }
+  for (let y = widestAt + 1; y < limit; y++) {
+    if (rowWidth(y) < widest * 0.9) {
+      const at = y / height;
+      // Under 1.2% is noise; over 5.5% is foil running down the neck, which is not a cap to take off.
+      return at >= 0.012 && at <= 0.055 ? Math.round(at * 1000) / 1000 : null;
+    }
+  }
+  return null;
+}

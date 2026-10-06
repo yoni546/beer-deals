@@ -83,10 +83,12 @@ export function BottleArt({ spec, idPrefix, className = "", style }: { spec: Bot
       {/* Rim light: the glass edge catches the light, so even dark glass reads as a bottle on a dark counter */}
       <path d={g.outline} fill="none" stroke={shade(spec.glass, 0.32)} strokeWidth="3.5" opacity="0.9" />
 
-      {/* Crown cap */}
-      <rect x={capX} y={g.cap.y} width={g.cap.w} height={g.cap.h} rx="5" fill={spec.cap} />
-      <rect x={capX} y={g.cap.y + g.cap.h - 7} width={g.cap.w} height="7" fill={shade(spec.cap, -0.1)} />
-      <rect x={capX + 6} y={g.cap.y + 4} width="6" height={g.cap.h - 12} rx="3" fill="#fff" opacity="0.28" />
+      {/* Crown cap (its own group: onboarding pops it off) */}
+      <g className="bottle-cap">
+        <rect x={capX} y={g.cap.y} width={g.cap.w} height={g.cap.h} rx="5" fill={spec.cap} />
+        <rect x={capX} y={g.cap.y + g.cap.h - 7} width={g.cap.w} height="7" fill={shade(spec.cap, -0.1)} />
+        <rect x={capX + 6} y={g.cap.y + 4} width="6" height={g.cap.h - 12} rx="3" fill="#fff" opacity="0.28" />
+      </g>
     </svg>
   );
 }

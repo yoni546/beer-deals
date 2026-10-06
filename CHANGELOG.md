@@ -6,19 +6,29 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
-## 0.9.1 — 2026-10-05
+## 0.10.0 — 2026-10-05
 
-**ארגזים הם ארגזים של בקבוקים** · Fix
+**כניסה ראשונה חדשה: הבקבוקים שלכם על הבמה** · Feature, Design
 
-- תחת "ארגזים" מופיעים רק ארגזים של בקבוקים, למשל 24 בקבוקים של 330 מ״ל או 20 של 500 מ״ל.
-- מגש של 24 פחיות הוא מארז, והוא מופיע תחת "שישיות" בשם "מארז 24".
-- ארגז מופיע תחת "ארגזים" גם כשאין עליו מבצע, עם המחיר הרגיל שלו.
+- ההיכרות עם האפליקציה היא עכשיו ארבעה צעדים קצרים: שם, ארבע בירות, הסדר שלהן, וסיום.
+- הבירות שבחרתם עומדות בשורה בראש המסך, כבקבוקים אמיתיים. את הסדר קובעים בגרירה של בקבוק או של שורה, והצבעים מתחלפים מיד לפי הבירה הראשונה.
+- בסוף הפקק עף מהבירה הראשונה והיא מוזגת לעצמה כוס, בצבע ובכוס שמתאימים לה.
+- בכניסה לאפליקציה הבקבוק עובר מהבמה אל מסך הבית, והאפליקציה כבר נראית כמו הבירה שלכם.
+- באנדרואיד יש רטט קצר ברגעים החשובים, והבקבוק מסתובב כשמטים את הטלפון. כפתור "בלי אנימציה" מכבה את הכל.
 
 Internal:
 
-- src/lib/offer-logic.ts: classOfPack({pack_quantity, container}) replaces classOfQuantity — 'case' (bottle crate) only for 12+ units in BOTTLES; cans of any count and packs of unknown container are 'small_multipack' (multipack). Identifiers unchanged (?pack=case stays valid). packNameHe(quantity, container): 24 cans = 'מארז 24'. Manual/legacy deals labelled ארגז stay crates. No schema change.
-- Production audit 2026-10-05: one genuine bottle crate (Stella 24×330, regular price only, one chain); Carlsberg 24×500 cans moves from ארגזים to שישיות. supabase/seed/dev-catalog.sql (sample data only): Goldstar 24×330 is now bottles.
-- Admin: /admin/queue renders AddDealForm (it was imported but never rendered in 0.9.0, so deals could not be added by hand). New tests: tests/admin-rpcs.test.ts (admin_overview / admin_add_deal / admin_delete_deal authorization, notify default off, delete refused with an open report) and tests/e2e/admin.spec.ts.
+- No WebGL, no new dependency, no new assets: the stage (src/components/OnboardingStage.tsx + src/app/welcome/onboarding.css, loaded by /welcome only) is the approved bottle photos in CSS perspective — a slow turn, a band of light masked by the photo's own outline, a drawn cap that pops, and a pour into a drawn glass. Transforms and opacity only.
+- Flow: name → pick four → rank (new, separate step) → reveal. The save still happens once, through completeOnboarding/save_preferences, with beerIds in ranked order; the last step still appears only after a successful save and stays until the button is pressed. No schema change, no migration.
+- RankedBeers (drag by grip + arrows + announcements) extracted from FavouritesEditor and shared by Settings and onboarding. Same labels and data attributes as before.
+- Motion levels on main.ob[data-motion]: full / lite (hardwareConcurrency or deviceMemory < 4: no idle loops) / off (the in-page switch; not stored anywhere). prefers-reduced-motion lands every scene in its final state.
+- Design data: pourFor() (themes.ts) gives the beer and head colours and the kind of glass.
+- Tests: tests/e2e/onboarding.spec.ts (flow, mid-pour exit, back, reduced motion, the switch, no-identity beer, quality floor + axe in light and dark, 360×640 / 412×915 / 1280×800). e2e helper and the unit test walk the extra step; floorViolations moved to tests/e2e/helpers.ts.
+- Home arrival: cross-document view transition (globals.css @view-transition + names hero-bottle / page / tab-bar). The inline pagereveal script in the root layout adds the type from-welcome for /welcome → / and calls skipTransition() for every other page load, so nothing else in the app changes. prefers-reduced-motion: navigation none; the in-page switch skips it on pageswap.
+- Real cap: bottle-photos.json gains `cap` (fraction of height where the crown ends), measured from the cut-out's outline by scripts/lib/bottle-cutout.mjs capBottom(); scripts/measure-caps.mjs re-measures all, prepare-bottle.mjs records it for a new photo. Tuborg, Tuborg Red (pull-ring) and Leffe (foil) have none and simply pour. The photo files are unchanged.
+- Haptics (navigator.vibrate) and tilt (deviceorientation → --gyro) live in Onboarding.tsx, gated by the motion level.
+- Dev note: the service worker caches /_next/static, so a running `next dev` can serve stale client chunks after an edit — unregister it in DevTools when the page and the server disagree.
+- The opening bottle is a Blender (Cycles) render of our own — scripts/render-opening-bottle.py builds it from numbers (a lathed profile, no model file, texture or brand); scripts/render-opening-bottle.mjs runs it, crops, and writes public/onboarding/{bottle,cap}.webp (40 KB + 4 KB) and src/design/opening-bottle.json. The cap is a separate piece so it can come off. It also stands in for a beer without an identity. Needs Blender only to re-render, never to build or test.
 
 ## 0.9.0 — 2026-09-30
 

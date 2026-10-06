@@ -1,0 +1,13 @@
+{
+  "bottle": {
+    "src": "/onboarding/bottle.webp",
+    "width": 319,
+    "height": 1200
+  },
+  "cap": {
+    "src": "/onboarding/cap.webp",
+    "left": 0.217,
+    "top": 0,
+    "width": 0.572
+  }
+}

@@ -35,6 +35,7 @@ async function rankFourBeers(user: ReturnType<typeof userEvent.setup>) {
   for (const name of ["אלפא", "בטא", "גמא", "דלתא"]) {
     await user.click(screen.getByRole("button", { name, pressed: false }));
   }
+  await user.click(screen.getByRole("button", { name: "לדירוג" }));
 }
 
 describe("onboarding (B-06 / B-07)", () => {
