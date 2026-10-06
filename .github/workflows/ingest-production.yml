@@ -126,12 +126,10 @@ jobs:
 
       - name: Notification baseline (initial population only)
         if: inputs.initial_population
-        env:
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
 
       - name: Notifications still queued
         if: success() && !inputs.initial_population
-        env:
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF"
 
       - name: Save the scan cache
