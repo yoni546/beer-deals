@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.10.4",
+    "date": "2026-10-06",
+    "title_he": "הקשחת אבטחה",
+    "highlights_he": [
+      "חיזקנו את ההגנה על פעולות של מנהלים ושל משתמשים מחוברים. שום דבר לא משתנה בשימוש באפליקציה."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": false,
+    "internal": [
+      "Migration 0023: EXECUTE revoked from PUBLIC/anon on admin_update_deal, approve_deal, grant_admin, resolve_report, revoke_admin, save_preferences, save_push_subscription, set_deal_status, set_weekly_deal, update_notification_settings (authenticated keeps it; each function already refused inside). Found by the production security audit 2026-10-06. tests/function-grants.test.ts."
+    ]
+  },
+  {
     "version": "0.10.3",
     "date": "2026-10-06",
     "title_he": "הדף הראשי ועמודי הרשתות והבירות נפתחים מהר יותר",

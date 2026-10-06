@@ -6,6 +6,16 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.10.4 — 2026-10-06 (internal)
+
+**הקשחת אבטחה** · Fix
+
+- חיזקנו את ההגנה על פעולות של מנהלים ושל משתמשים מחוברים. שום דבר לא משתנה בשימוש באפליקציה.
+
+Internal:
+
+- Migration 0023: EXECUTE revoked from PUBLIC/anon on admin_update_deal, approve_deal, grant_admin, resolve_report, revoke_admin, save_preferences, save_push_subscription, set_deal_status, set_weekly_deal, update_notification_settings (authenticated keeps it; each function already refused inside). Found by the production security audit 2026-10-06. tests/function-grants.test.ts.
+
 ## 0.10.3 — 2026-10-06
 
 **הדף הראשי ועמודי הרשתות והבירות נפתחים מהר יותר** · Fix
