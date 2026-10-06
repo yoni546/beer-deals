@@ -1,10 +1,15 @@
-name: Price ingestion (PRODUCTION, manual)
+name: Price ingestion (PRODUCTION)
 
 # Scans every branch of the supported chains (scripts/ingest/scan.mjs, read-only) and writes the result to the
 # PRODUCTION database (scripts/ingest/run.mjs --target production). docs/PRODUCTION-HANDOFF-YONI.md §N.
 #
-# MANUAL ONLY: there is no schedule. Actions → "Price ingestion (PRODUCTION, manual)" → Run workflow.
-# A schedule is added only after manual runs have been proved (handoff §N), in a separate reviewed change.
+# Daily at 05:17 UTC — GitHub's cron is UTC, so in Israel that is 08:17 in summer (IDT, UTC+3, until the last
+# Sunday of October) and 07:17 in winter (IST, UTC+2): after the chains' early-morning full files and the
+# staging run (04:23 UTC). Enabled 2026-10-06 after successful manual production runs on separate days
+# (2026-10-01, 2026-10-06). Also by hand: Actions → "Price ingestion (PRODUCTION)" → Run workflow.
+#
+# A scheduled run has no typed ref: it uses the production ref written below (job env CONFIRM_REF), and the
+# first step still proves the PRODUCTION_SUPABASE_URL secret points at exactly that project, never staging.
 #
 # Needs these repository secrets (Settings → Secrets and variables → Actions). They are PRODUCTION values,
 # never the STAGING_* ones. Without them the run FAILS on its first step and writes nothing:
@@ -21,6 +26,8 @@ name: Price ingestion (PRODUCTION, manual)
 #     the notification baseline (scripts/ingest/baseline-notifications.mjs), so the first import tells nobody.
 
 on:
+  schedule:
+    - cron: "17 5 * * *"
   workflow_dispatch:
     inputs:
       confirm_ref:
@@ -51,12 +58,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 180
+    env:
+      # Typed by hand on a manual run; the recorded production project on a scheduled one.
+      CONFIRM_REF: ${{ github.event_name == 'schedule' && 'itpyyexhmvosxcbcagvy' || inputs.confirm_ref }}
     steps:
       - name: Check the production secrets and the typed project ref
         env:
           URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
           KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
-          CONFIRM_REF: ${{ inputs.confirm_ref }}
         run: |
           if [ -z "$URL" ] || [ -z "$KEY" ]; then
             echo "::error::PRODUCTION_SUPABASE_URL / PRODUCTION_SUPABASE_SERVICE_ROLE_KEY are not set. Nothing was written. See docs/PRODUCTION-HANDOFF-YONI.md §N."
@@ -104,7 +113,6 @@ jobs:
         env:
           URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
           KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
-          CONFIRM_REF: ${{ inputs.confirm_ref }}
           PUBLISHERS: ${{ inputs.publishers }}
         run: |
           umask 077
@@ -119,13 +127,11 @@ jobs:
       - name: Notification baseline (initial population only)
         if: inputs.initial_population
         env:
-          CONFIRM_REF: ${{ inputs.confirm_ref }}
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
 
       - name: Notifications still queued
         if: success() && !inputs.initial_population
         env:
-          CONFIRM_REF: ${{ inputs.confirm_ref }}
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF"
 
       - name: Save the scan cache

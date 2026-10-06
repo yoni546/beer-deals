@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { inventoryPatch, withoutBlanks } from "../scripts/ingest/lib/branches.mjs";
 import { kindOf, parseFileName } from "../scripts/ingest/lib/files.mjs";
+import { KNOWN_PRODUCTION_REFS, STAGING_REF } from "../scripts/ingest/lib/target.mjs";
 import { audienceOf, checkPrice, classify, inForce, isGtin, israelTime, packagingOf, parsePack, readPromotion, reconcileBarcodes, variantOf } from "../scripts/ingest/lib/normalize.mjs";
 import { discountedPrices, withDiscountedPrices } from "../scripts/ingest/lib/promo-supplement.mjs";
 import { PUBLISHERS } from "../scripts/ingest/lib/publishers.mjs";
@@ -395,13 +396,32 @@ describe("the notification worker workflow", () => {
 describe("the production ingestion workflow", () => {
   const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-production.yml"), "utf8");
 
-  it("is manual only, one run at a time, and reads only PRODUCTION_* secrets", () => {
-    expect(yml).toMatch(/on:\s*\n\s*workflow_dispatch:/);
-    expect(yml).not.toMatch(/^\s*schedule:/m);
+  it("runs once a day at 05:17 UTC and by hand, one run at a time, and reads only PRODUCTION_* secrets", () => {
+    expect(yml).toMatch(/on:\s*\n\s*schedule:\s*\n\s*- cron: "17 5 \* \* \*"\s*\n\s*workflow_dispatch:/);
+    expect(yml.match(/- cron:/g)).toHaveLength(1);
+    // The comment states the Israeli time for BOTH halves of the year — a UTC cron is not one local time.
+    expect(yml).toMatch(/08:17 in summer[\s\S]*07:17 in winter/);
     expect(yml).toMatch(/concurrency:\s*\n\s*group: ingest-production\s*\n\s*cancel-in-progress: false/);
     const secrets = [...yml.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]);
     expect(secrets.length).toBeGreaterThan(0);
     expect(secrets.every((s) => s.startsWith("PRODUCTION_"))).toBe(true);
+  });
+
+  it("a scheduled run targets exactly the known production project — never staging — and is still proved against the secret", () => {
+    const scheduledRef = yml.match(/CONFIRM_REF: \$\{\{ github\.event_name == 'schedule' && '([a-z]{20})' \|\| inputs\.confirm_ref \}\}/)?.[1];
+    expect(scheduledRef).toBe(KNOWN_PRODUCTION_REFS[0]);
+    expect(scheduledRef).not.toBe(STAGING_REF);
+    // One definition, at job level: every step (check, write, baseline) uses the same ref.
+    expect(yml.match(/CONFIRM_REF: \$\{\{/g)).toHaveLength(1);
+    expect(yml).not.toMatch(/CONFIRM_REF: \$\{\{ inputs\.confirm_ref \}\}/);
+    expect(yml).toMatch(/"https:\/\/\$\{CONFIRM_REF\}\.supabase\.co"[\s\S]*?\*\) echo "::error::The typed ref does not match PRODUCTION_SUPABASE_URL\. Nothing was written\."; exit 1/);
+  });
+
+  it("the staging workflow can never reach production", () => {
+    const staging = readFileSync(join(__dirname, "..", ".github/workflows/ingest-staging.yml"), "utf8");
+    for (const ref of KNOWN_PRODUCTION_REFS) expect(staging).not.toContain(ref);
+    expect(staging).not.toMatch(/secrets\.PRODUCTION_|--target production/);
+    expect(yml).not.toMatch(/secrets\.STAGING_|--target staging/);
   });
 
   it("fails (not skips) without its secrets, refuses the staging ref, and passes the typed ref to the writer", () => {
