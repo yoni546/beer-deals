@@ -91,6 +91,19 @@ describe("quiet hours (Israel local time)", () => {
     expect(isQuietHour(at("2026-09-29T20:00:00Z"), 5, 5)).toBe(false);
   });
 
+  it("the notification schedule's edge runs (37 5-19 * * * UTC): a run inside quiet hours defers, never sends", () => {
+    // Summer (IDT, UTC+3): the last run, 19:37 UTC, is 22:37 in Israel — quiet: it must not send.
+    expect(israelHour(at("2026-10-06T19:37:00Z"))).toBe(22);
+    expect(decide(offer, person, settings, at("2026-10-06T19:37:00Z"))).toEqual({ action: "defer" });
+    // Summer: the first run, 05:37 UTC, is 08:37 — quiet hours are over: it sends.
+    expect(decide(offer, person, settings, at("2026-10-07T05:37:00Z"))).toEqual({ action: "send" });
+    // Winter (IST, UTC+2): the first run, 05:37 UTC, is 07:37 — still quiet: it must not send …
+    expect(israelHour(at("2026-11-15T05:37:00Z"))).toBe(7);
+    expect(decide(offer, person, settings, at("2026-11-15T05:37:00Z"))).toEqual({ action: "defer" });
+    // … and the last run, 19:37 UTC, is 21:37 — before quiet hours: it sends.
+    expect(decide(offer, person, settings, at("2026-11-15T19:37:00Z"))).toEqual({ action: "send" });
+  });
+
   it("follows Israel's clock in winter too (UTC+2)", () => {
     expect(israelHour(at("2026-01-15T20:00:00Z"))).toBe(22);
     expect(isQuietHour(at("2026-01-15T20:00:00Z"), 22, 8)).toBe(true);

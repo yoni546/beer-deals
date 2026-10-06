@@ -1,6 +1,6 @@
 name: Notification worker
 
-# Rings the app's notification worker (by hand for now; every ten minutes once the schedule is restored).
+# Rings the app's notification worker: hourly at :37 from 05:00 to 19:00 UTC, and by hand.
 #
 # The worker (POST /api/notifications/run) turns queued promotions into push notifications
 # and records every attempt. It is idempotent, so extra or overlapping rings are harmless.
@@ -16,11 +16,14 @@ name: Notification worker
 # environment has its own CRON_SECRET (docs/NOTIFICATIONS.md).
 
 on:
-  # MANUAL ONLY until production push is proved on a real phone and one manual run with CRON_SECRET has
-  # sent exactly what was expected. The schedule must stay off BEFORE CRON_SECRET is ever configured:
-  # until then the empty secret is the only thing keeping a ten-minute schedule from sending.
-  # schedule:
-  #   - cron: "*/10 * * * *"
+  # Enabled after (2026-10-06): a real-phone push on production (OnePlus, Chrome, FCM), the 374 queued
+  # events baselined, CRON_SECRET set, and one manual run that sent nothing old (events 0, sent 0).
+  # New events appear only after an import (daily, 05:17 UTC) or an admin approval, so hourly is enough —
+  # 15 runs a day instead of 144. GitHub cron is UTC: 08:37–22:37 in Israel in summer (IDT), 07:37–21:37 in
+  # winter (IST). The worker itself defers during quiet hours (22:00–08:00 Israel), caps 2 a day per person
+  # and keeps a 20-hour cooldown, so a run inside quiet hours sends nothing.
+  schedule:
+    - cron: "37 5-19 * * *"
   workflow_dispatch:
 
 permissions: {}

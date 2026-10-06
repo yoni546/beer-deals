@@ -387,9 +387,12 @@ describe("the daily ingestion workflow", () => {
 describe("the notification worker workflow", () => {
   const yml = readFileSync(join(__dirname, "..", ".github/workflows/notifications.yml"), "utf8");
 
-  it("is manual only until a real-phone push and one manual worker run are proved (no schedule before CRON_SECRET)", () => {
+  it("runs hourly at :37 from 05:00 to 19:00 UTC (not every ten minutes) and by hand, its local times stated for both seasons", () => {
     expect(yml).toMatch(/workflow_dispatch:/);
-    expect(yml).not.toMatch(/^\s*schedule:/m);
+    expect(yml.match(/- cron:/g)).toHaveLength(1);
+    expect(yml).toContain('- cron: "37 5-19 * * *"');
+    expect(yml).not.toContain("*/10");
+    expect(yml).toMatch(/in summer \(IDT\)[\s\S]*winter \(IST\)/);
   });
 });
 
