@@ -29,23 +29,23 @@ $$;
 -- SKUs. The key "beer|container|volume|pack" is only used inside this file.
 -- --------------------------------------------------------------------------
 
-insert into public.skus (beer_id, container, volume_ml, pack_quantity, display_he)
-select b.id, v.container::public.container_type, v.ml, v.pack, v.label
+insert into public.skus (beer_id, container, volume_ml, pack_quantity, display_he, packaging)
+select b.id, v.container::public.container_type, v.ml, v.pack, v.label, v.packaging
   from (values
-    ('goldstar',  'can',    330, 6,  'גולדסטאר 6×330 מ״ל פחית'),
-    ('goldstar',  'can',    500, 6,  'גולדסטאר 6×500 מ״ל פחית'),
-    ('goldstar',  'bottle', 330, 6,  'גולדסטאר 6×330 מ״ל בקבוק'),
-    ('goldstar',  'bottle', 330, 24, 'גולדסטאר 24×330 מ״ל בקבוק'),
-    ('maccabee',  'can',    330, 6,  'מכבי 6×330 מ״ל פחית'),
-    ('maccabee',  'can',    500, 6,  'מכבי 6×500 מ״ל פחית'),
-    ('heineken',  'can',    330, 6,  'היינקן 6×330 מ״ל פחית'),
-    ('heineken',  'bottle', 330, 6,  'היינקן 6×330 מ״ל בקבוק'),
-    ('corona',    'bottle', 330, 6,  'קורונה 6×330 מ״ל בקבוק'),
-    ('tuborg',    'can',    500, 6,  'טובורג 6×500 מ״ל פחית'),
-    ('carlsberg', 'can',    500, 4,  'קרלסברג 4×500 מ״ל פחית')
-  ) as v(slug, container, ml, pack, label)
+    ('goldstar',  'can',    330, 6,  'גולדסטאר 6×330 מ״ל פחית', null),
+    ('goldstar',  'can',    500, 6,  'גולדסטאר 6×500 מ״ל פחית', null),
+    ('goldstar',  'bottle', 330, 6,  'גולדסטאר 6×330 מ״ל בקבוק', null),
+    ('goldstar',  'bottle', 330, 24, 'גולדסטאר ארגז 24×330 מ״ל בקבוק', 'bottle_crate'),
+    ('maccabee',  'can',    330, 6,  'מכבי 6×330 מ״ל פחית', null),
+    ('maccabee',  'can',    500, 6,  'מכבי 6×500 מ״ל פחית', null),
+    ('heineken',  'can',    330, 6,  'היינקן 6×330 מ״ל פחית', null),
+    ('heineken',  'bottle', 330, 6,  'היינקן 6×330 מ״ל בקבוק', null),
+    ('corona',    'bottle', 330, 6,  'קורונה 6×330 מ״ל בקבוק', null),
+    ('tuborg',    'can',    500, 6,  'טובורג 6×500 מ״ל פחית', null),
+    ('carlsberg', 'can',    500, 4,  'קרלסברג 4×500 מ״ל פחית', null)
+  ) as v(slug, container, ml, pack, label, packaging)
   join public.beers b on b.slug = v.slug
-on conflict (beer_id, variant, container, volume_ml, pack_quantity) do nothing;
+on conflict (beer_id, variant, container, volume_ml, pack_quantity, packaging) do nothing;
 
 -- --------------------------------------------------------------------------
 -- Regular prices (agorot for the whole pack), seen an hour ago.

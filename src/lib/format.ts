@@ -1,4 +1,4 @@
-import type { ContainerType, Offer } from "@/lib/db/types";
+import type { ContainerType, Offer, Packaging } from "@/lib/db/types";
 import { classOfPack } from "@/lib/offer-logic";
 
 /**
@@ -78,12 +78,13 @@ const PACK_NAME_HE: Record<number, string> = { 2: "זוג", 3: "שלישייה",
 
 /**
  * What a pack of N is called on an Israeli shelf. The real count, always: a four-pack is a רביעייה and
- * an eight a שמינייה, even though both are listed under "שישיות". Twelve or more BOTTLES is a ארגז (a crate);
- * 24 cans are a מארז 24, never a ארגז (src/lib/offer-logic.ts, classOfPack). A single has no pack word.
+ * an eight a שמינייה, even though both are listed under "שישיות". Only a bottle crate (packaging
+ * 'bottle_crate', on evidence) is a ארגז; 24 cans or a carton of 24 bottles are a מארז 24 (src/lib/
+ * offer-logic.ts, classOfPack). A single has no pack word.
  */
-export function packNameHe(quantity: number, container: ContainerType | null = null): string | null {
+export function packNameHe(quantity: number, packaging: Packaging | null = null): string | null {
   if (quantity <= 1) return null;
-  if (classOfPack({ pack_quantity: quantity, container }) === "case") return "ארגז";
+  if (classOfPack({ pack_quantity: quantity, packaging }) === "case") return "ארגז";
   return PACK_NAME_HE[quantity] ?? `מארז ${quantity}`;
 }
 
@@ -93,11 +94,11 @@ export function packNameHe(quantity: number, container: ContainerType | null = n
  * "0.0 · רביעייה · 4×330 מ״ל · בקבוק"): two variants in the same can are two different products.
  * Legacy deals only know a category.
  */
-export function packText(offer: Pick<Offer, "volume_ml" | "pack_quantity" | "container" | "pack_label"> & { variant?: string | null }): string {
+export function packText(offer: Pick<Offer, "volume_ml" | "pack_quantity" | "container" | "pack_label"> & { variant?: string | null; packaging?: Packaging | null }): string {
   if (!offer.volume_ml || !offer.pack_quantity) return offer.pack_label;
   const size = offer.pack_quantity > 1 ? `${offer.pack_quantity}×${volumeHe(offer.volume_ml)}` : volumeHe(offer.volume_ml);
   const container = offer.container ? CONTAINER_HE[offer.container] : "";
-  return [offer.variant || "", packNameHe(offer.pack_quantity, offer.container) ?? "", size, container].filter(Boolean).join(" · ");
+  return [offer.variant || "", packNameHe(offer.pack_quantity, offer.packaging ?? null) ?? "", size, container].filter(Boolean).join(" · ");
 }
 
 export type ConditionChip = { label: string; kind: "multi" | "club" | "limit" | "coupon" };

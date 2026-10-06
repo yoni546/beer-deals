@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { isProductionEnvironment } from "@/lib/demo";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { GroupOffer, Offer, RegularPrice } from "@/lib/db/types";
+import type { GroupOffer, Offer, Packaging, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
 
@@ -30,6 +30,24 @@ export class DataUnavailableError extends Error {
 }
 
 const hideSamples = isProductionEnvironment;
+
+/**
+ * Each SKU's pack form (skus.packaging, migration 0021) — what decides "ארגזים". The feeds do not carry it,
+ * so it is read once per request (a few hundred rows) and joined by sku_id. If it cannot be read (the
+ * migration not yet applied), every pack stays null, and a null pack is never a crate.
+ */
+const getPackagingBySku = cache(async (): Promise<Map<string, Packaging>> => {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.from("skus").select("id, packaging");
+  if (error) return new Map();
+  return new Map((data ?? []).map((row) => [row.id as string, row.packaging as Packaging]));
+});
+
+async function withPackaging<T extends { sku_id: string | null }>(rows: T[]): Promise<Array<T & { packaging: Packaging | null }>> {
+  if (rows.length === 0) return [];
+  const bySku = await getPackagingBySku();
+  return rows.map((row) => ({ ...row, packaging: (row.sku_id && bySku.get(row.sku_id)) || null }));
+}
 
 export type OfferFilter = {
   beerSlug?: string;
@@ -63,7 +81,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
 
   const { data, error } = await query;
   if (error) throw new DataUnavailableError("offers", error.message);
-  return (data ?? []) as Offer[];
+  return withPackaging((data ?? []) as Offer[]);
 }
 
 
@@ -77,7 +95,7 @@ export async function getRegularPrices(filter: { beerSlug?: string; storeSlug?: 
 
   const { data, error } = await query;
   if (error) throw new DataUnavailableError("regular prices", error.message);
-  return (data ?? []) as RegularPrice[];
+  return withPackaging((data ?? []) as RegularPrice[]);
 }
 
 /**
@@ -94,7 +112,10 @@ export async function getGroupOffers(filter: { beerSlug?: string; storeSlug?: st
   if (filter.beerIds) query = query.overlaps("beer_ids", filter.beerIds);
   const { data, error } = await query.order("per_unit_agorot");
   if (error) throw new DataUnavailableError("group offers", error.message);
-  return (data ?? []) as GroupOffer[];
+  const groups = (data ?? []) as GroupOffer[];
+  if (groups.length === 0) return groups;
+  const bySku = await getPackagingBySku();
+  return groups.map((group) => ({ ...group, packs: group.packs.map((pack) => ({ ...pack, packaging: bySku.get(pack.sku_id) ?? null })) }));
 }
 
 /** One row per beer or chain: how many offers there are, and the best verified saving. */
@@ -138,5 +159,5 @@ export async function getOfferByKey(key: string): Promise<Offer | null> {
   if (hideSamples()) query = query.eq("is_sample", false);
   const { data, error } = await query.maybeSingle();
   if (error) throw new DataUnavailableError("the featured deal", error.message);
-  return (data as Offer | null) ?? null;
+  return data ? (await withPackaging([data as Offer]))[0] : null;
 }

@@ -96,34 +96,35 @@ describe("pack classes", () => {
   it("classifies catalogue offers by how many are in the pack and what they come in", () => {
     expect(packClass(offer({ pack_quantity: 1 }))).toBe("single");
     expect(packClass(offer({ pack_quantity: 6 }))).toBe("small_multipack");
-    expect(packClass(offer({ pack_quantity: 24, container: "bottle" }))).toBe("case"); // 24×330 bottles: a crate
-    expect(packClass(offer({ pack_quantity: 20, container: "bottle", volume_ml: 500 }))).toBe("case"); // 20×500 bottles
-    expect(packClass(offer({ pack_quantity: 24, container: "can" }))).toBe("small_multipack"); // a 24-can tray is not a ארגז
+    expect(packClass(offer({ pack_quantity: 24, container: "bottle", packaging: "bottle_crate" }))).toBe("case"); // 24×330 bottles, a crate on evidence
+    expect(packClass(offer({ pack_quantity: 20, volume_ml: 500, container: "bottle", packaging: "bottle_crate" }))).toBe("case"); // 20×500 bottles in a crate
+    expect(packClass(offer({ pack_quantity: 24, container: "can", packaging: "multipack" }))).toBe("small_multipack"); // a 24-can tray is not a ארגז
+    // 24 bottles with no crate evidence (a carton, or a form nobody stated) are a multipack — the count is not evidence.
+    expect(packClass(offer({ pack_quantity: 24, container: "bottle", packaging: "multipack" }))).toBe("small_multipack");
+    expect(packClass(offer({ pack_quantity: 24, container: "bottle", packaging: null }))).toBe("small_multipack");
+    expect(packClass(offer({ pack_quantity: 12, container: "bottle" }))).toBe("small_multipack");
   });
 
-  it("has exactly three kinds: 1 is single; a crate is 12+ BOTTLES; everything else is a multipack", () => {
-    const counts = [1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 15, 18, 20, 24];
-    expect(counts.map((n) => [n, classOfPack({ pack_quantity: n, container: "bottle" })])).toEqual([
-      [1, "single"], [2, "small_multipack"], [3, "small_multipack"], [4, "small_multipack"], [5, "small_multipack"],
-      [6, "small_multipack"], [8, "small_multipack"], [10, "small_multipack"], [11, "small_multipack"],
-      [12, "case"], [15, "case"], [18, "case"], [20, "case"], [24, "case"],
-    ]);
-    // Cans are never a crate, however many: 12, 18 and 24 cans come shrink-wrapped or in a carton.
-    for (const n of [12, 18, 24, 30]) expect(classOfPack({ pack_quantity: n, container: "can" }), String(n)).toBe("small_multipack");
-    // Nor is a big pack whose container the chain did not say: the count alone never makes a crate.
-    expect(classOfPack({ pack_quantity: 24, container: null })).toBe("small_multipack");
-    expect(classOfPack({ pack_quantity: 24, container: "other" })).toBe("small_multipack");
+  it("has exactly three kinds: 1 is single; a crate only on evidence (packaging); everything else is a multipack", () => {
+    const counts = [1, 2, 4, 6, 8, 10, 12, 18, 20, 24, 30];
+    // No count, however large, makes a crate by itself.
+    for (const packaging of ["multipack", null, undefined] as const) {
+      expect(counts.map((n) => classOfPack({ pack_quantity: n, packaging }))).toEqual(counts.map((n) => (n === 1 ? "single" : "small_multipack")));
+    }
+    // Evidence makes it one.
+    expect(classOfPack({ pack_quantity: 24, packaging: "bottle_crate" })).toBe("case");
+    expect(classOfPack({ pack_quantity: 20, packaging: "bottle_crate" })).toBe("case");
     expect(classOfPack({ pack_quantity: null })).toBe("single");
     // The filters a person sees: packs, cases, singles — and no "multi"/"מארזים".
     expect(PACK_FILTERS).toEqual(["all", "small_multipack", "case", "single"]);
   });
 
   it("classifies a mix-and-match offer by the kind most of its packs are", () => {
-    const packs = (...ns: number[]) => ({ packs: ns.map((pack_quantity) => ({ pack_quantity, container: "bottle" as const })) });
+    const packs = (...ns: number[]) => ({ packs: ns.map((pack_quantity) => ({ pack_quantity, packaging: pack_quantity >= 12 ? ("bottle_crate" as const) : null })) });
     expect(groupPackClass(packs(6, 6))).toBe("small_multipack");
     expect(groupPackClass(packs(1, 1, 6))).toBe("single");
     expect(groupPackClass(packs(24))).toBe("case");
-    expect(groupPackClass({ packs: [{ pack_quantity: 24, container: "can" }] })).toBe("small_multipack");
+    expect(groupPackClass({ packs: [{ pack_quantity: 24, packaging: "multipack" }] })).toBe("small_multipack");
   });
 
   it("classifies legacy deals by their category label", () => {
@@ -134,7 +135,7 @@ describe("pack classes", () => {
   });
 
   it("filters", () => {
-    const list = [offer({ pack_quantity: 1 }), offer({ pack_quantity: 6 }), offer({ pack_quantity: 24, container: "bottle" })];
+    const list = [offer({ pack_quantity: 1 }), offer({ pack_quantity: 6 }), offer({ pack_quantity: 24, container: "bottle", packaging: "bottle_crate" })];
     expect(filterByPack(list, "all")).toHaveLength(3);
     expect(filterByPack(list, "case").map((o) => o.pack_quantity)).toEqual([24]);
   });
@@ -231,7 +232,7 @@ function regular(overrides: Partial<RegularPrice> = {}): RegularPrice {
 
 describe("pack ordering", () => {
   it("lists packs by kind (packs, cases, singles), and 6×330 before 6×500", () => {
-    const big = offer({ sku_id: "24x330", volume_ml: 330, pack_quantity: 24, container: "bottle", pack_label: "24 × 330" });
+    const big = offer({ sku_id: "24x330", volume_ml: 330, pack_quantity: 24, container: "bottle", packaging: "bottle_crate", pack_label: "24 × 330" });
     const mid = offer({ sku_id: "6x500", volume_ml: 500, pack_quantity: 6, pack_label: "6 × 500" });
     const small = offer({ sku_id: "6x330", volume_ml: 330, pack_quantity: 6, pack_label: "6 × 330" });
     const one = offer({ sku_id: "1x330", volume_ml: 330, pack_quantity: 1, pack_label: "330" });
@@ -265,7 +266,7 @@ describe("regular prices", () => {
   });
 
   it("filters by pack kind: single, multipack, bottle crate", () => {
-    const prices = [regular({ pack_quantity: 1 }), regular({ pack_quantity: 6 }), regular({ pack_quantity: 24, container: "bottle" }), regular({ pack_quantity: 24, container: "can" })];
+    const prices = [regular({ pack_quantity: 1 }), regular({ pack_quantity: 6 }), regular({ pack_quantity: 24, container: "bottle", packaging: "bottle_crate" }), regular({ pack_quantity: 24, container: "can", packaging: "multipack" })];
     expect(filterRegularByPack(prices, "single").map((p) => p.pack_quantity)).toEqual([1]);
     expect(filterRegularByPack(prices, "small_multipack").map((p) => [p.pack_quantity, p.container])).toEqual([[6, "can"], [24, "can"]]);
     expect(filterRegularByPack(prices, "case").map((p) => [p.pack_quantity, p.container])).toEqual([[24, "bottle"]]);
@@ -273,7 +274,7 @@ describe("regular prices", () => {
   });
 
   it("a crate with only a regular price (no promotion at all) is still a crate", () => {
-    const crate = regular({ sku_id: "stella-24x330", pack_quantity: 24, container: "bottle", pack_label: "סטלה ארטואה 24×330 מ״ל בקבוק" });
+    const crate = regular({ sku_id: "stella-24x330", pack_quantity: 24, container: "bottle", packaging: "bottle_crate", pack_label: "סטלה ארטואה ארגז 24×330 מ״ל בקבוק" });
     const groups = groupRegularByPack([regular(), crate]);
     expect(groups.map((g) => g.key)).toEqual(["sku-6x330", "stella-24x330"]);
     expect(filterRegularByPack([crate], "case")).toEqual([crate]);
@@ -290,14 +291,14 @@ describe("regular prices", () => {
 
 describe("Home: beer for home", () => {
   it("ranks true six-packs, then cases, then eights and fours, then other packs; singles last of all", () => {
-    const pack = (n: number, container: "can" | "bottle" = "can") => homeOrder({ pack_quantity: n, container });
-    expect([pack(6), pack(24, "bottle"), pack(8), pack(4), pack(10), pack(1)]).toEqual([0, 1, 2, 2, 3, 9]);
-    expect(pack(24, "can")).toBe(3); // a 24-can tray is another multipack, not a crate
+    const pack = (n: number, packaging: "multipack" | "bottle_crate" = "multipack") => homeOrder({ pack_quantity: n, packaging });
+    expect([pack(6), pack(24, "bottle_crate"), pack(8), pack(4), pack(10), pack(1)]).toEqual([0, 1, 2, 2, 3, 9]);
+    expect(pack(24)).toBe(3); // 24 cans, or a carton of 24 bottles: another multipack, not a crate
   });
 
   it("puts the person's beers first, then orders each by pack — and an explicit price sort wins", () => {
     const o = (beer: string, n: number, price: number, value: number | null = null) =>
-      offer({ beer_id: beer, pack_quantity: n, container: n >= 12 ? "bottle" : "can", effective_agorot: price, value_pct: value, sku_id: `${beer}-${n}` });
+      offer({ beer_id: beer, pack_quantity: n, container: n >= 12 ? "bottle" : "can", packaging: n >= 12 ? "bottle_crate" : "multipack", effective_agorot: price, value_pct: value, sku_id: `${beer}-${n}` });
     const list = [o("b-other", 6, 2000, 40), o("b-mine", 4, 1200, 30), o("b-mine", 24, 9000, 10), o("b-mine", 6, 2600, 5)];
     const home = orderForHome(list, ["b-mine"], "value").map((x) => `${x.beer_id}:${x.pack_quantity}`);
     expect(home).toEqual(["b-mine:6", "b-mine:24", "b-mine:4", "b-other:6"]);

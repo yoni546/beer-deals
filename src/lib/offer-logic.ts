@@ -1,4 +1,4 @@
-import type { ContainerType, Offer, RegularPrice } from "@/lib/db/types";
+import type { Offer, Packaging, RegularPrice } from "@/lib/db/types";
 
 /**
  * What to show first, and in what order. Pure functions over `Offer` rows so the
@@ -18,15 +18,18 @@ export type SortMode = "value" | "price_asc" | "price_desc";
  * The three kinds of pack, and the ONLY three categories a person sees (PRODUCT.md, "Beer for home"):
  *
  *   single           1 unit                          "בודדים"
- *   small_multipack  a MULTIPACK: any pack of cans,  "שישיות" (the everyday word for a pack of beer; each
- *                    and bottles under 12 — 4, 6, 8  product still says what it is: רביעייה · 4×330 מ״ל,
- *                    mostly; a 24-can tray too       מארז 24 · 24×500 מ״ל · פחית — never called a ארגז)
- *   case             a BOTTLE CRATE: 12+ bottles     "ארגזים"
- *                    (20×500, 24×330), or a deal
+ *   small_multipack  a MULTIPACK: 4, 6, 8 mostly;    "שישיות" (the everyday word for a pack of beer; each
+ *                    also 24 cans, a carton or tray   product still says what it is: רביעייה · 4×330 מ״ל,
+ *                    of bottles, any big pack whose   מארז 24 · 24×500 מ״ל · פחית — never called a ארגז)
+ *                    form the chain did not state
+ *   case             a BOTTLE CRATE, on evidence:     "ארגזים"
+ *                    skus.packaging = 'bottle_crate'
+ *                    (0021: the chain's title says
+ *                    ארגז on 12+ bottles), or a deal
  *                    an admin labelled ארגז
  *
- * A ארגז is a crate of bottles, not "a lot of beer": 12, 18 or 24 cans come shrink-wrapped or in a
- * carton and are a multipack, so the count alone never makes a crate — the container must be a bottle.
+ * A ארגז is a crate of bottles, and the count alone never makes one: 24 bottles in a carton and 24 cans are
+ * multipacks. Without packaging data (null) a pack is never a crate.
  * (The identifiers stay `small_multipack` / `case`: `?pack=case` is in shared links and notifications.)
  */
 export type PackClass = "single" | "small_multipack" | "case";
@@ -37,14 +40,14 @@ export const SORT_MODES: SortMode[] = ["value", "price_asc", "price_desc"];
 export const PACK_CLASSES: PackClass[] = ["small_multipack", "case", "single"];
 export const PACK_FILTERS: PackFilter[] = ["all", ...PACK_CLASSES];
 
-/** What a pack's kind depends on: how many units, and what they come in (null when the chain did not say). */
-export type PackShapeIn = { pack_quantity: number | null | undefined; container?: ContainerType | null };
+/** What a pack's kind depends on: how many units, and its stored form (skus.packaging; null = unknown). */
+export type PackShapeIn = { pack_quantity: number | null | undefined; packaging?: Packaging | null };
 
-/** A pack → which kind: a crate only when it is 12 or more BOTTLES. */
-export const classOfPack = ({ pack_quantity, container }: PackShapeIn): PackClass => {
+/** A pack → which kind: a crate only on evidence (packaging 'bottle_crate'), never by its count. */
+export const classOfPack = ({ pack_quantity, packaging }: PackShapeIn): PackClass => {
   const units = pack_quantity ?? 1;
   if (units <= 1) return "single";
-  return container === "bottle" && units >= 12 ? "case" : "small_multipack";
+  return packaging === "bottle_crate" ? "case" : "small_multipack";
 };
 
 /**
@@ -85,7 +88,7 @@ export function parsePack(pack: string | undefined | null, legacyCategory?: stri
 }
 
 /** Which of the three kinds of pack an offer is. */
-export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity" | "container">): PackClass {
+export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity"> & { packaging?: Packaging | null }): PackClass {
   if (offer.origin === "legacy") {
     if (offer.pack_label === "בודד") return "single";
     if (offer.pack_label === "ארגז") return "case";
@@ -98,7 +101,7 @@ export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_qua
  * A mix-and-match offer's kind: the kind most of its packs are (they are nearly always one kind;
  * a tie goes to the kind shown first).
  */
-export function groupPackClass(group: { packs: Array<{ pack_quantity: number; container: ContainerType | null }> }): PackClass {
+export function groupPackClass(group: { packs: Array<{ pack_quantity: number; packaging?: Packaging | null }> }): PackClass {
   const counts = PACK_CLASSES.map((kind) => group.packs.filter((p) => classOfPack(p) === kind).length);
   return PACK_CLASSES[counts.indexOf(Math.max(...counts))];
 }
@@ -155,7 +158,7 @@ export function groupByPack(offers: Offer[]): PackGroup[] {
 /** Total volume of a pack in millilitres — what "smaller pack first" means. */
 const totalMl = (pack: { volume_ml: number | null; pack_quantity: number | null }) => (pack.volume_ml ?? 0) * (pack.pack_quantity ?? 1);
 
-type PackShape = { volume_ml: number | null; pack_quantity: number | null; container: ContainerType | null };
+type PackShape = { volume_ml: number | null; pack_quantity: number | null; packaging?: Packaging | null };
 
 /** The default order of packs of one beer: by kind, then 6 → 8 → 4 (crates by size), then volume. */
 const packShapeOrder = (a: PackShape, b: PackShape) =>
@@ -241,7 +244,7 @@ export function groupRegularByPack(prices: RegularPrice[], mode: SortMode = "val
 }
 
 /** The pack kind of a regular price, mirroring `packClass` for offers. */
-export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity" | "container">): PackClass => classOfPack(price);
+export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity"> & { packaging?: Packaging | null }): PackClass => classOfPack(price);
 
 export const filterRegularByPack = (prices: RegularPrice[], pack: PackFilter) =>
   pack === "all" ? prices : prices.filter((price) => regularPackClass(price) === pack);

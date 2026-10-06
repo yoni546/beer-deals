@@ -96,6 +96,8 @@ export type AppSettings = {
 // --- Catalogue model (migrations 0007–0009) ----------------------------------
 
 export type ContainerType = "bottle" | "can" | "keg" | "draft" | "other";
+/** skus.packaging (0021): a bottle crate only on evidence; never inferred from the count. */
+export type Packaging = "single" | "multipack" | "bottle_crate";
 export type PromoType = "price_cut" | "multi_buy" | "club_price" | "coupon" | "gift" | "other";
 export type ReferenceTrust = "feed" | "moderated" | "unverified";
 
@@ -187,6 +189,8 @@ export type Offer = {
   container: ContainerType | null;
   volume_ml: number | null;
   pack_quantity: number | null;
+  /** From skus (src/lib/offers.ts withPackaging); null for legacy deals and when unknown. */
+  packaging?: Packaging | null;
   /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
   effective_agorot: number;
   unit_price_per_liter_agorot: number | null;
@@ -216,6 +220,8 @@ export type RegularPrice = {
   container: ContainerType;
   volume_ml: number;
   pack_quantity: number;
+  /** From skus (src/lib/offers.ts withPackaging). */
+  packaging?: Packaging | null;
   pack_label: string;
   store_id: string;
   store_slug: string;
@@ -252,7 +258,7 @@ export type GroupOffer = {
   is_sample: boolean;
   beer_ids: string[];
   beer_slugs: string[];
-  packs: Array<{ sku_id: string; beer_slug: string; beer_name: string; label: string; container: ContainerType; volume_ml: number; pack_quantity: number }>;
+  packs: Array<{ sku_id: string; beer_slug: string; beer_name: string; label: string; container: ContainerType; volume_ml: number; pack_quantity: number; packaging?: Packaging | null }>;
   branch_count: number;
   branch_id: string | null;
   branch_name: string | null;

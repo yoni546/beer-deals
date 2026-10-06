@@ -177,18 +177,18 @@ const active = (publisher) => runs.get(publisher) && !runs.get(publisher).alread
 // 3. SKUs (created when a pack was read with confidence), with their barcodes.
 const CONTAINER_HE = { can: "פחית", bottle: "בקבוק" };
 const displayHe = (s) =>
-  [beers.get(s.beer).name_he, s.variant, `${s.pack_quantity > 1 ? `${s.pack_quantity}×` : ""}${s.volume_ml} מ״ל`, CONTAINER_HE[s.container] ?? ""].filter(Boolean).join(" ");
+  [beers.get(s.beer).name_he, s.variant, s.packaging === "bottle_crate" ? "ארגז" : "", `${s.pack_quantity > 1 ? `${s.pack_quantity}×` : ""}${s.volume_ml} מ״ל`, CONTAINER_HE[s.container] ?? ""].filter(Boolean).join(" ");
 const skuIds = new Map();
 // All SKUs and chain-wide barcodes in two reads, then only what is missing is written.
-const identity = (beerId, s) => `${beerId}|${s.variant}|${s.container}|${s.volume_ml}|${s.pack_quantity}`;
-const knownSkus = new Map((await must("skus", () => db.from("skus").select("id, beer_id, variant, container, volume_ml, pack_quantity").limit(20000))).map((k) => [identity(k.beer_id, k), k.id]));
+const identity = (beerId, s) => `${beerId}|${s.variant}|${s.container}|${s.volume_ml}|${s.pack_quantity}|${s.packaging}`;
+const knownSkus = new Map((await must("skus", () => db.from("skus").select("id, beer_id, variant, container, volume_ml, pack_quantity, packaging").limit(20000))).map((k) => [identity(k.beer_id, k), k.id]));
 const knownBarcodes = new Map((await must("barcodes", () => db.from("sku_barcodes").select("barcode, sku_id").is("store_id", null).limit(50000))).map((b) => [b.barcode, b.sku_id]));
 for (const s of plan.skus) {
   const beer = beers.get(s.beer);
   if (!beer) await abort(`unknown beer ${s.beer}`);
   let id = knownSkus.get(identity(beer.id, s));
   if (!id) {
-    id = (await must("sku insert", () => db.from("skus").insert({ beer_id: beer.id, variant: s.variant, category: s.category, container: s.container, volume_ml: s.volume_ml, pack_quantity: s.pack_quantity, display_he: displayHe(s) }).select("id")))[0].id;
+    id = (await must("sku insert", () => db.from("skus").insert({ beer_id: beer.id, variant: s.variant, category: s.category, container: s.container, volume_ml: s.volume_ml, pack_quantity: s.pack_quantity, packaging: s.packaging, display_he: displayHe(s) }).select("id")))[0].id;
     knownSkus.set(identity(beer.id, s), id);
   }
   skuIds.set(s.key, id);
