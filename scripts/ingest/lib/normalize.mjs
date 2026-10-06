@@ -222,6 +222,22 @@ const WORD_COUNTS = [
  * @returns {{container: "can"|"bottle"|null, volume_ml: number|null, pack_quantity: number|null,
  *            returnable: boolean, confidence: "confident"|"partial"|"unresolved", why: string}}
  */
+/**
+ * What kind of pack a product is: "single", "multipack" or "bottle_crate" (migration 0021, skus.packaging).
+ *
+ * A ארגז is a crate of BOTTLES, and it takes positive evidence: the chain's own title says so (ארגז / crate)
+ * on a pack of 12 or more bottles. The count alone never makes a crate: 24 cans, a carton (קרטון) or a
+ * shrink-wrapped tray (שרינק, מגש) of bottles, and a big pack whose container is not stated are multipacks.
+ * (The EMPTY returnable crate is not beer at all — classify() drops it.)
+ */
+export function packagingOf({ name, container, pack_quantity }) {
+  if ((pack_quantity ?? 1) <= 1) return "single";
+  const title = clean(name ?? "");
+  const saysCrate = /(^|[\s\-(])ארגז($|[\s\-)\d])|crate/i.test(title);
+  const saysOtherWrap = /קרטון|שרינק|מגש|carton|tray/i.test(title);
+  return container === "bottle" && pack_quantity >= 12 && saysCrate && !saysOtherWrap ? "bottle_crate" : "multipack";
+}
+
 export function parsePack(item) {
   const name = clean(item.item_name).replace(/[×Xx]/g, "*");
   // A returnable (חוזר, רב פעמי) is always a glass bottle; so is ח"פ (→ "חפ", חד-פעמי, one-way glass —

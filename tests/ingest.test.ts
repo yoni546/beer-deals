@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { inventoryPatch, withoutBlanks } from "../scripts/ingest/lib/branches.mjs";
 import { kindOf, parseFileName } from "../scripts/ingest/lib/files.mjs";
-import { audienceOf, checkPrice, classify, inForce, isGtin, israelTime, parsePack, readPromotion, reconcileBarcodes, variantOf } from "../scripts/ingest/lib/normalize.mjs";
+import { audienceOf, checkPrice, classify, inForce, isGtin, israelTime, packagingOf, parsePack, readPromotion, reconcileBarcodes, variantOf } from "../scripts/ingest/lib/normalize.mjs";
 import { discountedPrices, withDiscountedPrices } from "../scripts/ingest/lib/promo-supplement.mjs";
 import { PUBLISHERS } from "../scripts/ingest/lib/publishers.mjs";
 import { parseStores } from "../scripts/ingest/lib/stores-file.mjs";
@@ -442,5 +442,44 @@ describe("a carton of cans (0.9.0 audit)", () => {
   it("12 L of cans with the count cut off is 24×500 — a can is never a litre", () => {
     const row = { item_code: "7290018824450", item_name: "פחית קרלסברג קרטון 2", manufacturer: "", price: 120, quantity: "12.00", unit_of_measure: "1ליטר", is_weighted: false };
     expect(parsePack(row)).toMatchObject({ container: "can", pack_quantity: 24, volume_ml: 500 });
+  });
+});
+
+describe("ארגז takes evidence: packagingOf (0021)", () => {
+  // Titles as the chains publish them (production source_products, 2026-10-06).
+  const of = (name: string, quantity: string, unit_of_measure = "ליטר") => {
+    const pack = parsePack({ item_name: name, quantity, unit_of_measure });
+    return packagingOf({ name, container: pack.container, pack_quantity: pack.pack_quantity });
+  };
+
+  it("a chain's own ארגז on 12+ bottles is a bottle crate (Stella at Victory: 24×330, 7.92 L, ₪120)", () => {
+    expect(of("ארגז בירה סטלה בקבוק 330  מל- 24 יח", "7.92", "ליטר 1")).toBe("bottle_crate");
+    expect(packagingOf({ name: "ארגז 20 בקבוקים גולדסטאר 500 מל", container: "bottle", pack_quantity: 20 })).toBe("bottle_crate");
+  });
+
+  it("cans are never a crate, whatever the count or the wording", () => {
+    expect(of("פחית קרלסברג קרטון 2", "12.00", "1ליטר")).toBe("multipack"); // 24×500 cans, 12 L (Yochananof)
+    expect(packagingOf({ name: "ארגז 24 פחיות היינקן", container: "can", pack_quantity: 24 })).toBe("multipack");
+  });
+
+  it("the count alone is not evidence: 24 bottles in a carton, shrink or tray, or with no wording, are a multipack", () => {
+    expect(packagingOf({ name: "היינקן 24 בקבוקים 330", container: "bottle", pack_quantity: 24 })).toBe("multipack");
+    expect(packagingOf({ name: "קרטון 24 בקבוקי קורונה", container: "bottle", pack_quantity: 24 })).toBe("multipack");
+    expect(packagingOf({ name: "ארגז שרינק 24 בקבוקים", container: "bottle", pack_quantity: 24 })).toBe("multipack");
+    expect(packagingOf({ name: "בירה 12 בקבוקים", container: "bottle", pack_quantity: 12 })).toBe("multipack");
+  });
+
+  it("a crate needs bottles of a known container and at least 12 of them", () => {
+    expect(packagingOf({ name: "ארגז בירה 4 שישיות באדוויזר", container: null, pack_quantity: 24 })).toBe("multipack");
+    expect(packagingOf({ name: "ארגז בירה 6 בקבוקים", container: "bottle", pack_quantity: 6 })).toBe("multipack");
+    expect(packagingOf({ name: "בקבוק סטלה 330", container: "bottle", pack_quantity: 1 })).toBe("single");
+  });
+
+  it("the plan carries packaging into the SKU identity, so a crate and a carton are two products", () => {
+    const plan = readFileSync(join(__dirname, "..", "scripts/ingest/lib/plan.mjs"), "utf8");
+    expect(plan).toContain("|${r.packaging}`");
+    const run = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
+    expect(run).toContain("|${s.packaging}`");
+    expect(run).toContain("packaging: s.packaging");
   });
 });

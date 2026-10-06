@@ -169,7 +169,7 @@ test("Beer page: every pack is its own strip and a chain's 6×500 price never si
   for (const pack of ["שישייה · 6×330 מ״ל · פחית", "שישייה · 6×500 מ״ל · פחית"]) {
     await expect(dealsPart(page).getByRole("heading", { level: 4, name: pack }), pack).toBeVisible();
   }
-  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · פחית" })).toBeVisible();
+  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · בקבוק" })).toBeVisible();
 
   const small = strip(dealsPart(page), "שישייה · 6×330 מ״ל · פחית");
   await expect(small).toContainText("₪25.00");
@@ -189,7 +189,7 @@ test("Beer page: the pack filter narrows to one kind of pack and stays in the UR
   await openSort(page);
   await page.getByRole("link", { name: "ארגזים" }).click();
   await expect(page).toHaveURL(/pack=case/);
-  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · פחית" })).toBeVisible();
+  await expect(dealsPart(page, "case").getByRole("heading", { level: 4, name: "ארגז · 24×330 מ״ל · בקבוק" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 4, name: "שישייה · 6×330 מ״ל · פחית" })).toHaveCount(0);
   await expect(kind(page, "small_multipack")).toHaveCount(0);
 });

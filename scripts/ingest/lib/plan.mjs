@@ -23,6 +23,7 @@ import {
   clean,
   inForce,
   isGtin,
+  packagingOf,
   israelTime,
   parsePack,
   readPromotion,
@@ -34,7 +35,8 @@ import { PUBLISHERS } from "./publishers.mjs";
 import { parseStores, sameStore } from "./stores-file.mjs";
 
 const sha = (...parts) => createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
-export const skuKey = (r) => `${r.beer}|${r.variant}|${r.container}|${r.volume_ml}|${r.pack_quantity}`;
+// A crate and a carton of the same 24 bottles are different products (0021): packaging is part of the identity.
+export const skuKey = (r) => `${r.beer}|${r.variant}|${r.container}|${r.volume_ml}|${r.pack_quantity}|${r.packaging}`;
 
 /** ₪0.30 per container up to 1.5 L (cans and bottles). */
 export const depositFor = (pack) =>
@@ -374,6 +376,7 @@ export function buildPlan(units, now = Date.now()) {
       r.container = "other";
       r.containerKnown = false;
     }
+    r.packaging = packagingOf({ name: r.name, container: r.container, pack_quantity: r.pack_quantity });
     r.confidence = "confident";
     accepted.push(r);
   }
@@ -408,7 +411,7 @@ export function buildPlan(units, now = Date.now()) {
   for (const r of final) {
     const key = skuKey(r);
     const sku = skus.get(key) ?? {
-      key, beer: r.beer, variant: r.variant, category: r.category, container: r.container, volume_ml: r.volume_ml, pack_quantity: r.pack_quantity,
+      key, beer: r.beer, variant: r.variant, category: r.category, container: r.container, volume_ml: r.volume_ml, pack_quantity: r.pack_quantity, packaging: r.packaging,
       barcodes: new Set(), retailers: new Set(), prices: [],
     };
     if (isGtin(r.code)) sku.barcodes.add(r.code);

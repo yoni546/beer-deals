@@ -6,6 +6,22 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.10.1 — 2026-10-06
+
+**ארגזים הם ארגזים של בקבוקים** · Fix, Data
+
+- תחת "ארגזים" מופיעים רק ארגזים אמיתיים של בקבוקים, כשהרשת עצמה מוכרת אותם כארגז.
+- מגש של 24 פחיות, או קרטון של בקבוקים, הוא מארז ומופיע תחת "שישיות" בשם "מארז 24".
+- ארגז מופיע תחת "ארגזים" גם כשאין עליו מבצע: קודם המבצעים, ואחריהם המחירים הרגילים.
+
+Internal:
+
+- Migration 0021 (skus.packaging single|multipack|bottle_crate, part of skus_identity; a trigger defaults single/multipack from the count, never a crate; checks: crate = 12+ bottles, single = 1 unit). Backfill: bottle_crate only where a source_products title says ארגז on 12+ bottles and not קרטון/שרינק/מגש. Rollback: supabase/rollback/0021_sku_packaging.down.sql.
+- Ingestion: normalize.mjs packagingOf (positive evidence: the chain's own ארגז/crate wording on 12+ bottles); packaging joins skuKey and the writer's SKU identity; a crate's display_he says ארגז.
+- App: classOfPack/packNameHe read packaging (src/lib/offers.ts joins skus.packaging by sku_id; unknown = never a crate); the push worker names crates the same way. Identifiers small_multipack/case unchanged (?pack=case links keep working).
+- Production audit 2026-10-06: Stella 24×330 at Victory (31 branches) is the one bottle crate — title 'ארגז בירה סטלה בקבוק 330 מל- 24 יח', 7.92 L, ₪120, GTIN 5410228154693. Carlsberg 24×500 cans ('פחית קרלסברג קרטון 2') is a multipack.
+- Admin: /admin/queue renders AddDealForm (imported but never rendered in 0.9.0/0.10.0). Tests: tests/admin-rpcs.test.ts, tests/e2e/admin.spec.ts, tests/sku-packaging.test.ts.
+
 ## 0.10.0 — 2026-10-05
 
 **כניסה ראשונה חדשה: הבקבוקים שלכם על הבמה** · Feature, Design

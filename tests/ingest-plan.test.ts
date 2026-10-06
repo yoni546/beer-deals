@@ -39,7 +39,7 @@ describe("ingestion plan: packs the row does not spell out", () => {
 
   it("publishes a six-pack whose name has no container word, as 'container not stated' — not held", () => {
     const plan = buildPlan([branch("rami-levy", [item(GOLDSTAR6, "בירה גולדסטאר שישייה", 39.9, "1.98", "ליטר")])], NOW);
-    expect(plan.regular.map((r: { sku: string }) => r.sku)).toEqual(["goldstar||other|330|6"]);
+    expect(plan.regular.map((r: { sku: string }) => r.sku)).toEqual(["goldstar||other|330|6|multipack"]);
   });
 
   it("a name cut before its pack word takes the pack every other reading of its barcode agrees on", () => {
@@ -49,7 +49,7 @@ describe("ingestion plan: packs the row does not spell out", () => {
     const cut = branch("rami-levy", [item(LUMA, "בירה קרלסברג לומה שי", 37.9, "330.00", "100 מיליליטר")]);
     const plan = buildPlan([full, cut], NOW);
     const rami = plan.regular.filter((r: { retailer: string }) => r.retailer === "rami-levy");
-    expect(rami.map((r: { sku: string; price_agorot: number }) => [r.sku, r.price_agorot])).toEqual([["carlsberg|לומה|bottle|330|6", 3790]]);
+    expect(rami.map((r: { sku: string; price_agorot: number }) => [r.sku, r.price_agorot])).toEqual([["carlsberg|לומה|bottle|330|6|multipack", 3790]]);
     expect(plan.invalid).toEqual([]);
   });
 
@@ -87,7 +87,7 @@ describe("ingestion plan: public promotions are not over-filtered", () => {
   it("one price for several packs is one promotion per pack (no mixing is involved)", () => {
     const plan = buildPlan([branch("yochananof", shelf, [promo("3", "קרלסברג/גולדסטאר שישייה ב 29.90", [[GOLDSTAR6, "29.90"], [CARLSBERG6, "29.90"]])])], NOW);
     const live = plan.promotions.filter((p: { status: string }) => p.status === "live").map((p: { sku: string }) => p.sku).sort();
-    expect(live).toEqual(["carlsberg||bottle|330|6", "goldstar||bottle|330|6"]);
+    expect(live).toEqual(["carlsberg||bottle|330|6|multipack", "goldstar||bottle|330|6|multipack"]);
   });
 
   it("an item we cannot read is left out of the offer, not a reason to hold the packs we did read", () => {

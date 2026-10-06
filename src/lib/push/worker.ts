@@ -88,11 +88,14 @@ async function loadOffer(db: SupabaseClient, offerKey: string): Promise<Offer | 
     const branch = await db.from("branches").select("name_he, city").eq("id", promotion.only_branch_id).maybeSingle();
     onlyBranch = (branch.data as BranchName | null) ?? null;
   }
+  // The pack's form (0021), so a notification names a crate a ארגז and a 24-can tray a מארז 24.
+  const sku = await db.from("skus").select("packaging").eq("id", row.sku_id).maybeSingle();
   return {
     ...row,
     offer_key: offerKey,
     origin: "catalog",
     pack_label: row.sku_name,
+    packaging: sku.error ? null : ((sku.data as { packaging: Offer["packaging"] } | null)?.packaging ?? null),
     notes: null,
     ...(promotion ? { ...promotion, promotion_id: promotion.id, only_branch_name: onlyBranch?.name_he ?? null, only_branch_city: onlyBranch?.city ?? null } : {}),
   } as Offer;

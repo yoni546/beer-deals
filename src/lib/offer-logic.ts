@@ -1,4 +1,4 @@
-import type { Offer, RegularPrice } from "@/lib/db/types";
+import type { Offer, Packaging, RegularPrice } from "@/lib/db/types";
 
 /**
  * What to show first, and in what order. Pure functions over `Offer` rows so the
@@ -17,14 +17,20 @@ export type SortMode = "value" | "price_asc" | "price_desc";
 /**
  * The three kinds of pack, and the ONLY three categories a person sees (PRODUCT.md, "Beer for home"):
  *
- *   single           1 unit                         "בודדים"
- *   small_multipack  2–11 units: 4, 6 and 8 are     "שישיות" (the everyday word for a pack of beer; each
- *                    the real ones; 2, 3, 5, 10     product still says what it is: רביעייה · 4×330 מ״ל,
- *                    turn up rarely                 שמינייה · 8×500 מ״ל — a 4 is never called a שישייה)
- *   case             12 or more: 12, 15, 18, 20, 24 "ארגזים"
+ *   single           1 unit                          "בודדים"
+ *   small_multipack  a MULTIPACK: 4, 6, 8 mostly;    "שישיות" (the everyday word for a pack of beer; each
+ *                    also 24 cans, a carton or tray   product still says what it is: רביעייה · 4×330 מ״ל,
+ *                    of bottles, any big pack whose   מארז 24 · 24×500 מ״ל · פחית — never called a ארגז)
+ *                    form the chain did not state
+ *   case             a BOTTLE CRATE, on evidence:     "ארגזים"
+ *                    skus.packaging = 'bottle_crate'
+ *                    (0021: the chain's title says
+ *                    ארגז on 12+ bottles), or a deal
+ *                    an admin labelled ארגז
  *
- * The line between the last two is 12 because no chain sells a "case" of fewer, and every 10-pack in
- * the feeds is a shrink-wrapped multipack, not a crate.
+ * A ארגז is a crate of bottles, and the count alone never makes one: 24 bottles in a carton and 24 cans are
+ * multipacks. Without packaging data (null) a pack is never a crate.
+ * (The identifiers stay `small_multipack` / `case`: `?pack=case` is in shared links and notifications.)
  */
 export type PackClass = "single" | "small_multipack" | "case";
 export type PackFilter = "all" | PackClass;
@@ -34,29 +40,32 @@ export const SORT_MODES: SortMode[] = ["value", "price_asc", "price_desc"];
 export const PACK_CLASSES: PackClass[] = ["small_multipack", "case", "single"];
 export const PACK_FILTERS: PackFilter[] = ["all", ...PACK_CLASSES];
 
-/** How many units → which kind of pack. */
-export const classOfQuantity = (n: number | null | undefined): PackClass => {
-  const units = n ?? 1;
-  return units <= 1 ? "single" : units >= 12 ? "case" : "small_multipack";
+/** What a pack's kind depends on: how many units, and its stored form (skus.packaging; null = unknown). */
+export type PackShapeIn = { pack_quantity: number | null | undefined; packaging?: Packaging | null };
+
+/** A pack → which kind: a crate only on evidence (packaging 'bottle_crate'), never by its count. */
+export const classOfPack = ({ pack_quantity, packaging }: PackShapeIn): PackClass => {
+  const units = pack_quantity ?? 1;
+  if (units <= 1) return "single";
+  return packaging === "bottle_crate" ? "case" : "small_multipack";
 };
 
 /**
- * Inside the packs, the order a shopper looks for them: six-packs, then eights, then fours, then the
- * rare others. (Cases by size, smallest first.) Lower comes first.
+ * Inside one kind, the order a shopper looks for packs: six-packs, then eights, then fours, then the rare
+ * others by size (a 24-can tray last; crates by size, smallest first). Lower comes first.
  */
 export function packOrder(n: number | null | undefined): number {
   const units = n ?? 1;
-  if (classOfQuantity(units) !== "small_multipack") return units;
   return ({ 6: 0, 8: 1, 4: 2 } as Record<number, number>)[units] ?? 3 + units / 100;
 }
 
 /**
- * Home's order (beer for home): true six-packs, then cases, then eights and fours, then any other
+ * Home's order (beer for home): true six-packs, then crates, then eights and fours, then any other
  * multipack. Singles never reach Home. Lower comes first.
  */
-export function homeOrder(n: number | null | undefined): number {
-  const units = n ?? 1;
-  const kind = classOfQuantity(units);
+export function homeOrder(pack: PackShapeIn): number {
+  const units = pack.pack_quantity ?? 1;
+  const kind = classOfPack(pack);
   if (kind === "single") return 9;
   if (kind === "case") return 1;
   return units === 6 ? 0 : units === 8 || units === 4 ? 2 : 3;
@@ -79,21 +88,21 @@ export function parsePack(pack: string | undefined | null, legacyCategory?: stri
 }
 
 /** Which of the three kinds of pack an offer is. */
-export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity">): PackClass {
+export function packClass(offer: Pick<Offer, "origin" | "pack_label" | "pack_quantity"> & { packaging?: Packaging | null }): PackClass {
   if (offer.origin === "legacy") {
     if (offer.pack_label === "בודד") return "single";
     if (offer.pack_label === "ארגז") return "case";
     return "small_multipack";
   }
-  return classOfQuantity(offer.pack_quantity);
+  return classOfPack(offer);
 }
 
 /**
  * A mix-and-match offer's kind: the kind most of its packs are (they are nearly always one kind;
  * a tie goes to the kind shown first).
  */
-export function groupPackClass(group: { packs: Array<{ pack_quantity: number }> }): PackClass {
-  const counts = PACK_CLASSES.map((kind) => group.packs.filter((p) => classOfQuantity(p.pack_quantity) === kind).length);
+export function groupPackClass(group: { packs: Array<{ pack_quantity: number; packaging?: Packaging | null }> }): PackClass {
+  const counts = PACK_CLASSES.map((kind) => group.packs.filter((p) => classOfPack(p) === kind).length);
   return PACK_CLASSES[counts.indexOf(Math.max(...counts))];
 }
 
@@ -149,11 +158,11 @@ export function groupByPack(offers: Offer[]): PackGroup[] {
 /** Total volume of a pack in millilitres — what "smaller pack first" means. */
 const totalMl = (pack: { volume_ml: number | null; pack_quantity: number | null }) => (pack.volume_ml ?? 0) * (pack.pack_quantity ?? 1);
 
-type PackShape = { volume_ml: number | null; pack_quantity: number | null };
+type PackShape = { volume_ml: number | null; pack_quantity: number | null; packaging?: Packaging | null };
 
-/** The default order of packs of one beer: by kind, then 6 → 8 → 4 (cases by size), then volume. */
+/** The default order of packs of one beer: by kind, then 6 → 8 → 4 (crates by size), then volume. */
 const packShapeOrder = (a: PackShape, b: PackShape) =>
-  PACK_CLASSES.indexOf(classOfQuantity(a.pack_quantity)) - PACK_CLASSES.indexOf(classOfQuantity(b.pack_quantity)) ||
+  PACK_CLASSES.indexOf(classOfPack(a)) - PACK_CLASSES.indexOf(classOfPack(b)) ||
   packOrder(a.pack_quantity) - packOrder(b.pack_quantity) ||
   totalMl(a) - totalMl(b);
 
@@ -204,7 +213,7 @@ export function orderForHome(offers: Offer[], favouriteOrder: string[], mode: So
   return [...sorted].sort(
     (a, b) =>
       (rank(a) === rank(b) ? 0 : rank(a) < rank(b) ? -1 : 1) ||
-      homeOrder(a.pack_quantity) - homeOrder(b.pack_quantity) ||
+      homeOrder(a) - homeOrder(b) ||
       position.get(a)! - position.get(b)!,
   );
 }
@@ -235,7 +244,7 @@ export function groupRegularByPack(prices: RegularPrice[], mode: SortMode = "val
 }
 
 /** The pack kind of a regular price, mirroring `packClass` for offers. */
-export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity">): PackClass => classOfQuantity(price.pack_quantity);
+export const regularPackClass = (price: Pick<RegularPrice, "pack_quantity"> & { packaging?: Packaging | null }): PackClass => classOfPack(price);
 
 export const filterRegularByPack = (prices: RegularPrice[], pack: PackFilter) =>
   pack === "all" ? prices : prices.filter((price) => regularPackClass(price) === pack);

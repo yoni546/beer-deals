@@ -22,7 +22,7 @@ describe("supabase/seed/dev-catalog.sql", () => {
     const goldstar = await db.query<{ n: number }>(
       "select count(*)::int as n from public.skus s join public.beers b on b.id = s.beer_id where b.slug = 'goldstar'",
     );
-    expect(goldstar.rows[0].n).toBe(4); // 6×330 can, 6×500 can, 6×330 bottle, 24×330 can
+    expect(goldstar.rows[0].n).toBe(4); // 6×330 can, 6×500 can, 6×330 bottle, 24×330 bottle (a crate)
 
     const feed = await asUser(db, null, () => db.query<Record<string, unknown>>("select * from public.offers_feed order by origin, effective_agorot"), "anon");
     expect(feed.rows).toHaveLength(9); // 10 promotions in the seed; the club price is not published
