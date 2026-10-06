@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.10.3",
+    "date": "2026-10-06",
+    "title_he": "הדף הראשי ועמודי הרשתות והבירות נפתחים מהר יותר",
+    "highlights_he": [
+      "עמודי הרשתות והבירות טוענים רק את מה שצריך להם, ולכן נפתחים מהר יותר.",
+      "הדף הראשי ורשימות הרשתות והבירות כבר לא מחשבים את כל המבצעים מחדש בכל כניסה."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/lib/offers.ts: feeds are filtered by their partition keys — a chain by store_id, a beer by its SKU ids (+ legacy deals by beer_id, where the view is tiny) — never by slug or beer_id, which made Postgres compute the whole feed first. Production 2026-10-06: a chain's deals 1.3 s → 0.22 s, regular prices 0.76–1.4 s → 0.08 s, mix-and-match 0.50 s → 0.016 s; a beer's deals 1.3 s → 0.32 s, regular prices 0.7 s → 0.09 s.",
+      "Whole-feed reads that are the same for everyone (Home's freshness and 'more deals' pool of the top 200 by saving, the beer and chain listings) are cached for 5 minutes via unstable_cache with a cookie-less anon client; admin actions revalidateTag('feeds'). Guard: tests/feed-filters.test.ts."
+    ]
+  },
+  {
     "version": "0.10.2",
     "date": "2026-10-06",
     "title_he": "עמודי מבצעים מהירים יותר",
