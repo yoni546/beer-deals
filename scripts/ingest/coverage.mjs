@@ -41,9 +41,11 @@ const svc = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE
 async function all(make) {
   const rows = [];
   for (let from = 0; ; from += 1000) {
-    // A page that hits the statement timeout while the database is busy is asked again (twice) before giving up.
+    // A page that hits the statement timeout while the database is busy is asked again (three times, after a
+    // growing pause — right after a full write the instance is still catching up) before giving up.
     let data, error;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt) await new Promise((resolve) => setTimeout(resolve, [0, 5_000, 20_000, 60_000][attempt]));
       ({ data, error } = await make().range(from, from + 999));
       if (!error || !/statement timeout/.test(error.message)) break;
     }
@@ -54,6 +56,22 @@ async function all(make) {
 }
 
 const stores = await all(() => svc.from("stores").select("id, slug, name_he, kind").order("slug"));
+
+// Right after a full write the read model's pages are not in memory: every offers_feed query first computes
+// each chain's lowest regular price over ALL chains (offers_ranked's store_min), and cold that took 10 s on
+// the staging instance (0.7 s warm) — past the public role's 3 s limit. That latency is a finding of its own
+// (production showed 4 s on 2026-10-05); this read-back checks WHAT the public sees, so the shared part is read
+// once first — one chain, by the service role (8 s limit) — until it answers. The public reads are unchanged.
+for (let attempt = 1, t0 = Date.now(); ; attempt++) {
+  const { error } = await svc.from("offers_feed").select("offer_key").eq("store_id", stores[0].id).limit(1);
+  if (!error) {
+    console.log(`read model warm after ${attempt} attempt(s), ${Math.round((Date.now() - t0) / 1000)} s`);
+    break;
+  }
+  if (!/statement timeout/.test(error.message) || attempt === 6) throw new Error(`warming the read model: ${error.message}`);
+  await new Promise((resolve) => setTimeout(resolve, 10_000));
+}
+
 // The feeds are read one chain at a time: a filter on store_id reaches the base tables (~1 s a chain), while
 // paging through a whole feed in one order exceeds the public role's statement timeout at full-branch scale.
 const offers = [];
