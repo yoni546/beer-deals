@@ -6,6 +6,24 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.12.0 — 2026-10-07
+
+**בקבוקים קלים יותר, והתשתית למבצעים לפי מרחק** · Feature, Fix
+
+- תמונות הבקבוקים ברשימות קלות ב-90 אחוז. דף הבית נפתח מהר יותר, במיוחד ברשת איטית.
+- הכנו את הבסיס ל"מבצעים קרובים אליי": מרחקים, רדיוס חיפוש ועיר מגורים.
+- סניף שאנחנו לא יודעים איפה הוא פשוט לא יוצג כקרוב — לא ננחש.
+
+Internal:
+
+- Thumbnail tier: scripts/lib/bottle-thumb.mjs writes <slug>@216.webp (3x the 72px Home key) beside the hero asset; prepare-bottle.mjs does it for new photos and scripts/make-bottle-thumbs.mjs backfilled the 27 on record. 1245 KB -> 123 KB, 90% smaller. BeerBottle takes the thumb at height <= 96; BottleBackdrop keeps the full file. Home's keys are eager, not lazy: they are in the header, above the fold on every phone. Same approved pixels, only scaled, so the provenance recorded for the full photo covers it.
+- tests/bottle-photos.test.ts now declares PHOTOLESS, so photo coverage can only shrink deliberately (the old floor was '>= 19 entries' while 27 existed -- eight photos and their manifest entries could have been deleted together and CI stayed green); asserts manifest width/height against sharp metadata; and holds a per-file byte budget.
+- Migration 0026 is the geographic foundation. branches gets latitude/longitude/geocoded_at/geocode_source/geocode_precision with four CHECKs: both-or-neither, inside Israel (a typo and unit-confusion guard, catching a swapped pair or a 0/0 fix), a known precision, and no coordinate without a recorded source. profiles gets home_city/home_lat/home_lon/search_radius_km, the radius constrained to the set the app offers plus 0 for nationwide. save_location() is a definer function, not a column grant, for the same reason save_preferences is: 0010 revoked table-wide UPDATE on profiles, and the columns that decide what a person is shown are written in one audited place that can only touch auth.uid()'s row.
+- km_between() is haversine in plain SQL and branches_within_km() is a bounding-box prefilter plus the exact distance -- NOT postgis/earthdistance, because the suite runs the real migrations on PGlite and that is what makes the RLS tests trustworthy. At ~1,100 branches this is comfortably fast; every caller goes through branches_within_km(), so a spatial index later is a local change.
+- NO COORDINATE IS INVENTED. The price-transparency Stores file carries name, address and city and never a position, so real branch coordinates need a geocoding provider and a credential this repository does not have. The columns ship empty and branches_within_km() never returns an unlocated branch -- not even nationwide. 'We do not know where this is' is a first-class state, like a price with no trusted reference.
+- New POST /api/cache/revalidate (Bearer CRON_SECRET, 503 when unconfigured, same discipline as the notification worker). The shared reads are held under FEEDS_TAG for five minutes and every admin action clears it, but an INGESTION RUN writes to Postgres from a script and cannot -- so after an import the app served the previous catalogue, and the SKU index is not merely stale in that window, it decides which offers a beer page can find at all. The e2e suite rings the same doorbell after it resets the fake database; without it one test's catalogue was served to the next, which is how 0.11.2's caching broke seven specs.
+- middleware no longer runs the session machinery for /bottles/, /onboarding/ or /api/cache/ -- static files and a bearer-token endpoint have no use for an anonymous user, and the bottle path was adding a hop to the LCP image.
+
 ## 0.11.2 — 2026-10-07
 
 **האפליקציה נפתחת מהר יותר** · Fix

@@ -3,6 +3,11 @@
     "src": "/bottles/goldstar.webp",
     "width": 243,
     "height": 952,
+    "thumb": {
+      "src": "/bottles/goldstar@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290006764072/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -16,6 +21,11 @@
     "src": "/bottles/heineken.webp",
     "width": 248,
     "height": 956,
+    "thumb": {
+      "src": "/bottles/heineken@216.webp",
+      "width": 56,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290010237890/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -29,6 +39,11 @@
     "src": "/bottles/carlsberg.webp",
     "width": 254,
     "height": 974,
+    "thumb": {
+      "src": "/bottles/carlsberg@216.webp",
+      "width": 56,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290002871361/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -42,6 +57,11 @@
     "src": "/bottles/maccabee.webp",
     "width": 247,
     "height": 958,
+    "thumb": {
+      "src": "/bottles/maccabee@216.webp",
+      "width": 56,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290005896439/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -55,6 +75,11 @@
     "src": "/bottles/tuborg.webp",
     "width": 244,
     "height": 920,
+    "thumb": {
+      "src": "/bottles/tuborg@216.webp",
+      "width": 57,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290001975015/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -67,6 +92,11 @@
     "src": "/bottles/tuborg-red.webp",
     "width": 243,
     "height": 950,
+    "thumb": {
+      "src": "/bottles/tuborg-red@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290002871248/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -79,6 +109,11 @@
     "src": "/bottles/stella.webp",
     "width": 252,
     "height": 1003,
+    "thumb": {
+      "src": "/bottles/stella@216.webp",
+      "width": 54,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290019398288/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -92,6 +127,11 @@
     "src": "/bottles/guinness.webp",
     "width": 288,
     "height": 971,
+    "thumb": {
+      "src": "/bottles/guinness@216.webp",
+      "width": 64,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/5000213000359/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -105,6 +145,11 @@
     "src": "/bottles/budweiser.webp",
     "width": 213,
     "height": 862,
+    "thumb": {
+      "src": "/bottles/budweiser@216.webp",
+      "width": 53,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/5410228267508/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -118,6 +163,11 @@
     "src": "/bottles/becks.webp",
     "width": 240,
     "height": 929,
+    "thumb": {
+      "src": "/bottles/becks@216.webp",
+      "width": 56,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/42149996/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -131,6 +181,11 @@
     "src": "/bottles/leffe.webp",
     "width": 251,
     "height": 1004,
+    "thumb": {
+      "src": "/bottles/leffe@216.webp",
+      "width": 54,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290019398271/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -143,6 +198,11 @@
     "src": "/bottles/paulaner.webp",
     "width": 257,
     "height": 948,
+    "thumb": {
+      "src": "/bottles/paulaner@216.webp",
+      "width": 59,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/4066600611028/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -156,6 +216,11 @@
     "src": "/bottles/weihen.webp",
     "width": 254,
     "height": 995,
+    "thumb": {
+      "src": "/bottles/weihen@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/4105120623941/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -169,6 +234,11 @@
     "src": "/bottles/erdinger.webp",
     "width": 271,
     "height": 1014,
+    "thumb": {
+      "src": "/bottles/erdinger@216.webp",
+      "width": 58,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/4002103250487/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -182,6 +252,11 @@
     "src": "/bottles/malka.webp",
     "width": 244,
     "height": 955,
+    "thumb": {
+      "src": "/bottles/malka@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290012921025/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -195,6 +270,11 @@
     "src": "/bottles/shapiro.webp",
     "width": 238,
     "height": 955,
+    "thumb": {
+      "src": "/bottles/shapiro@216.webp",
+      "width": 54,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290014056015/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -208,6 +288,11 @@
     "src": "/bottles/alexander.webp",
     "width": 233,
     "height": 914,
+    "thumb": {
+      "src": "/bottles/alexander@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290013430083/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -221,6 +306,11 @@
     "src": "/bottles/negev.webp",
     "width": 249,
     "height": 951,
+    "thumb": {
+      "src": "/bottles/negev@216.webp",
+      "width": 57,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290013276124/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -234,6 +324,11 @@
     "src": "/bottles/corona.webp",
     "width": 406,
     "height": 1600,
+    "thumb": {
+      "src": "/bottles/corona@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://commons.wikimedia.org/wiki/File:Corona_Extra_beer_bottle_(2019).png",
     "license": "CC BY-SA 4.0, Bruce The Deus",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -246,6 +341,11 @@
     "src": "/bottles/eagle.webp",
     "width": 257,
     "height": 940,
+    "thumb": {
+      "src": "/bottles/eagle@216.webp",
+      "width": 59,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290006764096/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -259,6 +359,11 @@
     "src": "/bottles/staropramen.webp",
     "width": 258,
     "height": 1009,
+    "thumb": {
+      "src": "/bottles/staropramen@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/8593868000302/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -272,6 +377,11 @@
     "src": "/bottles/chouffe.webp",
     "width": 360,
     "height": 937,
+    "thumb": {
+      "src": "/bottles/chouffe@216.webp",
+      "width": 83,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/5410769100081/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -285,6 +395,11 @@
     "src": "/bottles/kasteel.webp",
     "width": 362,
     "height": 948,
+    "thumb": {
+      "src": "/bottles/kasteel@216.webp",
+      "width": 82,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/5411081003654/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -298,6 +413,11 @@
     "src": "/bottles/hoegaarden.webp",
     "width": 282,
     "height": 1003,
+    "thumb": {
+      "src": "/bottles/hoegaarden@216.webp",
+      "width": 61,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/7290019398295/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -311,6 +431,11 @@
     "src": "/bottles/franziskaner.webp",
     "width": 238,
     "height": 930,
+    "thumb": {
+      "src": "/bottles/franziskaner@216.webp",
+      "width": 55,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/4072700003649/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -324,6 +449,11 @@
     "src": "/bottles/blue-moon.webp",
     "width": 253,
     "height": 908,
+    "thumb": {
+      "src": "/bottles/blue-moon@216.webp",
+      "width": 60,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/5010038454831/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
@@ -337,6 +467,11 @@
     "src": "/bottles/benediktiner.webp",
     "width": 244,
     "height": 941,
+    "thumb": {
+      "src": "/bottles/benediktiner@216.webp",
+      "width": 56,
+      "height": 216
+    },
     "source": "https://img.rami-levy.co.il/product/4052197000017/large.jpg",
     "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
     "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",

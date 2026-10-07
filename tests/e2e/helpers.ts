@@ -15,8 +15,27 @@ async function post(path: string, body: unknown) {
   return response.json();
 }
 
-/** Fresh database: real migrations + seed, no users, no deals. */
-export const resetDb = () => post("/__test/reset", {});
+/**
+ * Fresh database: real migrations + seed, no users, no deals.
+ *
+ * Also clears the app's shared caches. The catalogue and the feed aggregates are
+ * held under FEEDS_TAG for five minutes, and the app has no way to notice that the
+ * database underneath it was replaced — so without this, one test's SKU index is
+ * served to the next and its deals simply never appear.
+ */
+export async function resetDb() {
+  await post("/__test/reset", {});
+  await revalidateAppCaches();
+}
+
+/** The same doorbell an ingestion run uses (src/app/api/cache/revalidate/route.ts). */
+async function revalidateAppCaches() {
+  const base = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${process.env.E2E_APP_PORT ?? 3200}`;
+  await fetch(`${base}/api/cache/revalidate`, {
+    method: "POST",
+    headers: { Authorization: "Bearer e2e-cron-secret-not-a-real-one" },
+  }).catch(() => undefined);
+}
 
 /** Runs several statements at once (seed files). */
 export const exec = (query: string) => post("/__test/exec", { sql: query });

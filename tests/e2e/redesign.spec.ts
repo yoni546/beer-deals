@@ -268,19 +268,37 @@ test.describe("settings", () => {
     await expect(keys.nth(1)).toContainText("גולדסטאר");
   });
 
-  test("swapping a beer out is remove-then-add, and saving needs exactly four", async ({ page }) => {
+  // 0024: between one and four. Removing one is a complete, saveable state in its own
+  // right — it used to disable the save until a fourth was put back.
+  test("a beer can be removed and saved, or swapped for another", async ({ page }) => {
     await onboard(page);
     await page.goto("/settings");
+
     await page.getByRole("button", { name: "הסירו את קורונה" }).click();
-    await expect(page.getByRole("button", { name: "שמירה" })).toBeDisabled(); // only three left
+    await expect(page.getByRole("button", { name: "שמירה" })).toBeEnabled(); // three is a choice
     await page.getByRole("button", { name: /^\s*טובורג\s*$/ }).click();
-    await expect(page.getByRole("button", { name: "שמירה" })).toBeEnabled();
     await page.getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
     await page.goto("/");
     await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toContainText("טובורג");
     await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
+  });
+
+  test("the last beer cannot be removed: one is the minimum", async ({ page }) => {
+    await onboard(page);
+    await page.goto("/settings");
+
+    for (const beer of ["קורונה", "היינקן", "מכבי"]) {
+      await page.getByRole("button", { name: `הסירו את ${beer}` }).click();
+    }
+    // One left, and no way to reach zero — a form that could would only fail at the database.
+    await expect(page.getByRole("button", { name: /^הסירו את/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "שמירה" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+    await page.goto("/");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem")).toHaveCount(1);
   });
 });
 

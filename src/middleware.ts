@@ -98,9 +98,11 @@ export const config = {
     /*
      * Everything except static assets and the PWA files. The service worker and
      * manifest must be fetchable without a session — a browser requests them
-     * outside the page's credential context. The notification worker's endpoint has its own
-     * bearer-token check and must not mint an anonymous user for every scheduler call.
+     * outside the page's credential context. The notification worker's and the cache
+     * doorbell's endpoints have their own bearer-token check and must not mint an anonymous
+     * user for every scheduler call. The bottle photos are public static files; running the
+     * session machinery for each one only added latency to the LCP image.
      */
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|screenshots/|api/notifications/|api/version).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|bottles/|onboarding/|screenshots/|api/notifications/|api/cache/|api/version).*)",
   ],
 };

@@ -30,7 +30,8 @@ export function FavouriteKeys({
           <li key={beer.id} data-rank={index + 1}>
             <Link href={`/beer/${beer.slug}`} className="favourite-key flex flex-col items-center gap-1 rounded-xl px-1 pt-1 pb-1.5 text-center">
               <span className="relative flex h-[4.5rem] items-end justify-center">
-                <BeerBottle slug={beer.slug} height={72} />
+                {/* Home's header: above the fold on every phone, so not lazy. */}
+                <BeerBottle slug={beer.slug} height={72} eager />
                 <span
                   aria-hidden
                   className={`num absolute -top-1 -start-3 rounded-full px-1.5 text-[0.75rem] leading-5 font-bold ${

@@ -24,6 +24,9 @@ const appEnv = {
   NEXT_PUBLIC_VAPID_PUBLIC_KEY:
     "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U",
   SUPABASE_SERVICE_ROLE_KEY: "fake-service-role-key",
+  // Lets the suite clear the app's shared caches after it resets the fake database;
+  // without it the catalogue read for one test would be served to the next.
+  CRON_SECRET: "e2e-cron-secret-not-a-real-one",
   APP_ENV: "production", // behave like production: demo rows must never show
   NEXT_TELEMETRY_DISABLED: "1",
   NEXT_DIST_DIR: ".next-e2e",

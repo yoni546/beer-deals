@@ -21,6 +21,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { capBottom, cutout } from "./lib/bottle-cutout.mjs";
+import { writeThumb } from "./lib/bottle-thumb.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -63,12 +64,16 @@ const cap = capBottom(final.data, final.info.width, final.info.height);
 mkdirSync(join(ROOT, "public/bottles"), { recursive: true });
 writeFileSync(join(ROOT, "public/bottles", `${slug}.webp`), out.data);
 
+// The small one, for lists. Same pixels, scaled; see scripts/lib/bottle-thumb.mjs.
+const thumb = await writeThumb(ROOT, slug, out.data);
+
 const manifestPath = join(ROOT, "src/design/bottle-photos.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 manifest[slug] = {
   src: `/bottles/${slug}.webp`,
   width: out.info.width,
   height: out.info.height,
+  thumb: { src: thumb.src, width: thumb.width, height: thumb.height },
   ...provenance,
   ...extra,
   ...(cap === null ? {} : { cap }),
@@ -77,4 +82,5 @@ manifest[slug] = {
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
 console.log(`wrote public/bottles/${slug}.webp (${out.info.width}×${out.info.height}, ${(out.data.length / 1024).toFixed(0)} KB); bottle covers ${(coverage * 100).toFixed(0)}% of the original frame`);
+console.log(`wrote public/bottles/${slug}@${thumb.height}.webp (${thumb.width}×${thumb.height}, ${(thumb.bytes / 1024).toFixed(1)} KB) for lists`);
 console.log("Check it: the app now shows the photo for this beer. Commit the .webp and the manifest together.");
