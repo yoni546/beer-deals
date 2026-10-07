@@ -252,13 +252,16 @@ test("A deal line says, on the line itself, the regular price it is measured aga
 });
 
 test.describe("settings", () => {
+  /** The two forms on /settings both have a "שמירה"; name the section you mean. */
+  const section = (page: Page, name: string) => page.getByRole("region", { name });
+
   test("changing the order of the four beers changes what Home puts first, and the theme follows the new number one", async ({ page }) => {
     await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
     await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 
     await page.goto("/settings");
     await page.getByRole("button", { name: "העלו את מכבי מקום אחד" }).click();
-    await page.getByRole("button", { name: "שמירה" }).click();
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
     await expect(page.locator("body")).toHaveAttribute("data-theme", "maccabee");
 
@@ -275,14 +278,34 @@ test.describe("settings", () => {
     await page.goto("/settings");
 
     await page.getByRole("button", { name: "הסירו את קורונה" }).click();
-    await expect(page.getByRole("button", { name: "שמירה" })).toBeEnabled(); // three is a choice
+    await expect(section(page, "הבירות שלי").getByRole("button", { name: "שמירה" })).toBeEnabled(); // three is a choice
     await page.getByRole("button", { name: /^\s*טובורג\s*$/ }).click();
-    await page.getByRole("button", { name: "שמירה" }).click();
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
     await page.goto("/");
     await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toContainText("טובורג");
     await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
+  });
+
+  // 0026: the place is editable after onboarding, through the same picker the first run uses.
+  test("where I live and how far I will go can be changed later", async ({ page }) => {
+    await onboard(page);
+    await page.goto("/settings");
+
+    const field = page.getByPlaceholder("תל אביב, חיפה, באר שבע…");
+    await expect(field).toBeVisible();
+    await field.fill("חיפה");
+    await page.getByRole("button", { name: "חיפה", exact: true }).click();
+    await page.getByRole("button", { name: "עד 25 ק״מ" }).click();
+
+    await section(page, "איפה אני").getByRole("button", { name: "שמירה" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+    // And it is still there on the next visit.
+    await page.reload();
+    await expect(page.getByPlaceholder("תל אביב, חיפה, באר שבע…")).toHaveValue("חיפה");
+    await expect(page.getByRole("button", { name: "עד 25 ק״מ" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("the last beer cannot be removed: one is the minimum", async ({ page }) => {
@@ -294,7 +317,7 @@ test.describe("settings", () => {
     }
     // One left, and no way to reach zero — a form that could would only fail at the database.
     await expect(page.getByRole("button", { name: /^הסירו את/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "שמירה" }).click();
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
     await page.goto("/");

@@ -4,6 +4,7 @@ import { Screen, TopBar } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { LocationEditor } from "@/components/LocationEditor";
 import { PushToggle } from "@/components/PushToggle";
 import { Tape } from "@/components/ui/Tape";
 import { ShareApp } from "@/components/ShareApp";
@@ -37,11 +38,22 @@ export default async function SettingsPage() {
       <TopBar title="הגדרות" />
 
       <div className="space-y-8">
-        <Section title="הבירות שלי">
+        <Section id="s-beers" title="הבירות שלי">
           <FavouritesEditor beers={beers} currentName={viewer.profile?.first_name ?? ""} currentFavourites={viewer.favorites} />
         </Section>
 
-        <Section title="התראות" note="שולחים רק על מבצע חזק במיוחד, ורק על הבירה הראשית. לא על שאר הבירות שבחרתם.">
+        <Section id="s-place" title="איפה אני" note="משמש כדי למצוא את הסניף הקרוב אליכם. אפשר להשאיר ריק.">
+          <LocationEditor
+            current={{
+              city: viewer.profile?.home_city ?? "",
+              lat: viewer.profile?.home_lat ?? null,
+              lon: viewer.profile?.home_lon ?? null,
+              radiusKm: viewer.profile?.search_radius_km ?? null,
+            }}
+          />
+        </Section>
+
+        <Section id="s-notifications" title="התראות" note="שולחים רק על מבצע חזק במיוחד, ורק על הבירה הראשית. לא על שאר הבירות שבחרתם.">
           <PushToggle
             vapidPublicKey={publicEnv.vapidPublicKey}
             enabled={viewer.profile?.notifications_enabled ?? false}
@@ -49,7 +61,7 @@ export default async function SettingsPage() {
           />
         </Section>
 
-        <Section title="האפליקציה">
+        <Section id="s-app" title="האפליקציה">
           <div className="space-y-3">
             <InstallPrompt />
             <Tape className="flex min-h-11 items-center justify-between px-4 py-1">
@@ -76,10 +88,18 @@ export default async function SettingsPage() {
   );
 }
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+/**
+ * `id` is a slug, not the Hebrew title.
+ *
+ * It used to be `s-${title}`, and a title like "הבירות שלי" contains a space — so the
+ * id was invalid, and `aria-labelledby`, which is a SPACE-SEPARATED list of IDREFs,
+ * resolved to two tokens that pointed at nothing. Every section on this page was
+ * unnamed to a screen reader navigating by region. axe does not catch it, so a test does.
+ */
+function Section({ id, title, note, children }: { id: string; title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={`s-${title}`}>
-      <h2 id={`s-${title}`} className="mb-2 text-sm font-semibold text-on-ground-2">
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-2 text-sm font-semibold text-on-ground-2">
         {title}
       </h2>
       {children}

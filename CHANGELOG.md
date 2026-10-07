@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.15.0 — 2026-10-07
+
+**אפשר לשנות את היישוב ואת מרחק הנסיעה בהגדרות** · Feature, Fix
+
+- מי שדילג על שאלת המיקום בהרשמה, או שעבר דירה, יכול להגדיר אותה עכשיו בהגדרות.
+- אותו בורר יישובים ואותם מרחקים כמו בהרשמה.
+- מחיקת היישוב ושמירה מסירה אותו לגמרי — לא צריך להמציא עיר כדי שנפסיק למדוד מרחקים.
+
+Internal:
+
+- src/components/LocationEditor.tsx reuses PlacePicker and the saveLocation action, added to /settings as a new section. It tracks what is on record in its own state rather than from the prop: a client component's initial props do not come back changed after the action revalidates, so the success notice and the disabled-save both need a local snapshot. The notice shows only while nothing has been touched since the save -- a success message above a changed form would be telling the person their current edit is saved.
+- ACCESSIBILITY FIX (from the V2 audit). Settings built its section ids as `s-${title}`, so the Hebrew heading 'הבירות שלי' produced the id 's-הבירות שלי'. A space is not valid in an id, and aria-labelledby is a SPACE-SEPARATED list of IDREFs -- it split into two tokens pointing at nothing, leaving every section on the page unnamed to a screen reader navigating by region. axe does not flag it, because the attribute and the heading each look well-formed alone. Sections take an explicit slug id now, and tests/aria-ids.test.ts refuses any aria id interpolated from free text.
+- Profile gains home_city/home_lat/home_lon/search_radius_km, and getViewer asks for them with a fallback to the pre-0026 column list -- a database that has not had the migration applied yet must not fail the whole profile read, which is the read that used to throw people out of the app.
+- The two forms on /settings both say 'שמירה', so the e2e scopes each to its section by region name -- which the aria fix above is what makes possible.
+
 ## 0.14.1 — 2026-10-07
 
 **הציון מופיע על המבצעים** · Feature

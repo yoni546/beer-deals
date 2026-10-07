@@ -55,12 +55,21 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   const user = auth.user;
   if (!user) return EMPTY;
 
+  const CORE = "id, first_name, primary_beer_id, notifications_enabled, onboarded_at";
+  const WITH_PLACE = `${CORE}, home_city, home_lat, home_lon, search_radius_km`;
+
+  // Before 0026 there are no location columns. Asking for them on a database that has
+  // not had the migration applied yet would fail the whole profile read — and a failed
+  // profile read is the thing that used to throw people out of the app. Ask for them,
+  // and fall back to what every database has. Same pattern as getSkuIndex.
+  const readProfile = async () => {
+    const full = await supabase.from("profiles").select(WITH_PLACE).eq("id", user.id).maybeSingle();
+    if (!full.error) return full;
+    return supabase.from("profiles").select(CORE).eq("id", user.id).maybeSingle();
+  };
+
   const [profileResult, favoritesResult, adminResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, first_name, primary_beer_id, notifications_enabled, onboarded_at")
-      .eq("id", user.id)
-      .maybeSingle(),
+    readProfile(),
     supabase
       .from("user_favorite_beers")
       .select("rank, beers(*)")

@@ -32,7 +32,12 @@ export type Profile = {
   primary_beer_id: string | null;
   notifications_enabled: boolean;
   onboarded_at: string | null;
-  /** A theme slug the person chose in Settings; null = follow favourite #1. */
+  /** Where they said they live, and how far they will go (migration 0026). */
+  home_city: string | null;
+  home_lat: number | null;
+  home_lon: number | null;
+  /** 0 = nationwide. Null = never asked, or declined. */
+  search_radius_km: number | null;
 };
 
 /** A row of public.deals_public — an approved deal with its beer and store. */
