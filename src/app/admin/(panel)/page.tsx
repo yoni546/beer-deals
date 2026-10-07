@@ -67,7 +67,7 @@ export default async function AdminHomePage() {
     return <EmptyState>לא הצלחנו לטעון את הנתונים. רעננו את הדף.</EmptyState>;
   }
 
-  const { people, deals, reports, offers, notifications } = overview;
+  const { people, deals, reports, offers, notifications, branches } = overview;
 
   return (
     <div className="space-y-10">
@@ -144,6 +144,34 @@ export default async function AdminHomePage() {
           </ul>
         )}
       </AdminSection>
+
+      {branches && (
+        <AdminSection
+          title="מיקומי סניפים"
+          note={'"הכי קרוב אליי" עובד רק לסניף שאנחנו יודעים איפה הוא. סניף בלי מיקום לא מוצג כקרוב — לא מנחשים.'}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Tile
+              label="סניפים עם מיקום"
+              value={branches.located}
+              hint={`מתוך ${branches.total} פעילים`}
+            />
+            <Tile
+              label="ממתינים לאיתור"
+              value={branches.geocodable}
+              attention={branches.geocodable > 0}
+              hint="יש להם כתובת או עיר"
+            />
+            {branches.no_address > 0 && (
+              <Tile
+                label="בלי כתובת כלל"
+                value={branches.no_address}
+                hint="אי אפשר לאתר אותם מהנתונים שיש לנו"
+              />
+            )}
+          </div>
+        </AdminSection>
+      )}
 
       <AdminSection title="התראות">
         <div className="grid grid-cols-2 gap-3">

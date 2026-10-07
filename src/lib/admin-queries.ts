@@ -59,6 +59,8 @@ export type AdminOverview = {
   reports: { open: number };
   /** `live` already includes the approved manual deals; `from_chains` is the catalogue half. Never add them. */
   offers: { live: number; from_chains: number; retailers: number; expiring: number };
+  /** What "closest to me" has to work with (0026, 0028). Absent before 0028. */
+  branches?: { total: number; located: number; geocodable: number; no_address: number };
   notifications: { pending: number; sent_ever: number };
   expiring_within_days: number;
   as_of: string;

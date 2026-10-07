@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.17.0",
+    "date": "2026-10-07",
+    "title_he": "אפשר לאתר את הסניפים על המפה",
+    "highlights_he": [
+      "הוספנו את הכלי שנותן לסניפים מיקום — זה מה שיגרום ל\"הכי קרוב אליי\" לעבוד.",
+      "בלוח הניהול רואים עכשיו כמה סניפים כבר אותרו וכמה ממתינים.",
+      "בלי הגדרה מפורשת הכלי מסרב לנחש. עדיף סניף בלי מיקום מאשר סניף במקום הלא נכון."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": false,
+    "internal": [
+      "scripts/ingest/geocode.mjs + a provider abstraction in scripts/ingest/lib/geocode/. Dry run by default, --apply to write, --limit/--store for a slice. Only branches with latitude null are looked up, so a re-run is cheap and the rate limit is respected. Documented in docs/GEOCODING.md and .env.example.",
+      "FOUR THINGS STOP AN INVENTED COORDINATE: the default provider refuses everything and an unknown GEOCODER name is an error rather than a silent fallback; 0026's CHECKs refuse a point with no provenance, outside Israel, with an unknown precision, or half a pair; the runner refuses an implausible answer before the database sees it; and nothing is written without --apply. An invented position is the one failure this product cannot absorb -- a missing one is visible in the admin count and on the screen, a wrong one is visible nowhere, and the person it misleads is standing outside the wrong supermarket.",
+      "The real provider is Nominatim: no key, no account, no cost, so the owner can run it today. Its usage policy is enforced rather than documented -- one request per second in the provider itself, and GEOCODER_CONTACT required because an unidentified bulk client is how a project gets the service blocked. Anything short of a house number is recorded as street or locality, never dressed up as rooftop. Google Geocoding is documented as the upgrade path (better mall coverage, ~$5/1000, needs a billing account); adding it is one file and one line in PROVIDERS.",
+      "Configuration comes only from the target's git-ignored env file, never the shell -- the same rule as the database credentials, and a test enforces it.",
+      "Migration 0028 adds branches {total, located, geocodable, no_address} to admin_overview, and the dashboard shows it. The gap was invisible to the people running the app: the screen told a VISITOR we do not know where the branches are, but nothing told the owner how far from fixed that was or whether a geocoding run had helped. 'geocodable' separates branches a geocoder could try from ones with neither an address nor a city, which are a data problem and not a geocoding one."
+    ]
+  },
+  {
     "version": "0.16.0",
     "date": "2026-10-07",
     "title_he": "הכי משתלם, או הכי קרוב אליי",
