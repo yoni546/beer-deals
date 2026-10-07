@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.14.0",
+    "date": "2026-10-07",
+    "title_he": "ציון למבצע — כמה הוא באמת שווה",
+    "highlights_he": [
+      "לכל מבצע עם מחיר ייחוס אמין יש עכשיו ציון מ-0 עד 100, ודירוג: מטורף, משתלם מאוד, סביר, או לא באמת מבצע.",
+      "הציון בודק בעיקר מול הרשתות האחרות, לא מול מחיר המדף של אותה רשת — כך שרשת לא יכולה לנפח לעצמה הנחה.",
+      "הוא גם יודע אם זה המחיר הכי טוב שראינו לאריזה הזאת בחצי השנה האחרונה.",
+      "למבצע בלי מחיר ייחוס אמין פשוט אין ציון. לא ננחש."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0027: public.offer_scores (offer_key primary key, score, band, basis jsonb, computed_at) plus refresh_offer_scores(). Formula and reasoning in docs/DEAL-SCORE.md; 12 cases in tests/deal-score.test.ts.",
+      "Three components, each from a measurement already on record: CHAIN 0.25 (value_pct, the chain's own claim, weighted LEAST because a chain that lifts its shelf price deepens its own discount for free), MARKET 0.45 (market_value_pct, the median of >= 2 OTHER chains, which no chain can inflate), HISTORY 0.30 (where the price sits between the lowest and the median of every observation for that pack in 180 days, >= 4 samples required). Missing components are dropped and the weights renormalised; a chain-only score is capped at 80, because one self-reported signal cannot make something exceptional. basis records every input, its points and its weight, so any score can be explained.",
+      "value_pct null or needs_review -> NO ROW. Not a zero: a zero is a claim, absence is the truth. Same rule CLAUDE.md sets for discounts, one level up. Each refresh also deletes the score of an offer that has ended, so nothing keeps a number it can no longer justify.",
+      "A table refreshed by the import, not a view: 0018's header records the feeds timing out at ~10,600 live promotions and ~32,000 regular prices when something recomputed over the ledger per request, and the history component reads 180 days of it. offers_feed is deliberately untouched -- joining the score in would mean replacing the view 0018 and 0022 spent two migrations making cheap. The app reads offer_scores separately on the same offer_key and merges.",
+      "Guarded by require_price_writer() (0008) rather than a second hand-rolled check: whoever may write a price may write what we think of it. Everyone may read."
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-10-07",
     "title_he": "מספרים לנו איפה אתם גרים, וכמה רחוק שווה לכם לנסוע",
