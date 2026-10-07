@@ -47,10 +47,10 @@ export default async function StorePage({ params, searchParams }: { params: Prom
   const { slug } = await params;
   const query = await searchParams;
 
-  const store = await getStoreBySlug(slug);
+  // getViewer() does not depend on the chain, so it has no reason to wait for it.
+  const [store, viewer] = await Promise.all([getStoreBySlug(slug), getViewer()]);
   if (!store) notFound();
 
-  const viewer = await getViewer();
   // `tab=mine` is the old link shape; it keeps working.
   const mineOnly = query.mine === "1" || query.tab === "mine";
   const sort = parseSort(query.sort);

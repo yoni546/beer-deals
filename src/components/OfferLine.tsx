@@ -83,7 +83,7 @@ export function OfferLine({
   else if (offer.market_value_pct !== null) facts.push(<span key="m">זול ב־<span className="num">{offer.market_value_pct}%</span> מהממוצע</span>);
   if (showStore)
     facts.push(
-      <Link key="s" href={storeHref} className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-ink underline-offset-4 hover:underline">
+      <Link key="s" href={storeHref} prefetch={false} className="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-ink underline-offset-4 hover:underline">
         {offer.store_name}
       </Link>,
     );
@@ -98,7 +98,8 @@ export function OfferLine({
 
   return (
     <article className="px-4 pt-2 pb-3.5">
-      <Link href={primaryHref} className="flex min-h-11 items-baseline gap-2 pt-2 text-base leading-snug font-semibold text-ink">
+      {/* A busy chain page renders ~170 of these, i.e. ~340 anchors. */}
+      <Link href={primaryHref} prefetch={false} className="flex min-h-11 items-baseline gap-2 pt-2 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
         {offer.value_pct !== null && (

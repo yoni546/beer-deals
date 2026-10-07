@@ -15,15 +15,20 @@
 const CACHE = "beer-deals-v1";
 const OFFLINE_URL = "/offline.html";
 
-const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"];
+const ICONS = ["/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      // A missing icon must not stop the worker installing; push would break
-      // with it.
+      .then(async (cache) => {
+        // The offline page gets its own add, so that a missing icon cannot take it
+        // down with the rest of the batch: addAll rejects as a unit. Without it the
+        // navigate handler can end up calling respondWith(undefined), which fails the
+        // request and shows the browser's own error page instead of ours.
+        await cache.add(OFFLINE_URL).catch(() => undefined);
+        await cache.addAll(ICONS).catch(() => undefined);
+      })
       .catch(() => undefined)
       .then(() => self.skipWaiting()),
   );
@@ -31,10 +36,18 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      // Lets a navigation leave the device WHILE this worker boots, instead of after.
+      // On a terminated worker — the common case on a low-end Android — that boot was
+      // tens to a few hundred milliseconds in front of every navigation. The semantics
+      // are unchanged: navigations are still network-only, never cached.
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable().catch(() => undefined);
+      }
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })(),
   );
 });
 
@@ -47,11 +60,41 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     // Always live. Fall back to the offline page only when the network fails.
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    event.respondWith(
+      (async () => {
+        try {
+          return (await event.preloadResponse) || (await fetch(request));
+        } catch {
+          // caches.match resolves to undefined when the offline page is not there,
+          // and respondWith(undefined) rejects — so never hand it straight back.
+          return (
+            (await caches.match(OFFLINE_URL)) ??
+            new Response("<!doctype html><meta charset=utf-8><title>אין חיבור</title><p dir=rtl lang=he>אין חיבור לרשת.", {
+              status: 503,
+              headers: { "Content-Type": "text/html; charset=utf-8" },
+            })
+          );
+        }
+      })(),
+    );
     return;
   }
 
-  if (url.pathname.startsWith("/icons/") || url.pathname.startsWith("/_next/static/")) {
+  // Bottle photos and icons are content-stable per beer and are the app's LCP image.
+  // Caching them is not caching a navigation: no price is involved.
+  //
+  // `/_next/static/` is deliberately NOT here any more. Those files are hashed and
+  // Next already serves them `immutable`, so the worker added nothing — while a
+  // cache-first rule under a cache name that never changes meant the bucket grew
+  // without bound on a phone that keeps the app installed, and an open tab could
+  // keep running the previous deploy's JavaScript against the new server. That is
+  // what turned a button press after a release into "Failed to find Server Action"
+  // and, from there, into the generic error screen.
+  if (
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/bottles/") ||
+    url.pathname.startsWith("/onboarding/")
+  ) {
     event.respondWith(
       caches.match(request).then(
         (hit) =>

@@ -49,7 +49,7 @@ export function Strip({
         {beerSlug && <BeerMark slug={beerSlug} height={30} className="shrink-0 self-center" />}
         <Heading className="min-w-0 flex-1 truncate text-lg leading-tight font-bold text-ink">
           {href ? (
-            <Link href={href} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
+            <Link href={href} prefetch={false} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
               {title}
             </Link>
           ) : (
@@ -66,7 +66,7 @@ export function Strip({
       </div>
 
       {hidden > 0 && moreHref && (
-        <Link href={moreHref} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
+        <Link href={moreHref} prefetch={false} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
           עוד {hidden} {hidden === 1 ? "מבצע" : "מבצעים"} · {title}
           <ChevronLeftIcon size={18} />
         </Link>

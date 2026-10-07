@@ -32,7 +32,7 @@ export function RegularLine({
 
   return (
     <article className="px-4 pt-1 pb-3.5">
-      <Link href={href} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
+      <Link href={href} prefetch={false} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
         {from && <span className="shrink-0 text-sm font-semibold text-ink-2">החל מ־</span>}
@@ -89,7 +89,7 @@ export function RegularStrip({
       <div className="flex items-center justify-between gap-3 px-4 pt-2">
         <Heading className="min-w-0 truncate text-lg leading-tight font-bold text-ink">
           {href ? (
-            <Link href={href} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
+            <Link href={href} prefetch={false} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
               {title}
             </Link>
           ) : (

@@ -1,9 +1,7 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
-import { unstable_cache } from "next/cache";
 import { cache } from "react";
-import { publicEnv } from "@/lib/env";
+import { cachedFeed, publicReader } from "@/lib/feeds";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -36,7 +34,7 @@ export class DataUnavailableError extends Error {
 const hideSamples = isProductionEnvironment;
 
 /**
- * The SKU table, read once per request (a few hundred rows), for two things the feeds cannot do cheaply:
+ * The SKU table (a few hundred rows), for two things the feeds cannot do cheaply:
  *  - each SKU's pack form (skus.packaging, migration 0021) — what decides "ארגזים". If it cannot be read
  *    (the migration not applied), every pack stays null, and a null pack is never a crate;
  *  - a beer's SKU ids. The feeds are partitioned by store and SKU: a filter on store_id or sku_id reaches the
@@ -44,45 +42,44 @@ const hideSamples = isProductionEnvironment;
  *    production 2026-10-06: a beer's deals 1.3 s by beer_slug, 0.32 s by its SKU ids; a chain's 1.3 s by
  *    store_slug, 0.22 s by store_id). So pages filter by those, never by slug.
  */
-type SkuIndex = { packaging: Map<string, Packaging>; skusOfBeer: Map<string, string[]> };
-const getSkuIndex = cache(async (): Promise<SkuIndex> => {
-  const supabase = await supabaseServer();
+type SkuIndex = { packaging: Record<string, Packaging>; skusOfBeer: Record<string, string[]> };
+
+// Cached site-wide, not per render: `skus` is catalogue data, the same for everyone,
+// and this was re-read from the database on Home, every beer page and every chain page.
+// Maps do not survive the cache (it serialises), so the index is plain objects.
+const readSkuIndex = cachedFeed("skus", async (): Promise<SkuIndex> => {
+  const supabase = publicReader();
   let { data, error } = await supabase.from("skus").select("id, beer_id, packaging");
   // Before 0021 there is no packaging column: still index the beers' SKUs.
   if (error) ({ data, error } = await supabase.from("skus").select("id, beer_id"));
   if (error) throw new DataUnavailableError("packs", error.message);
-  const index: SkuIndex = { packaging: new Map(), skusOfBeer: new Map() };
+  const index: SkuIndex = { packaging: {}, skusOfBeer: {} };
   for (const row of (data ?? []) as Array<{ id: string; beer_id: string; packaging?: Packaging }>) {
-    if (row.packaging) index.packaging.set(row.id, row.packaging);
-    index.skusOfBeer.set(row.beer_id, [...(index.skusOfBeer.get(row.beer_id) ?? []), row.id]);
+    if (row.packaging) index.packaging[row.id] = row.packaging;
+    (index.skusOfBeer[row.beer_id] ??= []).push(row.id);
   }
   return index;
 });
+const getSkuIndex = cache(readSkuIndex);
 
 async function withPackaging<T extends { sku_id: string | null }>(rows: T[]): Promise<Array<T & { packaging: Packaging | null }>> {
   if (rows.length === 0) return [];
   const { packaging } = await getSkuIndex();
-  return rows.map((row) => ({ ...row, packaging: (row.sku_id && packaging.get(row.sku_id)) || null }));
+  return rows.map((row) => ({ ...row, packaging: (row.sku_id && packaging[row.sku_id]) || null }));
 }
 
 /** The beers' SKU ids (empty when they have none). */
 async function skuIdsOf(beerIds: string[]): Promise<string[]> {
   const { skusOfBeer } = await getSkuIndex();
-  return beerIds.flatMap((id) => skusOfBeer.get(id) ?? []);
+  return beerIds.flatMap((id) => skusOfBeer[id] ?? []);
 }
 
 /**
  * Reads that need the WHOLE feed (every chain) — Home's freshness and "more deals", the beer and chain
  * listings — cost ~1.2 s each at production scale and give every visitor the same answer, which changes
- * only when an import or an admin changes deals. They are cached for five minutes (FEEDS_TAG is cleared by
- * the admin actions) and read with a cookie-less client: the same public (anon) view of the data a signed-out
- * visitor gets — these views show nothing per person.
+ * only when an import or an admin changes deals. They are cached and read cookie-less: see src/lib/feeds.ts.
  */
-export const FEEDS_TAG = "feeds";
-const FEEDS_TTL_SECONDS = 300;
-const publicReader = () => createClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-const cachedFeed = <A extends unknown[], R>(key: string, read: (...args: A) => Promise<R>) =>
-  unstable_cache(read, ["feeds", key], { revalidate: FEEDS_TTL_SECONDS, tags: [FEEDS_TAG] });
+export { FEEDS_TAG } from "@/lib/feeds";
 
 /** The best verified savings across every chain, packs only — Home's "more deals", before excluding favourites. */
 const MORE_DEALS_POOL = 200;
@@ -213,7 +210,7 @@ export async function getGroupOffers(filter: { beerSlug?: string; storeSlug?: st
   const groups = (data ?? []) as GroupOffer[];
   if (groups.length === 0) return groups;
   const { packaging } = await getSkuIndex();
-  return groups.map((group) => ({ ...group, packs: group.packs.map((pack) => ({ ...pack, packaging: packaging.get(pack.sku_id) ?? null })) }));
+  return groups.map((group) => ({ ...group, packs: group.packs.map((pack) => ({ ...pack, packaging: packaging[pack.sku_id] ?? null })) }));
 }
 
 /** One row per beer or chain: how many offers there are, and the best verified saving. */

@@ -6,6 +6,27 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.11.2 — 2026-10-07
+
+**האפליקציה נפתחת מהר יותר** · Fix
+
+- מעבר בין המסכים כבר לא מבקש מהשרת דפים שלא ביקשתם — זה היה עד פי ארבעה עבודה מיותרת בכל צפייה.
+- רשימת הבירות והרשתות נקראת פעם אחת ולא בכל כניסה לכל דף.
+- תמונות הבקבוקים נשמרות במכשיר במקום להיבדק מחדש בכל ניווט.
+- מסך שליחת מבצע נטען קל יותר בשני שלישים.
+- אחרי עדכון גרסה כבר לא תיתקעו עם קוד ישן שגורם לשגיאה בלחיצה על כפתור.
+
+Internal:
+
+- prefetch={false} on the TabBar (root layout, four force-dynamic routes) and on ListingSearch/BeerStrip/OfferLine/RegularStrip row links. /beer renders ~40 prefetching rows and a busy chain page ~340 anchors, each one a full dynamic render in Tokyo queued ahead of the person's own tap. Hero keeps its prefetch: one link, the likeliest tap.
+- New src/lib/feeds.ts holds publicReader + cachedFeed + FEEDS_TAG, so queries.ts can use them without importing offers.ts (which imports queries.ts). getBeers/getStores/getSettings and the SKU index now read through the cookie-less anon client under FEEDS_TAG with explicit column lists instead of select(*) on every page load — 4-5 round trips off the critical path of every page. Every table involved is `select to anon, authenticated using (true)` with a matching grant, so the anon role sees the same rows; every admin mutation already clears FEEDS_TAG.
+- getBeerBySlug/getStoreBySlug read a SEPARATE cached index over every row, not the filtered choose-from list: a deactivated beer's or a cider's page must still render rather than 404.
+- next.config.ts: /bottles/ and /onboarding/ get max-age=31536000, immutable. They are written once per beer by prepare-bottle.mjs and were revalidated on every navigation — the LCP image.
+- sw.js: navigationPreload so a navigation leaves the device while the worker boots (navigations stay network-only); the offline page is precached with its own add so a missing icon cannot take it down, and the navigate handler can no longer call respondWith(undefined); /bottles/ and /onboarding/ are cache-first; /_next/static/ is NO LONGER cached — Next already serves it immutable, while a cache-first rule under a fixed cache name grew without bound and let an open tab run the previous deploy's JS against the new server, which is what produced 'Failed to find Server Action' and the generic error screen after a release.
+- SubmitDealForm imports supabase-js dynamically inside the upload handler: /submit first load 178 kB -> 111 kB.
+- The store page no longer awaits getStoreBySlug before getViewer; they are independent.
+- Still outstanding from the audit's section 2: getFreshness computes the ranked feed to read one timestamp (needs a cheap SQL function), and the materialized-CTE fence in offers_ranked (C1) is the remaining database floor.
+
 ## 0.11.1 — 2026-10-07 (internal)
 
 **המספרים בלוח הניהול אומרים את האמת** · Fix

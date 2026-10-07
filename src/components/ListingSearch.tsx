@@ -116,7 +116,8 @@ function Rows({ items, basePath, heading }: { items: ListingItem[]; basePath: st
       <ul className="divide-y divide-dotted divide-paper-line">
         {items.map((item) => (
           <li key={item.slug}>
-            <Link href={`${basePath}/${item.slug}`} className="flex min-h-14 items-center gap-3 px-4 py-2">
+            {/* ~40 rows on /beer, 17 on /store, each one a force-dynamic page. */}
+            <Link href={`${basePath}/${item.slug}`} prefetch={false} className="flex min-h-14 items-center gap-3 px-4 py-2">
               {item.rank ? (
                 <span
                   aria-hidden
