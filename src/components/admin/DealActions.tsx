@@ -29,6 +29,22 @@ const STATUS_LABEL: Record<DealStatus, string> = {
  * still waiting for a decision is hatched as well as labelled — unverified data
  * is marked in words and pattern, never colour alone.
  */
+/**
+ * The attached photo's link, or null.
+ *
+ * Only https survives. Everything else — javascript:, data:, a relative path that
+ * would resolve against the admin panel — is dropped rather than rendered, because
+ * this link is shown to a moderator and its value came from a stranger.
+ */
+function safePhotoHref(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).protocol === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AdminDealRow({
   deal,
   beers,
@@ -62,6 +78,7 @@ export function AdminDealRow({
   }
 
   const fieldId = (name: string) => `deal-${deal.id}-${name}`;
+  const photoHref = safePhotoHref(deal.image_url);
 
   return (
     <article className="px-4 py-4">
@@ -91,11 +108,15 @@ export function AdminDealRow({
 
       {deal.notes && <p className="mt-2 text-sm leading-relaxed text-ink-2">{deal.notes}</p>}
 
-      {deal.image_url && (
+      {/* Defence in depth. The submission schema already pins this to the project's own
+          bucket and the table has a CHECK, but this is the one place an admin CLICKS a
+          value a stranger supplied, so it refuses anything that is not plainly https —
+          a javascript: href executes in the current document whatever `target` says. */}
+      {photoHref && (
         <a
-          href={deal.image_url}
+          href={photoHref}
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
           className="mt-1 flex min-h-11 items-center text-sm text-ink underline underline-offset-4"
         >
           צפייה בתמונה שצורפה

@@ -6,6 +6,19 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.17.1 — 2026-10-07 (internal)
+
+**הקשחת אבטחה: התמונה שמצרפים למבצע** · Fix
+
+- סגרנו פרצה שאפשרה לצרף למבצע "תמונה" שאינה תמונה, ולנסות לפגוע במנהל שלוחץ עליה. שום דבר לא משתנה בשימוש באפליקציה.
+
+Internal:
+
+- M-1 from the V2 security audit. deals.image_url was validated as z.string().optional() -- anything -- and rendered to a moderator as href. Any visitor (an anonymous session is minted automatically) could submit a valid deal with image_url='javascript:...' and wait for an admin to click 'צפייה בתמונה שצורפה'. That scheme executes in the current document regardless of target=_blank: script execution in a super-admin session, one server-action call from grant_admin. data:text/html and a look-alike host are the quieter versions.
+- Fixed in three places. (1) src/lib/actions/deals.ts pins the value to a real URL under this project's own /storage/v1/object/public/deal-images/ prefix -- nothing else is a photo of a shelf label. (2) src/components/admin/DealActions.tsx parses it and renders the link only when the protocol is https, and opens it rel='noreferrer noopener'; the raw column value never reaches the attribute. (3) Migration 0029 adds deals_image_url_is_https so no code path -- a future import, a script, a hand-written PostgREST call that satisfies the RLS policy -- can store one either.
+- The constraint is NOT VALID deliberately: it applies to every INSERT and UPDATE from now on, which is the point, without failing the migration on historical rows nobody has audited. Those are still rendered safely by (2). `alter table public.deals validate constraint deals_image_url_is_https` tightens it after a review.
+- tests/deal-image-url.test.ts proves all three layers, including that a submitting user cannot smuggle one in through the RLS insert policy.
+
 ## 0.17.0 — 2026-10-07 (internal)
 
 **אפשר לאתר את הסניפים על המפה** · Feature
