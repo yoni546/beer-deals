@@ -6,6 +6,24 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.16.0 — 2026-10-07
+
+**הכי משתלם, או הכי קרוב אליי** · Feature
+
+- בדף הבית יש עכשיו בורר: "הכי משתלם" או "הכי קרוב אליי". זו בחירה לחיפוש הנוכחי — לא הגדרה שנשמרת עליכם.
+- "הכי משתלם" מסדר לפי ציון המבצע ועובד כבר עכשיו.
+- "הכי קרוב" עדיין מחכה למיקומים של הסניפים. עד אז הוא אומר את זה — ולא מסדר לכם רשימה שנראית לפי מרחק ואינה.
+- הבחירה נשמרת בכתובת, כך שקישור ששיתפתם מראה בדיוק את מה שראיתם.
+
+Internal:
+
+- src/lib/offer-logic.ts: SearchIntent ('best' | 'near'), parseIntent, orderByIntent returning { offers, unplaceable }. In the URL beside sort and pack, never written to the profile -- the brief is explicit and right: the same person wants the nearest shop tonight and the best price on Friday.
+- 'near' LEAVES OUT every offer it cannot measure and reports how many. Dropping an unplaceable deal to the bottom of a list labelled by distance would be claiming a distance we do not have -- the same mistake as a price we have not verified. 'best' shows everything: a deal with no score is still a deal.
+- src/lib/distance.ts: an offer's distance is the distance to the NEAREST LOCATED BRANCH OF ITS CHAIN, except where the deal is known to run at one branch only. That is the brief's own example -- a Goldstar deal at Rami Levy should answer 'where is the nearest Rami Levy', not 'which branch was it seen at'. Radius 0 is nationwide: still ordered by distance, no limit.
+- TODAY IT MEASURES NOTHING, as designed: 0026 shipped the branch coordinate columns empty because the Stores file carries an address and never a position, and geocoding needs a provider credential this repository does not have. The two reasons are distinguished and answered differently -- no home location offers the Settings link; a home location with no located branches says we do not know where the branches are and offers 'best' instead. Both are proven by e2e.
+- In 'near' Home shows ONE flat list, not per-beer strips: grouping by beer is the wrong shape for 'I want beer now'. OfferLine takes an optional distanceKm, passed only for an offer that was actually placed. kmHe gives one decimal below 10 km and whole numbers above, because a branch fix is good to a street at best and a home point is a town centre.
+- The control is the existing Segmented component (URL links, replace, scroll=false, aria-current), so it costs no new interaction model and no client JavaScript.
+
 ## 0.15.0 — 2026-10-07
 
 **אפשר לשנות את היישוב ואת מרחק הנסיעה בהגדרות** · Feature, Fix

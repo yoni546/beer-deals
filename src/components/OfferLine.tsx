@@ -5,7 +5,7 @@ import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { ReportDealButton } from "@/components/ReportDealButton";
 import { ScopeLine } from "@/components/ScopeLine";
 import type { Offer } from "@/lib/db/types";
-import { conditionChips, depositHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
+import { conditionChips, depositHe, kmHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 export type LineLead = "chain" | "beer" | "pack";
@@ -31,6 +31,7 @@ export function OfferLine({
   lead,
   showStore = lead !== "chain",
   perLiter = false,
+  distanceKm,
   now = Date.now(),
 }: {
   offer: Offer;
@@ -39,6 +40,8 @@ export function OfferLine({
   showStore?: boolean;
   /** The list is ordered per litre: show that number on the line. */
   perLiter?: boolean;
+  /** How far the nearest branch of this chain is. Omitted when we cannot place it. */
+  distanceKm?: number;
   now?: number;
 }) {
   const pack = packText(offer);
@@ -88,6 +91,15 @@ export function OfferLine({
         {offer.store_name}
       </Link>,
     );
+  // How far, when the page is measuring. Never a guess: the caller only passes one for
+  // an offer we could actually place (src/lib/distance.ts).
+  if (distanceKm !== undefined) {
+    facts.push(
+      <span key="km" className="font-medium text-ink">
+        <span className="num">{kmHe(distanceKm)}</span> ממך
+      </span>,
+    );
+  }
   if (until) facts.push(<span key="u">{until}</span>);
   if (deposit) facts.push(<span key="d" className="num">{deposit}</span>);
   if (perLiter && offer.unit_price_per_liter_agorot !== null) facts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);

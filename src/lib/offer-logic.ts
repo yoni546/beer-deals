@@ -141,6 +141,72 @@ export function sortOffers(offers: Offer[], mode: SortMode, perLiter = false): O
   }
 }
 
+/**
+ * What the person is after RIGHT NOW.
+ *
+ * Deliberately NOT a stored profile preference. The brief is explicit, and it is
+ * right: the same person wants the nearest shop when they need beer this evening and
+ * the best price when they are willing to drive on Friday. It belongs in the URL, like
+ * the sort and the pack filter, so a shared link reproduces what the sender saw — and
+ * so nothing has to guess which mood somebody is in.
+ */
+export type SearchIntent = "best" | "near";
+export const SEARCH_INTENTS: SearchIntent[] = ["best", "near"];
+export const parseIntent = (raw?: string): SearchIntent => (raw === "near" ? "near" : "best");
+
+/** How far each offer is, in km, by offer_key. An ABSENT key means we do not know. */
+export type Distances = Record<string, number>;
+
+/**
+ * The result of ordering by intent, including what had to be left out.
+ *
+ * `unplaceable` is not a detail: under "closest to me" an offer we cannot measure is
+ * not shown at all, because putting it at the bottom of a list labelled by distance
+ * would be claiming a distance we do not have. The caller says so in words instead.
+ */
+export type IntentResult = { offers: Offer[]; unplaceable: number };
+
+const scoreOf = (offer: Offer) => offer.deal_score?.score ?? -1;
+
+/**
+ * Order a list for the chosen intent.
+ *
+ *   best  — the deal score first, then the existing value ordering, then distance.
+ *           Everything is shown: a deal with no score or no distance is still a deal.
+ *   near  — distance first, the score as the tie-breaker, and ONLY offers we can
+ *           actually place. See IntentResult.
+ */
+export function orderByIntent(
+  offers: Offer[],
+  intent: SearchIntent,
+  distances: Distances,
+  mode: SortMode = "value",
+  perLiter = false,
+): IntentResult {
+  const km = (offer: Offer) => distances[offer.offer_key];
+
+  if (intent === "near") {
+    const placeable = offers.filter((offer) => km(offer) !== undefined);
+    const sorted = [...placeable].sort(
+      (a, b) => km(a)! - km(b)! || scoreOf(b) - scoreOf(a) || a.effective_agorot - b.effective_agorot,
+    );
+    return { offers: sorted, unplaceable: offers.length - placeable.length };
+  }
+
+  // Best value. The score leads where there is one; the existing value ordering decides
+  // the rest, so an unscored offer keeps its place rather than sinking to the bottom.
+  const byValue = sortOffers(offers, mode, perLiter);
+  const position = new Map(byValue.map((offer, index) => [offer, index]));
+  const sorted = [...byValue].sort((a, b) => {
+    const [sa, sb] = [scoreOf(a), scoreOf(b)];
+    if (sa !== sb) return sb - sa;
+    const [da, db] = [km(a), km(b)];
+    if (da !== undefined && db !== undefined && da !== db) return da - db;
+    return position.get(a)! - position.get(b)!;
+  });
+  return { offers: sorted, unplaceable: 0 };
+}
+
 export type PackGroup = { key: string; label: string; offers: Offer[] };
 
 /** Offers grouped by pack, so a Goldstar 6×330 is never listed among the 6×500s. */

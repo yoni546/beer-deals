@@ -23,6 +23,7 @@ export function Strip({
   headingLevel = "h2",
   beerSlug,
   perLiter = false,
+  distances,
 }: {
   title: string;
   href?: string;
@@ -38,6 +39,8 @@ export function Strip({
   beerSlug?: string;
   /** The list is ordered per litre: each line shows that number. */
   perLiter?: boolean;
+  /** How far each offer is, by offer_key. Only the ones we could place are in it. */
+  distances?: Record<string, number>;
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
@@ -61,7 +64,14 @@ export function Strip({
 
       <div className="divide-y divide-paper-line">
         {shown.map((offer) => (
-          <OfferLine key={offer.offer_key} offer={offer} lead={lead} showStore={showStore} perLiter={perLiter} />
+          <OfferLine
+            key={offer.offer_key}
+            offer={offer}
+            lead={lead}
+            showStore={showStore}
+            perLiter={perLiter}
+            distanceKm={distances?.[offer.offer_key]}
+          />
         ))}
       </div>
 

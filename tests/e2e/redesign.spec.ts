@@ -350,3 +350,50 @@ test("an unknown beer is a designed 404, not a crash", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "לא מצאנו את הדף הזה" })).toBeVisible();
   await expect(page.getByRole("link", { name: "לחיפוש בירה" })).toBeVisible();
 });
+
+// "Closest to me" vs "Best deal": the control the V2 brief calls out as important.
+// It is a per-search choice, so it lives in the URL and never in the profile — and
+// where it cannot do what its label promises, it says so instead of reordering.
+test("the intent control is in the URL, not in the profile", async ({ page }) => {
+  await onboard(page);
+
+  const control = page.getByRole("navigation", { name: "מה מחפשים עכשיו" });
+  await expect(control.getByRole("link", { name: "הכי משתלם" })).toHaveAttribute("aria-current", "page");
+
+  await control.getByRole("link", { name: "הכי קרוב אליי" }).click();
+  await expect(page).toHaveURL(/intent=near/);
+  await expect(control.getByRole("link", { name: "הכי קרוב אליי" })).toHaveAttribute("aria-current", "page");
+
+  // A shared link reproduces it, and going back to best clears it from the address.
+  await page.goto("/?intent=near");
+  await expect(page.getByRole("navigation", { name: "מה מחפשים עכשיו" }).getByRole("link", { name: "הכי קרוב אליי" })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("link", { name: "הכי משתלם" }).click();
+  await expect(page).not.toHaveURL(/intent=near/);
+});
+
+test("'closest to me' asks for a place when it has none, instead of pretending to sort", async ({ page }) => {
+  await onboard(page); // the default walk skips the place step
+  await page.goto("/?intent=near");
+
+  await expect(page.getByText("לא סיפרתם לנו איפה אתם")).toBeVisible();
+  await expect(page.getByRole("link", { name: "להגדרת היישוב" })).toBeVisible();
+  // And it does NOT quietly show a list in some other order under this label.
+  await expect(page.getByRole("heading", { name: "הכי קרוב אליך" })).toHaveCount(0);
+});
+
+test("with a place but no located branches, it says that — it does not invent distances", async ({ page }) => {
+  await onboard(page);
+
+  await page.goto("/settings");
+  await page.getByPlaceholder("תל אביב, חיפה, באר שבע…").fill("תל אביב");
+  await page.getByRole("link", { name: "תל אביב-יפו" }).or(page.getByRole("button", { name: "תל אביב-יפו" })).first().click();
+  await page.getByRole("button", { name: "עד 25 ק״מ" }).click();
+  await page.getByRole("region", { name: "איפה אני" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  await page.goto("/?intent=near");
+  // Migration 0026 shipped the branch coordinates deliberately empty: no provider, no
+  // guesses. The screen says exactly that rather than showing an order it cannot justify.
+  await expect(page.getByText("עוד אין לנו את המיקומים של הסניפים")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "הכי קרוב אליך" })).toHaveCount(0);
+});

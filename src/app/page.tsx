@@ -9,6 +9,7 @@ import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ShareApp } from "@/components/ShareApp";
 import { SortBar } from "@/components/SortBar";
+import { IntentSwitch, CannotMeasure } from "@/components/IntentSwitch";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
 import { Gap } from "@/components/ui/Tape";
@@ -22,20 +23,24 @@ import {
   newestObservation,
   orderForHome,
   packClass,
+  orderByIntent,
+  parseIntent,
   parsePack,
   parseSort,
   pickHero,
+  type SearchIntent,
   summarize,
   type BeerSummary,
   type PackFilter,
 } from "@/lib/offer-logic";
+import { distancesFor } from "@/lib/distance";
 import { getBeers, getSettings, getStores } from "@/lib/queries";
 import { attempt, failed, or } from "@/lib/attempt";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-type Search = { sort?: string; unit?: string; pack?: string; c?: string };
+type Search = { sort?: string; unit?: string; pack?: string; c?: string; intent?: string };
 
 /**
  * Home: the drinker's four beers first, in their own order, then the one deal worth
@@ -67,6 +72,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // Home has no singles, so a "singles" link (an old notification) opens everything Home has.
   const requested = parsePack(query.pack, query.c);
   const pack: PackFilter = requested === "single" ? "all" : requested;
+  // What they are after right now. In the URL, never in the profile (src/lib/offer-logic.ts).
+  const intent = parseIntent(query.intent);
+  const hrefForIntent = (next: SearchIntent) => {
+    const params = new URLSearchParams();
+    if (query.sort) params.set("sort", query.sort);
+    if (query.unit) params.set("unit", query.unit);
+    if (query.pack) params.set("pack", query.pack);
+    if (next !== "best") params.set("intent", next);
+    const search = params.toString();
+    return search ? `/?${search}` : "/";
+  };
 
   const favouriteIds = viewer.favorites.map((beer) => beer.id);
   // Every read in one round trip, and every one of them allowed to fail on its own. A page that
@@ -106,6 +122,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const everything = [...mine, ...more];
   const freshest = updatedAt ?? newestObservation(everything);
+
+  // How far each one is, or the reason we cannot say. Nothing here invents a position:
+  // the branch coordinate columns (0026) are deliberately empty until a geocoding
+  // provider is configured, so today this reports that we do not know.
+  const distances = await distancesFor(viewer, everything);
+  const nearby = orderByIntent(everything, "near", distances.available ? distances.byOffer : {}, sort, perLiter);
 
   const summaries: Record<string, BeerSummary> = {};
   for (const beer of viewer.favorites) summaries[beer.id] = summarize(mine.filter((offer) => offer.beer_id === beer.id));
@@ -186,6 +208,29 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <SortBar path="/" state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
           </div>
 
+          <div className="mb-5">
+            <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
+          </div>
+
+          {intent === "near" ? (
+            // One flat list, nearest first. Grouping by beer is the wrong shape for
+            // "I want beer now": the question is where, not whose.
+            nearby.offers.length === 0 ? (
+              <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
+            ) : (
+              <>
+                <Strip
+                  title="הכי קרוב אליך"
+                  offers={nearby.offers}
+                  lead="beer"
+                  perLiter={perLiter}
+                  limit={12}
+                  distances={distances.available ? distances.byOffer : undefined}
+                />
+                <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
+              </>
+            )
+          ) : (
           <div className="space-y-7">
             {strips.map((group) => (
               <Strip
@@ -230,6 +275,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               )
             )}
           </div>
+          )}
         </>
       )}
 
