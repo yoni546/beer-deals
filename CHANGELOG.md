@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.14.1 — 2026-10-07
+
+**הציון מופיע על המבצעים** · Feature
+
+- על כל מבצע עם מחיר ייחוס אמין מופיע עכשיו הדירוג שלו: מטורף, משתלם מאוד, סביר, או לא באמת מבצע — עם המספר לצידו.
+- מבצע בלי מחיר ייחוס פשוט לא מציג ציון. בלי אפס, בלי מציין מקום.
+
+Internal:
+
+- src/lib/offers.ts reads offer_scores through the shared cached reader and merges on offer_key (decorate = withPackaging + withScores). offers_feed is deliberately untouched: joining the score in would mean replacing the view 0018 and 0022 spent two migrations making cheap. A missing table (migration not yet applied) returns {} rather than throwing -- the deals are still true, they just arrive unscored.
+- src/components/ui/DealScore.tsx: the band in WORDS with the number beside it, never colour alone and never an emoji. Only contrast-verified text roles; the weak band uses ring-danger and not text-danger, because the theme generator fixes `danger` at one lightness for both modes, which is why the project uses it as a border. Shown on OfferLine (in the facts row, beside the condition chips) and on the Hero.
+- refresh_offer_scores() runs at the end of scripts/ingest/run.mjs and after the five admin actions that add, remove or reprice a deal. Neither is allowed to fail its caller: a live but unscored deal is a far smaller problem than an import being undone or an admin being told their approval failed when it did not.
+- The ingest run also rings POST /api/cache/revalidate, reading the address and the secret from the TARGET'S git-ignored env file rather than the shell -- the project's own guard test (tests/ingest.test.ts) caught the first attempt, and reading it from the environment could point the doorbell at a different deployment than the data.
+
 ## 0.14.0 — 2026-10-07
 
 **ציון למבצע — כמה הוא באמת שווה** · Feature

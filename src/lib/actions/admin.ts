@@ -7,6 +7,7 @@ import { describeDbError, type ActionResult } from "@/lib/actions/result";
 import { runNotifications } from "@/lib/push/run";
 import { shekelsToAgorot } from "@/lib/money";
 import type { DealCategory } from "@/lib/categories";
+import { report } from "@/lib/log";
 import type { AdminLevel, DealStatus, ReportStatus } from "@/lib/db/types";
 
 /**
@@ -22,12 +23,26 @@ function revalidateAdmin() {
   revalidateTag(FEEDS_TAG);
 }
 
+/**
+ * Rescore after a change that adds, removes or reprices a deal.
+ *
+ * Deliberately not allowed to fail the action that called it: the moderation decision
+ * has already committed, and a deal that is live but unscored is a far smaller problem
+ * than an admin being told their approval failed when it did not.
+ */
+async function rescore(): Promise<void> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase.rpc("refresh_offer_scores");
+  if (error) report("deal_scores.refresh_failed", { code: error.code, reason: error.message });
+}
+
 export async function approveDeal(dealId: string): Promise<ActionResult> {
   const supabase = await supabaseServer();
   const { error } = await supabase.rpc("approve_deal", { p_deal_id: dealId });
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidateAdmin();
+  await rescore(); // the deal changed, so what we think of it must too
 
   // Approving queued a notification event in the same transaction (a database trigger).
   // Running the worker now delivers it within seconds instead of at the next scheduled run;
@@ -50,6 +65,7 @@ export async function setDealStatus(dealId: string, status: DealStatus): Promise
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidateAdmin();
+  await rescore(); // the deal changed, so what we think of it must too
   return { ok: true, message: "עודכן." };
 }
 
@@ -78,6 +94,7 @@ export async function updateDeal(dealId: string, formData: FormData): Promise<Ac
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidateAdmin();
+  await rescore(); // the deal changed, so what we think of it must too
   return { ok: true, message: "המבצע עודכן." };
 }
 
@@ -187,6 +204,7 @@ export async function addDeal(_previous: ActionResult, formData: FormData): Prom
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidateAdmin();
+  await rescore(); // the deal changed, so what we think of it must too
   return { ok: true, message: "המבצע נוסף ופורסם." };
 }
 
@@ -203,5 +221,6 @@ export async function deleteDeal(dealId: string): Promise<ActionResult> {
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidateAdmin();
+  await rescore(); // the deal changed, so what we think of it must too
   return { ok: true, message: "המבצע נמחק." };
 }

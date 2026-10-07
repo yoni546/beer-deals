@@ -5,7 +5,7 @@ import { cachedFeed, publicReader } from "@/lib/feeds";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { GroupOffer, Offer, Packaging, RegularPrice } from "@/lib/db/types";
+import type { DealScore, GroupOffer, Offer, Packaging, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
 
@@ -66,6 +66,42 @@ async function withPackaging<T extends { sku_id: string | null }>(rows: T[]): Pr
   if (rows.length === 0) return [];
   const { packaging } = await getSkuIndex();
   return rows.map((row) => ({ ...row, packaging: (row.sku_id && packaging[row.sku_id]) || null }));
+}
+
+/**
+ * The Deal Scores, read once and merged in.
+ *
+ * Deliberately NOT joined into offers_feed: that view is what every screen reads and
+ * what migrations 0018 and 0022 spent two rounds making cheap, and adding a join to it
+ * would put the cost back. The scores are a small, separately indexed table keyed by
+ * the same offer_key the feed already emits, so one read covers a whole page.
+ *
+ * An offer with no row here keeps `deal_score: null` — see docs/DEAL-SCORE.md: a deal
+ * with no trusted reference gets no score, not a guessed one, and the UI shows none.
+ */
+const readScoreIndex = cachedFeed("deal-scores", async (): Promise<Record<string, DealScore>> => {
+  const { data, error } = await publicReader().from("offer_scores").select("offer_key, score, band");
+  // A missing table (the migration not applied yet) must not take the prices down with
+  // it: the deals are still true, they simply arrive unscored.
+  if (error) return {};
+  return Object.fromEntries(
+    ((data ?? []) as Array<{ offer_key: string; score: number; band: DealScore["band"] }>).map((row) => [
+      row.offer_key,
+      { score: row.score, band: row.band },
+    ]),
+  );
+});
+const getScoreIndex = cache(readScoreIndex);
+
+async function withScores<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { deal_score: DealScore | null }>> {
+  if (rows.length === 0) return [];
+  const scores = await getScoreIndex();
+  return rows.map((row) => ({ ...row, deal_score: scores[row.offer_key] ?? null }));
+}
+
+/** Everything a deal line needs that the feed itself does not carry. */
+async function decorate(rows: Offer[]): Promise<Offer[]> {
+  return withScores(await withPackaging(rows)) as Promise<Offer[]>;
 }
 
 /** The beers' SKU ids (empty when they have none). */
@@ -131,7 +167,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
   if (filter.excludeBeerIds && filter.topByValue && filter.packsOnly && !beerIds && !storeId) {
     const excluded = new Set(filter.excludeBeerIds);
     const pool = await getTopPackOffers(hideSamples());
-    return withPackaging(pool.filter((offer) => !excluded.has(offer.beer_id)).slice(0, filter.topByValue));
+    return decorate(pool.filter((offer) => !excluded.has(offer.beer_id)).slice(0, filter.topByValue));
   }
 
   const base = () => {
@@ -161,7 +197,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
     if (error) throw new DataUnavailableError("offers", error.message);
     rows = (data ?? []) as Offer[];
   }
-  return withPackaging(rows);
+  return decorate(rows);
 }
 
 
@@ -270,5 +306,5 @@ export async function getOfferByKey(key: string): Promise<Offer | null> {
   if (hideSamples()) query = query.eq("is_sample", false);
   const { data, error } = await query.maybeSingle();
   if (error) throw new DataUnavailableError("the featured deal", error.message);
-  return data ? (await withPackaging([data as Offer]))[0] : null;
+  return data ? (await decorate([data as Offer]))[0] : null;
 }

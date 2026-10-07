@@ -174,6 +174,14 @@ export type PriceProvenance = {
  * an administrator, and the saving is at most 70 %). A null means "do not claim a
  * saving" — show the price alone. Never derive a percentage in the UI.
  */
+/** The bands of the Deal Score (migration 0027, docs/DEAL-SCORE.md). */
+export type ScoreBand = "amazing" | "very_good" | "fair" | "weak";
+
+export type DealScore = {
+  score: number;
+  band: ScoreBand;
+};
+
 export type Offer = {
   offer_key: string;
   origin: "catalog" | "legacy";
@@ -191,6 +199,12 @@ export type Offer = {
   pack_quantity: number | null;
   /** From skus (src/lib/offers.ts withPackaging); null for legacy deals and when unknown. */
   packaging?: Packaging | null;
+  /**
+   * How good this deal is (migration 0027). ABSENT, never zero, when there is no
+   * trusted reference price to measure it against — the UI shows no score at all
+   * rather than a number it cannot defend.
+   */
+  deal_score?: DealScore | null;
   /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
   effective_agorot: number;
   unit_price_per_liter_agorot: number | null;

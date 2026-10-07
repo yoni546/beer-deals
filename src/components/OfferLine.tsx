@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronDownIcon } from "@/components/ui/icons";
+import { DealScoreChip } from "@/components/ui/DealScore";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { ReportDealButton } from "@/components/ReportDealButton";
 import { ScopeLine } from "@/components/ScopeLine";
@@ -115,6 +116,9 @@ export function OfferLine({
             {node}
           </span>
         ))}
+        {/* How good the deal is, as against how much is off (the badge on the line above).
+            Absent when there is no trusted reference to score it against. */}
+        <DealScoreChip score={offer.deal_score} />
         {chips.map((chip) => (
           <span key={chip.label} className="rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
             {chip.label}

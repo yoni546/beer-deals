@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { BeerMark } from "@/components/ui/Bottle";
+import { DealScoreChip } from "@/components/ui/DealScore";
 import { Tape } from "@/components/ui/Tape";
 import type { Hero as HeroPick } from "@/lib/offer-logic";
 import { conditionChips, packText, scopeHe, validUntilHe } from "@/lib/format";
@@ -29,7 +30,11 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
   return (
     <Tape printIn className="relative px-5 py-5" aria-labelledby="hero-title">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-ink-2">{label}</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-ink-2">{label}</p>
+          {/* The headline deal says how good it is, not only how much is off. */}
+          <DealScoreChip score={offer.deal_score} />
+        </div>
         <BeerMark slug={offer.beer_slug} height={56} className="-mt-1 shrink-0" />
       </div>
 
