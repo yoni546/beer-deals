@@ -77,15 +77,17 @@ export default async function AdminHomePage() {
       >
         <div className="grid grid-cols-2 gap-3">
           <Tile
-            label="אנשים שנרשמו"
+            label="מכשירים שסיימו הרשמה"
             value={people.onboarded}
             hint={`מתוך ${people.total} שפתחו את האפליקציה`}
           />
-          <Tile label="נרשמו השבוע" value={people.this_week} hint="פרופילים חדשים" />
+          <Tile label="נפתחו השבוע" value={people.this_week} hint="מכשירים חדשים, לא בהכרח שסיימו" />
+          {/* offers.live ALREADY contains the approved manual deals: offers_feed is
+              catalog UNION ALL deals_public. Adding deals.live counted every one twice. */}
           <Tile
             label="מבצעים באוויר"
-            value={offers.live + deals.live}
-            hint={`${offers.live} מהרשתות · ${deals.live} שנוספו ידנית`}
+            value={offers.live}
+            hint={`${offers.from_chains} מהרשתות · ${deals.live} שנוספו ידנית`}
           />
           <Tile
             label="ממתינים לאישור"
@@ -114,11 +116,13 @@ export default async function AdminHomePage() {
         title="מבצעים שעומדים להיגמר"
         note={`בשבוע הקרוב. מבצע בלי תאריך סיום לא נספר כאן — אין לו תאריך לסיים בו.`}
       >
-        {expiring.length === 0 ? (
+        {!expiring.ok ? (
+          <EmptyState>לא הצלחנו לקרוא את רשימת המבצעים שנגמרים. זה לא אומר שאין.</EmptyState>
+        ) : expiring.rows.length === 0 ? (
           <EmptyState>אין מבצעים עם תאריך סיום בשבוע הקרוב.</EmptyState>
         ) : (
           <ul className="divide-y divide-paper-line rounded-2xl border border-paper-line bg-paper">
-            {expiring.map((offer) => (
+            {expiring.rows.map((offer) => (
               <li key={offer.offer_key} className="flex items-baseline gap-2 px-4 py-3">
                 <span className="min-w-0 flex-1 truncate text-sm text-ink">
                   <span className="font-bold">{offer.beer_name}</span>
@@ -132,6 +136,7 @@ export default async function AdminHomePage() {
                   {new Date(offer.valid_to as string).toLocaleDateString("he-IL", {
                     day: "numeric",
                     month: "numeric",
+                    timeZone: "Asia/Jerusalem",
                   })}
                 </span>
               </li>
@@ -143,11 +148,11 @@ export default async function AdminHomePage() {
       <AdminSection title="התראות">
         <div className="grid grid-cols-2 gap-3">
           <Tile
-            label="ממתינות לשליחה"
+            label="ממתינות לעיבוד"
             value={notifications.pending}
-            hint={notifications.pending === 0 ? "אין תור" : undefined}
+            hint={notifications.pending === 0 ? "אין תור" : "לא כולן יישלחו — חלקן ייפסלו בסינון"}
           />
-          <Tile label="נשלחו אי פעם" value={notifications.sent_ever} />
+          <Tile label="נשלחו אי פעם" value={notifications.sent_ever} hint="בלי התראות בדיקה" />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-ink-2">
           {people.notifiable === 0

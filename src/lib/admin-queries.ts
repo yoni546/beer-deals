@@ -1,5 +1,6 @@
 import "server-only";
 
+import { report } from "@/lib/log";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { AdminDeal, DealReport, DealStatus } from "@/lib/db/types";
 
@@ -56,7 +57,8 @@ export type AdminOverview = {
     submitted_this_week: number;
   };
   reports: { open: number };
-  offers: { live: number; retailers: number; expiring: number };
+  /** `live` already includes the approved manual deals; `from_chains` is the catalogue half. Never add them. */
+  offers: { live: number; from_chains: number; retailers: number; expiring: number };
   notifications: { pending: number; sent_ever: number };
   expiring_within_days: number;
   as_of: string;
@@ -74,21 +76,39 @@ export async function getAdminOverview(expiringWithinDays = 7): Promise<AdminOve
   const { data, error } = await supabase.rpc("admin_overview", {
     p_expiring_within_days: expiringWithinDays,
   });
-  if (error) return null;
+  if (error) {
+    // This used to return null with nothing recorded anywhere, so a timeout
+    // (57014), a privilege refusal (42501) and a bad argument (22023) all reached
+    // the admin as the same "לא הצלחנו לטעון את הנתונים" with no way to tell them apart.
+    report("admin.overview_failed", { code: error.code, reason: error.message });
+    return null;
+  }
   return data as AdminOverview;
 }
 
-/** The offers that end soonest, so somebody can look before they vanish. */
+/** Today where the shops are. `toISOString()` is UTC, which rolls over at 02:00/03:00 in Israel. */
+function israelDay(offsetDays = 0): string {
+  const at = new Date(Date.now() + offsetDays * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(at);
+}
+
+/**
+ * The offers that end soonest, so somebody can look before they vanish.
+ *
+ * Returns the rows AND whether the read worked: an empty list and a failed read
+ * are different claims, and the screen must not make the first one on the
+ * strength of the second.
+ */
 export async function getExpiringOffers(withinDays = 7, limit = 12) {
   const supabase = await supabaseServer();
-  const until = new Date(Date.now() + withinDays * 86_400_000).toISOString().slice(0, 10);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("offers_feed")
     .select("offer_key, beer_name, store_name, pack_label, effective_agorot, valid_to, scope")
     .not("valid_to", "is", null)
-    .gte("valid_to", new Date().toISOString().slice(0, 10))
-    .lt("valid_to", until)
+    .gte("valid_to", israelDay())
+    .lt("valid_to", israelDay(withinDays))
     .order("valid_to", { ascending: true })
     .limit(limit);
-  return data ?? [];
+  if (error) report("admin.expiring_failed", { code: error.code, reason: error.message });
+  return { rows: data ?? [], ok: !error };
 }

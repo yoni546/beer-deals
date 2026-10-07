@@ -6,6 +6,25 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.11.1 — 2026-10-07 (internal)
+
+**המספרים בלוח הניהול אומרים את האמת** · Fix
+
+- "מבצעים באוויר" ספר כל מבצע ידני פעמיים. עכשיו הוא נכון.
+- "הורדו השבוע" ספר גם עריכות של מבצעים ישנים. עכשיו הוא סופר רק הורדות אמיתיות.
+- "נשלחו ע״י משתמשים" ספר גם מבצעים שמנהל הקליד בעצמו.
+- תיבת "שלחו התראה" ביצירת מבצע ידני לא עשתה כלום. עכשיו היא עובדת.
+- רשימת המנהלים כבר לא גלויה למי שאינו מנהל.
+
+Internal:
+
+- Migration 0025. deals.deactivated_at (written by set_deal_status) replaces updated_at as the takedown signal — deals_touch bumps updated_at on any edit, so editing a months-old rejection counted as a takedown this week. deals.entered_by_admin is recorded at insert by admin_add_deal, because deciding it from current admins membership would be wrong the moment somebody gains or loses the role. Rows deactivated before 0025 have a null deactivated_at and are not counted: honest from here rather than wrong forever.
+- admin_overview: offers.live and the new offers.from_chains are reported separately and must never be added (offers_feed is catalog UNION ALL deals_public). notifications.sent_ever filters kind='offer' so an admin's test pushes stop inflating it. The expiring window uses (now() at time zone 'Asia/Jerusalem')::date — current_date is UTC on Supabase and rolls over at 02:00/03:00 local. The three whole-feed counts are one pass instead of three.
+- admin_add_deal now enqueues the notification itself: the enqueue trigger is `after update of status`, so an INSERT never fired it and p_notify had no effect at all. Same dedupe key and expiry as enqueue_deal_notification (0012).
+- M-3: admins_read was `to authenticated using (true)`, and middleware gives every visitor an authenticated anonymous session, so the whole roster — including which id is the super admin — was readable with the public anon key. Now own-row-or-admin. is_admin()/is_super_admin() still answer 'am I an admin?' for anon.
+- getAdminOverview and getExpiringOffers report their errors instead of discarding them, and getExpiringOffers returns {rows, ok} so the screen can tell 'nothing ends this week' from 'we could not look'. Its window was also UTC-dated in JS.
+- tests/admin-metrics.test.ts (9 cases) asserts what each number MEANS. The previous suite only proved admin_overview refuses a non-admin, which is why four wrong metrics survived.
+
 ## 0.11.0 — 2026-10-07
 
 **בוחרים בין בירה אחת לארבע — והמסכים כבר לא נופלים בשלמותם** · Feature, Fix
