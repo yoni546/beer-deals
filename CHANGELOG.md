@@ -6,6 +6,27 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.11.0 — 2026-10-07
+
+**בוחרים בין בירה אחת לארבע — והמסכים כבר לא נופלים בשלמותם** · Feature, Fix
+
+- לא חייבים ארבע בירות. בוחרים אחת, שתיים, שלוש או ארבע — והראשונה עדיין קובעת את המראה של האפליקציה.
+- כשחלק מהמסך לא נטען, רק אותו חלק אומר זאת ומציע לנסות שוב. שאר הדף נשאר.
+- כבר לא יוצג "אין מבצעים" כשפשוט לא הצלחנו לבדוק — אלו שני דברים שונים.
+- תקלה רגעית כבר לא מחזירה אתכם להרשמה מחדש ולא מאבדת את הבירות שלכם.
+- הדף הראשי נפתח מהר יותר כשמוגדר מבצע שבועי.
+
+Internal:
+
+- Migration 0024 replaces save_preferences(): between one and four beer ids instead of exactly four, and an INSERT ... ON CONFLICT DO NOTHING plus a row-count check so a missing profile row can no longer produce a successful-looking save that leaves onboarded_at null — the silent onboarding loop. user_favorite_beers needed no change: check (rank between 1 and 4) with PK (profile_id, rank) already allowed one to three rows.
+- The 1-4 change touches: src/lib/actions/profile.ts (zod min/max), src/lib/session.ts (isOnboarded >= 1), Onboarding.tsx, FavouritesEditor.tsx (the last beer has no remove button), OnboardingStage.tsx (empty slots only during 'pick'; data-count on the stage), onboarding.css (per-count re-centring of the line), FavouriteKeys.tsx (grid sized from beers.length; aria-label no longer says ארבע — it was an e2e locator in two specs).
+- src/lib/attempt.ts + src/components/CouldNotLoad.tsx: each Home read fails on its own instead of blanking the route. offers.ts still throws rather than returning an empty list — that part was right. Home's empty state is now suppressed when a read failed.
+- src/lib/session.ts reports a degraded read; every redirect that could act on an absence (/, /settings, the admin layout) checks it first. Previously a timeout was indistinguishable from 'no profile and no favourites'.
+- src/middleware.ts mints an anonymous user only when no session cookie is present — getUser() returns {user:null} for every failure, including the refresh-token rotation race, and the old branch replaced the person's identity. It also skips the auth round trip while the token is comfortably valid.
+- getOfferByKey pairs offer_key with origin (a plan-time constant per union branch) so a weekly-deal lookup no longer computes the whole feed on every Home render.
+- Added src/app/global-error.tsx; src/app/error.tsx now surfaces and logs the digest; src/lib/log.ts is the app's first server-side logging.
+- docs/V2-AUDIT-2026-10-07.md records the full audit these fixes came from.
+
 ## 0.10.4 — 2026-10-06 (internal)
 
 **הקשחת אבטחה** · Fix

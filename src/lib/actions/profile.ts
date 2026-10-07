@@ -8,17 +8,20 @@ import { describeDbError, type ActionResult } from "@/lib/actions/result";
 const preferences = z.object({
   // Optional: an empty name is stored as "no name yet" (save_preferences does the nullif).
   firstName: z.string().trim().max(40, "השם ארוך מדי."),
+  // One to four (0024). The database enforces the same range; this is only so the
+  // person gets Hebrew rather than a Postgres error code.
   beerIds: z
     .array(z.uuid())
-    .length(4, "בחרו בדיוק ארבע בירות, לפי הסדר.")
-    .refine((ids) => new Set(ids).size === 4, "כל בירה יכולה להופיע פעם אחת."),
+    .min(1, "בחרו לפחות בירה אחת.")
+    .max(4, "אפשר לבחור עד ארבע בירות.")
+    .refine((ids) => new Set(ids).size === ids.length, "כל בירה יכולה להופיע פעם אחת."),
 });
 
 /**
- * Name + the ranked four, saved together through save_preferences(), which
- * writes them in one transaction. Beer #1 becomes the Primary Beer by a
- * database trigger, so the theme and the notification target can never drift
- * from what the user actually ranked first.
+ * Name + the ranked beers (between one and four), saved together through
+ * save_preferences(), which writes them in one transaction. Beer #1 becomes the
+ * Primary Beer by a database trigger, so the theme and the notification target
+ * can never drift from what the user actually ranked first.
  *
  * Shared by onboarding and Settings; only what happens AFTER the save differs
  * (see the two exported actions below).

@@ -393,17 +393,53 @@ describe("preferences", () => {
     expect(rows[0].first_name).toBe("יוני");
   });
 
-  it("refuses anything other than four distinct beers", async () => {
-    const userId = await createUser(db);
+  // 0024: one to four. Rank 1 is still the Primary Beer whatever the count.
+  it("takes one, two, three or four distinct beers, and ranks them in the order given", async () => {
     const beers = await db.query<{ id: string }>(
       "select id from public.beers order by sort_order limit 4",
     );
     const ids = beers.rows.map((row) => row.id);
 
+    for (const count of [1, 2, 3, 4]) {
+      const userId = await createUser(db);
+      const chosen = ids.slice(0, count);
+
+      await asUser(db, userId, async () => {
+        await db.query("select public.save_preferences('יוני', $1::uuid[])", [chosen]);
+      });
+
+      const { rows } = await db.query<{ beer_id: string; rank: number }>(
+        "select beer_id, rank from public.user_favorite_beers where profile_id = $1 order by rank",
+        [userId],
+      );
+      expect(rows.map((row) => row.beer_id)).toEqual(chosen);
+      expect(rows.map((row) => row.rank)).toEqual(chosen.map((_, i) => i + 1));
+
+      // The Primary Beer is rank 1 at every count, kept by the trigger, never by app code.
+      const profile = await db.query<{ primary_beer_id: string; onboarded_at: string | null }>(
+        "select primary_beer_id, onboarded_at from public.profiles where id = $1",
+        [userId],
+      );
+      expect(profile.rows[0].primary_beer_id).toBe(chosen[0]);
+      expect(profile.rows[0].onboarded_at).not.toBeNull();
+    }
+  });
+
+  it("refuses none, more than four, or a repeated beer", async () => {
+    const userId = await createUser(db);
+    const beers = await db.query<{ id: string }>(
+      "select id from public.beers order by sort_order limit 5",
+    );
+    const ids = beers.rows.map((row) => row.id);
+
     await asUser(db, userId, async () => {
       await expect(
-        db.query("select public.save_preferences('יוני', $1::uuid[])", [ids.slice(0, 3)]),
-      ).rejects.toThrow(/exactly four/);
+        db.query("select public.save_preferences('יוני', $1::uuid[])", [[]]),
+      ).rejects.toThrow(/between one and four/);
+
+      await expect(
+        db.query("select public.save_preferences('יוני', $1::uuid[])", [ids.slice(0, 5)]),
+      ).rejects.toThrow(/between one and four/);
 
       await expect(
         db.query("select public.save_preferences('יוני', $1::uuid[])", [
@@ -411,6 +447,27 @@ describe("preferences", () => {
         ]),
       ).rejects.toThrow(/must be different/);
     });
+  });
+
+  // The silent onboarding loop: an UPDATE against a row that is not there used to
+  // report success, leaving onboarded_at null and /welcome unescapable.
+  it("does not report success when the profile row is missing — it creates it", async () => {
+    const userId = await createUser(db);
+    const beers = await db.query<{ id: string }>("select id from public.beers order by sort_order limit 2");
+    const ids = beers.rows.map((row) => row.id);
+
+    await db.query("delete from public.profiles where id = $1", [userId]);
+
+    await asUser(db, userId, async () => {
+      await db.query("select public.save_preferences('יוני', $1::uuid[])", [ids]);
+    });
+
+    const { rows } = await db.query<{ onboarded_at: string | null }>(
+      "select onboarded_at from public.profiles where id = $1",
+      [userId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].onboarded_at).not.toBeNull();
   });
 
   it("keeps one profile from reading another", async () => {

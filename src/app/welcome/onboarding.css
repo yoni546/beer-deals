@@ -454,3 +454,20 @@ svg.ob-art {
     transition-delay: 0s !important;
   }
 }
+
+/* ------------------------------------------------- a line of one, two or three
+
+   0024: a person picks between one and four beers. The four positions above are
+   spaced so the group reads as centred; with fewer bottles the same offsets leave
+   the line hanging against one edge, so each count gets its own.
+
+   "pick" keeps the four-wide layout whatever has been chosen so far — there the
+   empty slots are the point, they say how many more may be chosen. */
+.ob-stage:not([data-scene="pick"])[data-count="1"] [data-rank="0"] { --x: 0; }
+
+.ob-stage:not([data-scene="pick"])[data-count="2"] [data-rank="0"] { --x: 0.115; }
+.ob-stage:not([data-scene="pick"])[data-count="2"] [data-rank="1"] { --x: -0.155; }
+
+.ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="0"] { --x: 0.22; }
+.ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="1"] { --x: -0.05; }
+.ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="2"] { --x: -0.26; }

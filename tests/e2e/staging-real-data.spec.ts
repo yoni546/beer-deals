@@ -71,11 +71,11 @@ test("Home: packs and cases only — never a single can — the person's beers f
   await expect(page.getByRole("link", { name: "בודדים", exact: true })).toHaveCount(0);
   await expect(page.getByText("מארזים")).toHaveCount(0);
   // The four beers: bottle, small rank, name — no cards.
-  const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+  const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
   await expect(keys).toHaveCount(4);
   for (const [i, rank] of ["#1", "#2", "#3", "#4"].entries()) await expect(keys.nth(i)).toContainText(rank);
   await expect(keys.nth(0).locator("img[data-bottle-photo='goldstar']")).toBeVisible();
-  await expect(page.locator("[aria-label='ארבע הבירות שלי, לפי הסדר'] .tape")).toHaveCount(0);
+  await expect(page.locator("[aria-label='הבירות שלי, לפי הסדר'] .tape")).toHaveCount(0);
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 });
 

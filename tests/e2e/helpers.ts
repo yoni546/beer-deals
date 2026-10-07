@@ -116,7 +116,8 @@ export const STANDARD_DEALS: SeedDeal[] = [
 ];
 
 /**
- * Walks the real onboarding UI: name, four beers (chosen in ranked order), the ranking step, submit.
+ * Walks the real onboarding UI: name, one to four beers (chosen in ranked order), the ranking
+ * step, submit. The default picks four; pass fewer to exercise the 0024 minimum.
  * Leaves the page on the final onboarding step; the caller decides what next.
  */
 export async function completeOnboardingSteps(page: Page, name = "בדיקה", beers = ["גולדסטאר", "מכבי", "היינקן", "קורונה"]) {

@@ -17,7 +17,13 @@ export function FavouriteKeys({
   summaries: Record<string, BeerSummary>;
 }) {
   return (
-    <ol className="grid grid-cols-4 gap-1" aria-label="ארבע הבירות שלי, לפי הסדר">
+    // Sized from how many beers there are, not fixed at four (0024): with one to three,
+    // a four-column grid left the keys hanging against one edge.
+    <ol
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(beers.length, 1), 4)}, minmax(0, 1fr))` }}
+      aria-label="הבירות שלי, לפי הסדר"
+    >
       {beers.map((beer, index) => {
         const count = summaries[beer.id]?.count ?? 0;
         return (

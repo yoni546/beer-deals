@@ -51,7 +51,7 @@ test("name → four beers → their order → the pour: #1 leads the line, then 
   await page.getByPlaceholder("יוני").fill("דנה");
   await page.getByPlaceholder("יוני").press("Enter"); // the keyboard's own button moves on
   await expect(stage(page)).toHaveAttribute("data-scene", "pick");
-  await expect(page.getByRole("button", { name: "בחרו עוד 4" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "בחרו בירה אחת לפחות" })).toBeDisabled();
 
   // The first beer chosen stands at the head of the line as its own real bottle, and the page takes its colours.
   await pick(page, "גולדסטאר");
@@ -159,13 +159,40 @@ test("nobody waits for the animation: leaving mid-pour works", async ({ page }) 
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 });
 
+// 0024: a person picks between one and four. One is a complete answer, not a half-finished one.
+test("one beer is enough: the line holds one bottle, and that beer becomes the app", async ({ page }) => {
+  await page.goto("/welcome");
+  const neutral = await ground(page);
+
+  await page.getByPlaceholder("יוני").fill("דנה");
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+  await pick(page, "גולדסטאר");
+
+  await page.getByRole("button", { name: "לדירוג" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "rank");
+
+  // One bottle on the stage, and no empty slots left standing beside it.
+  await expect(stage(page)).toHaveAttribute("data-count", "1");
+  await expect(page.locator(".ob-stage .ob-empty")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "סיימנו" }).click();
+  await page.getByRole("button", { name: /קדימה/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // It is their app now: the palette moved off the house neutral, and Home lists exactly one key.
+  await expect.poll(() => ground(page)).not.toBe(neutral);
+  await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem")).toHaveCount(1);
+});
+
 test("going back keeps the name and the four beers", async ({ page }) => {
   await toRanking(page);
   await page.getByRole("button", { name: "חזרה" }).click();
   await expect(page.locator("button[aria-pressed='true']")).toHaveCount(4);
   // Swapping one out is done here: the newcomer joins the end of the line.
   await pick(page, "קורונה");
-  await expect(page.getByRole("button", { name: "בחרו עוד 1" })).toBeDisabled();
+  // 0024: three is a valid choice, so the button is live rather than counting down to four.
+  await expect(page.getByRole("button", { name: "לדירוג" })).toBeEnabled();
   await pick(page, "קרלסברג");
   await page.getByRole("button", { name: "חזרה" }).click();
   await expect(page.getByPlaceholder("יוני")).toHaveValue("דנה");

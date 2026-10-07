@@ -99,7 +99,7 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
           <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
         ) : (
           <EmptyState title={`אין כרגע מבצע על ${beer.name_he}`}>
-            כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן. אם זו אחת מארבע הבירות שלכם, תקבלו גם התראה.
+            כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן. אם זו אחת מהבירות שלכם, תקבלו גם התראה.
           </EmptyState>
         )
       ) : (

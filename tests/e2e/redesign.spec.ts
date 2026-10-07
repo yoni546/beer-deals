@@ -24,7 +24,7 @@ async function pricesIn(scope: ReturnType<Page["locator"]>): Promise<number[]> {
 
 test("Home: the four beers are keys in the person's own order, and the first is marked", async ({ page }) => {
   await onboard(page, "דנה", ["מכבי", "גולדסטאר", "היינקן", "קורונה"]);
-  const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+  const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
   await expect(keys).toHaveCount(4);
   await expect(keys.nth(0)).toContainText("מכבי");
   await expect(keys.nth(0)).toContainText("#1");
@@ -90,7 +90,7 @@ test("Home: the search box, the number-one beer and the bottom bar are all on th
   await onboard(page);
   const height = page.viewportSize()!.height;
   const searchbox = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
-  const numberOne = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem").first();
+  const numberOne = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem").first();
   const bar = page.getByRole("navigation", { name: "ניווט ראשי" });
   for (const [name, locator] of [["search", searchbox], ["number one", numberOne], ["bottom bar", bar]] as const) {
     const box = (await locator.boundingBox())!;
@@ -263,7 +263,7 @@ test.describe("settings", () => {
     await expect(page.locator("body")).toHaveAttribute("data-theme", "maccabee");
 
     await page.goto("/");
-    const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+    const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
     await expect(keys.nth(0)).toContainText("מכבי");
     await expect(keys.nth(1)).toContainText("גולדסטאר");
   });
@@ -279,8 +279,8 @@ test.describe("settings", () => {
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
     await page.goto("/");
-    await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).toContainText("טובורג");
-    await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toContainText("טובורג");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
   });
 });
 

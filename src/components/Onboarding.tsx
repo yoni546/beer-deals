@@ -226,9 +226,9 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
       {scene === "pick" && (
         <section className="ob-panel flex min-h-0 flex-1 flex-col">
           <h2 ref={heading} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold text-on-ground outline-none">
-            ארבע הבירות שלכם
+            הבירות שלכם
           </h2>
-          <p className="mt-1 mb-3 text-sm text-on-ground-2">בחרו ארבע. את הסדר קובעים מיד אחר כך.</p>
+          <p className="mt-1 mb-3 text-sm text-on-ground-2">בחרו אחת עד ארבע. את הסדר קובעים מיד אחר כך.</p>
 
           <ol aria-label="הבירות שבחרתם" className="sr-only">
             {picked.map((beer) => (
@@ -264,8 +264,9 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             })}
           </ul>
 
-          <button type="button" disabled={picked.length !== 4} onClick={() => setStep(3)} className="btn mt-2 min-h-13 w-full shrink-0 text-base">
-            {picked.length === 4 ? "לדירוג" : `בחרו עוד ${4 - picked.length}`}
+          {/* One beer is enough (0024). Four is the ceiling, not the entry fee. */}
+          <button type="button" disabled={picked.length === 0} onClick={() => setStep(3)} className="btn mt-2 min-h-13 w-full shrink-0 text-base">
+            {picked.length === 0 ? "בחרו בירה אחת לפחות" : "לדירוג"}
           </button>
         </section>
       )}

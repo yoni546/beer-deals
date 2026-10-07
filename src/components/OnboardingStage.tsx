@@ -65,6 +65,9 @@ export function OnboardingStage({ scene, picked, onMove }: { scene: Scene; picke
         }
       : {};
 
+  // How many bottles the line actually holds. Drives the re-centring in onboarding.css.
+  const count = Math.min(Math.max(picked.length, 1), 4);
+
   return (
     <div
       ref={stage}
@@ -73,19 +76,26 @@ export function OnboardingStage({ scene, picked, onMove }: { scene: Scene; picke
       data-scene={scene}
       data-beer={primary?.slug ?? "house"}
       data-bottle={kind}
+      data-count={count}
       style={{ "--pour": pour.beer, "--foam": pour.foam } as React.CSSProperties}
     >
       {[0, 1, 2, 3].map((rank) => {
         const beer = picked[rank];
         if (beer) return <StageBottle key={beer.id} slug={beer.slug} rank={rank} dragging={dragging === beer.id} handlers={dragHandlers(beer, rank)} />;
-        return rank === 0 ? <StageBottle key="blank" slug={null} rank={0} /> : <EmptySlot key={`empty-${rank}`} rank={rank} />;
+        if (rank === 0) return <StageBottle key="blank" slug={null} rank={0} />;
+        // Empty slots belong to "pick", where they say how many more may be chosen. Once the
+        // person has moved on, a line of one, two or three beers is the finished line, not a
+        // line with gaps in it (0024).
+        return scene === "pick" ? <EmptySlot key={`empty-${rank}`} rank={rank} /> : null;
       })}
 
-      {[0, 1, 2, 3].map((rank) => (
-        <span key={rank} data-rank={rank} className={`ob-badge num ${rank === 0 ? "bg-deal text-on-deal" : "text-on-ground-2 ring-1 ring-ground-line"}`}>
-          {rank + 1}
-        </span>
-      ))}
+      {[0, 1, 2, 3]
+        .filter((rank) => scene === "pick" || rank < count)
+        .map((rank) => (
+          <span key={rank} data-rank={rank} className={`ob-badge num ${rank === 0 ? "bg-deal text-on-deal" : "text-on-ground-2 ring-1 ring-ground-line"}`}>
+            {rank + 1}
+          </span>
+        ))}
 
       <span className="ob-stream">
         <i />
