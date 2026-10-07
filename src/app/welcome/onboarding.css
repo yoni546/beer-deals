@@ -471,3 +471,18 @@ svg.ob-art {
 .ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="0"] { --x: 0.22; }
 .ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="1"] { --x: -0.05; }
 .ob-stage:not([data-scene="pick"])[data-count="3"] [data-rank="2"] { --x: -0.26; }
+
+/* ------------------------------------------------------ where they live (0026)
+
+   The place step shows the line of bottles exactly as the ranking step does: the
+   beers are already chosen, and nothing about them should move while a different
+   question is being answered. */
+.ob-stage[data-scene="place"] {
+  --stage: 0.76;
+}
+@media (max-height: 700px) {
+  .ob-stage[data-scene="place"] {
+    --stage: 0.58;
+    --k: 0.76;
+  }
+}

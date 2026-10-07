@@ -147,6 +147,8 @@ export async function completeOnboardingSteps(page: Page, name = "בדיקה", b
     await page.locator("button[aria-pressed]", { hasText: beer }).first().click();
   }
   await page.getByRole("button", { name: "לדירוג" }).click();
+  // The place step (0026). Skipping it is a real choice, so the default walk skips it.
+  await page.getByRole("button", { name: "ממשיכים" }).click();
   await page.getByRole("button", { name: "סיימנו" }).click();
 }
 

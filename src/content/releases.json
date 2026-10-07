@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.13.0",
+    "date": "2026-10-07",
+    "title_he": "מספרים לנו איפה אתם גרים, וכמה רחוק שווה לכם לנסוע",
+    "highlights_he": [
+      "בהרשמה יש עכשיו שלב חדש: היישוב שלכם, וכמה רחוק אתם מוכנים לנסוע בשביל מבצע.",
+      "רק היישוב — לא צריך כתובת. אפשר גם לבחור \"השתמשו במיקום שלי\", והדפדפן יבקש רשות רק אחרי שתלחצו.",
+      "אם היישוב שלכם לא ברשימה, פשוט כתבו אותו. זה נשמר.",
+      "אפשר לדלג על השלב הזה לגמרי ולהמשיך."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/data/israel-cities.ts: 90 settlements with approximate centres, each row carrying its source. The file states plainly what it is -- hand-compiled from public geographic knowledge, good to a kilometre or two, which is the right precision for a radius chosen in 5 km steps and nothing more -- and documents the refresh path from data.gov.il's settlements resource for when the build has outbound network. Deliberately a weaker claim than the project makes about prices.",
+      "src/lib/cities.ts reuses src/lib/search.ts rather than growing a second idea of matching, so the folding that lets 'שופר-סל' find שופרסל also lets 'תל אביב' find תל אביב-יפו and forgives 'נתנייה'. nearestCity() returns null beyond 25 km rather than naming somewhere absurd for a fix we cannot explain. kmBetween() is the same haversine as public.km_between (0026), so client and database never disagree.",
+      "src/components/PlacePicker.tsx: settlement autocomplete, an explicit 'use my location' (the geolocation prompt never fires because a screen loaded -- an e2e stubs getCurrentPosition and asserts it is untouched until tapped), and the radius chips, which appear only once there is a place to measure from. A typed name we do not hold is kept as text with no coordinates: a real answer, just not a measurable one.",
+      "Onboarding is five steps now; the save moved from the ranking step to the place step so the beers and the place go in one submit. persistLocation() runs after save_preferences and is deliberately not allowed to fail the whole save -- the beers are what the app cannot work without, a location is an enhancement. Also exports saveLocation for Settings.",
+      "Added PinIcon. The 'use my location' button is btn-ghost, not btn-quiet: btn-quiet is the paper variant and its ink colour fails contrast against the dark counter -- caught by the existing axe sweep, which now also covers the place step in light and dark and at three viewport sizes.",
+      "tests/cities.test.ts holds the list to its own claim: every point inside the bounds 0026 accepts, no two places on the same spot, and the distances between the big cities check out against reality."
+    ]
+  },
+  {
     "version": "0.12.0",
     "date": "2026-10-07",
     "title_he": "בקבוקים קלים יותר, והתשתית למבצעים לפי מרחק",

@@ -29,6 +29,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Name, four beers, their order — and on to the place step, where the save button lives. */
 async function rankFourBeers(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByPlaceholderText("יוני"), "דנה");
   await user.click(screen.getByRole("button", { name: "ממשיכים" }));
@@ -36,6 +37,7 @@ async function rankFourBeers(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole("button", { name, pressed: false }));
   }
   await user.click(screen.getByRole("button", { name: "לדירוג" }));
+  await user.click(screen.getByRole("button", { name: "ממשיכים" })); // the place step (0026)
 }
 
 describe("onboarding (B-06 / B-07)", () => {

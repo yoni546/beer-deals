@@ -2,8 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { report } from "@/lib/log";
 import { supabaseServer } from "@/lib/supabase/server";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
+
+/**
+ * Where the person lives, and how far they will go for a deal. Every field is
+ * optional: somebody who declines the question still gets an app, they just do not
+ * get distances. A city with no point is a real answer too — the list in
+ * src/data/israel-cities.ts may not hold their village, and "I live in צפת" is
+ * still worth knowing.
+ */
+const location = z.object({
+  city: z.string().trim().max(60).optional(),
+  lat: z.number().min(29.3).max(33.5).nullable().optional(),
+  lon: z.number().min(34.0).max(36.0).nullable().optional(),
+  // The same set as the CHECK on profiles.search_radius_km (0026). 0 is nationwide.
+  radiusKm: z.union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(20), z.literal(25), z.literal(50)]).nullable().optional(),
+});
 
 const preferences = z.object({
   // Optional: an empty name is stored as "no name yet" (save_preferences does the nullif).
@@ -44,6 +60,55 @@ async function persistPreferences(formData: FormData): Promise<ActionResult> {
 
   if (error) return { ok: false, error: describeDbError(error) };
 
+  await persistLocation(formData, supabase);
+
+  return { ok: true, message: "נשמר." };
+}
+
+/**
+ * The location half, saved after the beers and deliberately not allowed to fail
+ * the whole save.
+ *
+ * The beers are the thing the app cannot work without — they decide the theme, the
+ * ordering and the notifications. A location is an enhancement. If it is absent,
+ * malformed, or the write fails, the person is still onboarded with their beers
+ * rather than being sent back to the start of a form they filled in correctly.
+ */
+async function persistLocation(
+  formData: FormData,
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+): Promise<void> {
+  const raw = {
+    city: String(formData.get("homeCity") ?? "") || undefined,
+    lat: formData.get("homeLat") ? Number(formData.get("homeLat")) : null,
+    lon: formData.get("homeLon") ? Number(formData.get("homeLon")) : null,
+    radiusKm: formData.get("radiusKm") ? Number(formData.get("radiusKm")) : null,
+  };
+  if (!raw.city && raw.lat === null && raw.radiusKm === null) return; // nothing was offered
+
+  const parsed = location.safeParse(raw);
+  if (!parsed.success) {
+    report("location.rejected", { reason: parsed.error.issues[0]?.message });
+    return;
+  }
+
+  const { error } = await supabase.rpc("save_location", {
+    p_city: parsed.data.city ?? null,
+    p_lat: parsed.data.lat ?? null,
+    p_lon: parsed.data.lon ?? null,
+    p_radius_km: parsed.data.radiusKm ?? null,
+  });
+  if (error) report("location.save_failed", { code: error.code, reason: error.message });
+}
+
+/** Settings, and anywhere else the radius or the city changes on its own. */
+export async function saveLocation(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: "לא הצלחנו לזהות אתכם. רעננו את הדף." };
+
+  await persistLocation(formData, supabase);
+  revalidatePath("/", "layout");
   return { ok: true, message: "נשמר." };
 }
 

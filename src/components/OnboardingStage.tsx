@@ -5,7 +5,7 @@ import opening from "@/design/opening-bottle.json";
 import { identityFor, photoFor, pourFor, type Pour } from "@/design/themes";
 import type { Beer } from "@/lib/db/types";
 
-export type Scene = "name" | "pick" | "rank" | "reveal";
+export type Scene = "name" | "pick" | "rank" | "place" | "reveal";
 
 /**
  * The stage at the top of onboarding: the bottles themselves, standing on the counter.
