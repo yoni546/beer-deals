@@ -53,6 +53,12 @@ export default defineConfig({
     locale: "he-IL",
     timezoneId: "Asia/Jerusalem",
     channel: process.env.PW_CHANNEL || undefined,
+    // Cloud containers ship a pre-installed Chromium whose build number may not match the
+    // one this Playwright version downloads. PW_EXECUTABLE_PATH points at that browser so
+    // the suite runs without a download. Unset everywhere else, including CI.
+    launchOptions: process.env.PW_EXECUTABLE_PATH
+      ? { executablePath: process.env.PW_EXECUTABLE_PATH }
+      : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
