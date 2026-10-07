@@ -250,10 +250,26 @@ const readFreshness = cachedFeed("freshness", async (hide: boolean): Promise<str
   return (data?.[0] as { observed_at: string } | undefined)?.observed_at ?? null;
 });
 
-/** One offer by its key ('obs:12' or 'deal:<uuid>') — used for the editorial "deal of the week". */
+/**
+ * One offer by its key ('obs:12' or 'deal:<uuid>') — used for the editorial "deal of the week".
+ *
+ * `offer_key` is a computed expression in both halves of the view ('obs:' || observation_id,
+ * 'deal:' || d.id), so a filter on it alone cannot prune either branch of the UNION: Postgres
+ * computes the WHOLE feed and then string-compares every row. On Home, where the editor's pick
+ * is the default state, that was a full-feed scan on every single render — measured in
+ * `docs/V2-AUDIT-2026-10-07.md` as one of the two leading causes of the error screen.
+ *
+ * `origin` IS a plan-time constant per branch ('catalog' / 'legacy', migration 0017:332,383), so
+ * pairing the two filters prunes the other half to a one-time false and a 'deal:' lookup reads
+ * only `deals_public`.
+ */
 export async function getOfferByKey(key: string): Promise<Offer | null> {
   const supabase = await supabaseServer();
-  let query = supabase.from("offers_feed").select("*").eq("offer_key", key);
+  let query = supabase
+    .from("offers_feed")
+    .select("*")
+    .eq("origin", key.startsWith("deal:") ? "legacy" : "catalog")
+    .eq("offer_key", key);
   if (hideSamples()) query = query.eq("is_sample", false);
   const { data, error } = await query.maybeSingle();
   if (error) throw new DataUnavailableError("the featured deal", error.message);

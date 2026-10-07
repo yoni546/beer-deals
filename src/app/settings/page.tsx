@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Screen, TopBar } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PushToggle } from "@/components/PushToggle";
@@ -20,6 +21,15 @@ export const dynamic = "force-dynamic";
  */
 export default async function SettingsPage() {
   const [viewer, beers] = await Promise.all([getViewer(), getBeers()]);
+  if (viewer.degraded && !viewer.isOnboarded) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את ההגדרות שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
   if (!viewer.isOnboarded) redirect("/welcome");
 
   return (

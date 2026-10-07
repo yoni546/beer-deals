@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { FavouriteKeys } from "@/components/FavouriteKeys";
 import { Freshness } from "@/components/Freshness";
 import { Hero } from "@/components/Hero";
@@ -29,6 +30,7 @@ import {
   type PackFilter,
 } from "@/lib/offer-logic";
 import { getBeers, getSettings, getStores } from "@/lib/queries";
+import { attempt, failed, or } from "@/lib/attempt";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +48,17 @@ type Search = { sort?: string; unit?: string; pack?: string; c?: string };
  */
 export default async function HomePage({ searchParams }: { searchParams: Promise<Search> }) {
   const viewer = await getViewer();
+  // Never conclude "not onboarded" from a read that failed: that is what used to throw an
+  // onboarded person back into onboarding on a transient database hiccup.
+  if (viewer.degraded && !viewer.isOnboarded) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את הפרופיל שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
   if (!viewer.isOnboarded) redirect("/welcome");
 
   const query = await searchParams;
@@ -56,17 +69,34 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const pack: PackFilter = requested === "single" ? "all" : requested;
 
   const favouriteIds = viewer.favorites.map((beer) => beer.id);
-  // One round trip for everything; the editor's pick (rare) is a second one only when there is one.
-  const [allBeers, allStores, mineAll, moreAll, myGroupsAll, settings, updatedAt] = await Promise.all([
-    getBeers(),
-    getStores(),
-    getOffers({ beerIds: favouriteIds, packsOnly: true }),
-    getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true }),
-    getGroupOffers({ beerIds: favouriteIds }),
-    getSettings(),
-    getFreshness(),
+  // Every read in one round trip, and every one of them allowed to fail on its own. A page that
+  // put all seven in a bare Promise.all lost the whole screen whenever any single one timed out —
+  // including the purely decorative "last updated". See src/lib/attempt.ts.
+  const [catalogue, mineRead, moreRead, groupsRead, settingsRead, freshnessRead] = await Promise.all([
+    attempt("catalogue", async () => ({ beers: await getBeers(), stores: await getStores() })),
+    attempt("home.mine", () => getOffers({ beerIds: favouriteIds, packsOnly: true })),
+    attempt("home.more", () => getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true })),
+    attempt("home.groups", () => getGroupOffers({ beerIds: favouriteIds })),
+    attempt("settings", () => getSettings()),
+    attempt("freshness", () => getFreshness()),
   ]);
-  const pick = settings?.weekly_deal_id ? await getOfferByKey(`deal:${settings.weekly_deal_id}`) : null;
+
+  const { beers: allBeers, stores: allStores } = or(catalogue, { beers: [], stores: [] });
+  const mineAll = or(mineRead, []);
+  const moreAll = or(moreRead, []);
+  const myGroupsAll = or(groupsRead, []);
+  const settings = or(settingsRead, null);
+  const updatedAt = or(freshnessRead, null);
+
+  // Which parts of the screen must say "we could not look" instead of showing nothing.
+  const myDealsFailed = failed(mineRead) || failed(groupsRead);
+  const moreFailed = failed(moreRead);
+
+  // The editor's pick is one more read, and losing it costs a hero, not a page.
+  const pickRead = settings?.weekly_deal_id
+    ? await attempt("home.weekly", () => getOfferByKey(`deal:${settings.weekly_deal_id}`))
+    : null;
+  const pick = pickRead ? or(pickRead, null) : null;
   const featured = pick && packClass(pick) !== "single" ? pick : null;
   // The database leaves out single units by count; a user-submitted deal has no count, only a kind ("בודד").
   const packsOnly = (offer: (typeof mineAll)[number]) => packClass(offer) !== "single";
@@ -119,10 +149,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       )}
 
       <div className="mb-6">
-        <HomeSearch
-          beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
-          stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
-        />
+        {failed(catalogue) ? (
+          <CouldNotLoad what="את החיפוש" />
+        ) : (
+          <HomeSearch
+            beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
+            stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
+          />
+        )}
       </div>
 
       <section aria-labelledby="mine" className="mb-6">
@@ -139,7 +173,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </>
       )}
 
-      {everything.length === 0 && myGroups.length === 0 ? (
+      {everything.length === 0 && myGroups.length === 0 && !myDealsFailed && !moreFailed ? (
         <EmptyState
           title="עוד אין מבצעים מאומתים"
           action={<ButtonLink href="/submit">ראיתם מבצע? שלחו לנו</ButtonLink>}
@@ -170,21 +204,30 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
             <GroupStrip title="קונים כמה, בוחרים מהמבצע · הבירות שלי" offers={myGroups} />
 
-            {mine.length === 0 && myGroups.length === 0 && (
-              <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">
-                כשיופיע מבצע על שישייה או ארגז של אחת מהארבע, הוא יעלה לכאן ראשון.
-              </EmptyState>
+            {myDealsFailed ? (
+              <CouldNotLoad what="את המבצעים לבירות שלך" />
+            ) : (
+              mine.length === 0 &&
+              myGroups.length === 0 && (
+                <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">
+                  כשיופיע מבצע על שישייה או ארגז של אחת מהבירות שלכם, הוא יעלה לכאן ראשון.
+                </EmptyState>
+              )
             )}
 
-            {others.length > 0 && (
-              <Strip
-                title="עוד מבצעים"
-                offers={others}
-                lead="beer"
-                perLiter={perLiter}
-                limit={6}
-                moreHref="/beer"
-              />
+            {moreFailed ? (
+              <CouldNotLoad what="את שאר המבצעים" />
+            ) : (
+              others.length > 0 && (
+                <Strip
+                  title="עוד מבצעים"
+                  offers={others}
+                  lead="beer"
+                  perLiter={perLiter}
+                  limit={6}
+                  moreHref="/beer"
+                />
+              )
             )}
           </div>
         </>

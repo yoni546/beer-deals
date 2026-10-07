@@ -1,14 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { Screen } from "@/components/Chrome";
 import { Tape } from "@/components/ui/Tape";
 
 /**
  * Something on the server failed. The words matter more than the styling here: say what is
  * true (we could not reach the prices, not that there are none), and what to do next.
+ *
+ * This boundary used to discard the error entirely, which is why the recurring failures in
+ * production were never diagnosed: nothing anywhere recorded that a screen had died, let
+ * alone which read killed it. `digest` is the id the server assigned to the throw, and it is
+ * the only thing that ties this screen to the server log line.
+ *
+ * Reaching here at all is now a bug in its own right: a read that is allowed to fail should
+ * be wrapped in `attempt()` and degrade to <CouldNotLoad> inside its own section.
  */
-export default function ErrorScreen({ reset }: { error: Error; reset: () => void }) {
+export default function ErrorScreen({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error(
+      `[beer-deals] error screen rendered digest=${JSON.stringify(error.digest ?? "")} message=${JSON.stringify(error.message)}`,
+    );
+  }, [error]);
+
   return (
     <Screen>
       <div className="pt-10">
@@ -26,6 +41,11 @@ export default function ErrorScreen({ reset }: { error: Error; reset: () => void
               חזרה לדף הבית
             </Link>
           </div>
+          {error.digest && (
+            <p dir="ltr" className="num mt-5 text-xs text-ink-2">
+              {error.digest}
+            </p>
+          )}
         </Tape>
       </div>
     </Screen>

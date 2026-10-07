@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Screen, TopBar } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,17 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
+  // A failed read must not look like "you are not an admin" — that bounced signed-in
+  // admins to the sign-in page whenever the database hiccuped.
+  if (viewer.degraded && !viewer.isAdmin) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את ההרשאות שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
   if (!viewer.isAdmin) redirect("/admin/login");
 
   const tabs = [
