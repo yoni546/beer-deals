@@ -42,7 +42,8 @@ test("changing #1 to Heineken changes the app at once, on every page, and leaves
 
   await page.goto("/settings");
   await page.getByRole("button", { name: "העלו את היינקן מקום אחד" }).click();
-  await page.getByRole("button", { name: "שמירה" }).click();
+  // Three sections on /settings carry a "שמירה" now (beers, credit, place): name one.
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
   // Without a reload: the layout re-renders from the saved favourites.
@@ -78,7 +79,7 @@ test("dragging a beer to the top makes it #1, and the app follows it", async ({ 
   await expect(page.locator("li[data-rank='2']")).toContainText("גולדסטאר");
   await expect(page.getByText("קרלסברג עכשיו במקום 1")).toBeAttached(); // announced for screen readers
 
-  await page.getByRole("button", { name: "שמירה" }).click();
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "carlsberg");
   await expect(stage(page)).toHaveAttribute("data-beer", "carlsberg");
 });

@@ -96,6 +96,10 @@ export async function addBeerWithoutIdentity() {
        from public.beers where slug = 'goldstar'
      on conflict (slug) do nothing;`,
   );
+  // The list of beers to choose from is one of the cached whole-catalogue reads, and
+  // Postgres cannot tell Next that a row appeared. Without this the onboarding step
+  // offers the catalogue as it was up to five minutes ago -- and this beer is not in it.
+  await revalidateAppCaches();
 }
 
 /** Makes the person onboarded under `firstName` an admin (test database only). */

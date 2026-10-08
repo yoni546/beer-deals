@@ -50,6 +50,19 @@ export function PlacePicker({
   const listId = useId();
   const radiusRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * The place as it is RIGHT NOW, for the two paths that run after their render has
+   * been replaced: the blur below (deliberately delayed, so a click on a suggestion
+   * lands first) and the geolocation callback.
+   *
+   * Without this they spread a stale `value`, and the bug that cost a real
+   * afternoon was exactly that: choose a town, tap a distance, and 120 ms later the
+   * pending blur wrote the town back on top of the place as it was BEFORE the
+   * distance -- silently resetting it. The e2e caught it as a flake; it is not one.
+   */
+  const latest = useRef(value);
+  latest.current = value;
+
   const matches = useMemo(() => (open ? searchCities(query) : []), [open, query]);
   const chosen = Boolean(value.city);
 
@@ -62,17 +75,21 @@ export function PlacePicker({
   function choose(place: City) {
     setQuery(place.name);
     setOpen(false);
-    onChange({ ...value, city: place.name, lat: place.lat, lon: place.lon });
+    onChange({ ...latest.current, city: place.name, lat: place.lat, lon: place.lon });
   }
 
   /** The typed text, kept as-is when it matches nothing we hold. */
   function keepTyped() {
     setOpen(false);
+    const current = latest.current;
     const text = query.trim();
-    if (!text) return onChange({ ...value, city: "", lat: null, lon: null });
+    // Nothing was typed since the place was settled -- which is the common case when
+    // this runs from a delayed blur. Writing anything here could only undo something.
+    if (text === current.city) return;
+    if (!text) return onChange({ ...current, city: "", lat: null, lon: null });
     const exact = searchCities(text)[0];
     if (exact && exact.name === text) return choose(exact);
-    onChange({ ...value, city: text, lat: null, lon: null });
+    onChange({ ...current, city: text, lat: null, lon: null });
   }
 
   function useMyLocation() {
@@ -86,7 +103,7 @@ export function PlacePicker({
         // only how we say it back to them.
         setQuery(near?.name ?? "");
         onChange({
-          ...value,
+          ...latest.current,
           city: near?.name ?? "",
           lat: Number(coords.latitude.toFixed(4)),
           lon: Number(coords.longitude.toFixed(4)),

@@ -167,7 +167,8 @@ test("Settings: the four beers stand on the counter — bottle, rank, name — d
   await expect(first).toContainText("#1");
   await expect(first.locator("img[data-bottle-photo='goldstar']")).toBeVisible();
   await page.getByRole("button", { name: "העלו את היינקן מקום אחד" }).click();
-  await page.getByRole("button", { name: "שמירה" }).click();
+  // Three sections carry a "שמירה" now (beers, credit, place): name the one you mean.
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "heineken");
   await shot("settings-heineken");
@@ -186,7 +187,7 @@ test("Settings: the four beers stand on the counter — bottle, rank, name — d
   for (let step = 1; step <= 8; step++) await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + ((to.y - from.y) * step) / 8);
   await page.mouse.up();
   await expect(page.locator("li[data-rank='1']")).toContainText("גולדסטאר");
-  await page.getByRole("button", { name: "שמירה" }).click();
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 });
 
