@@ -36,8 +36,10 @@ test("Admin pages: the overview, the queue, and a deal added by hand (notificati
   await page.getByRole("button", { name: "הוספה ופרסום" }).click();
   await expect(page.getByText("המבצע נוסף ופורסם.")).toBeVisible();
 
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "מבצעים מאושרים" })).toBeVisible();
+  // One filtered list since Phase U: the approved deals are a tap away, not a
+  // second list on the same screen.
+  await page.goto("/admin/queue?status=approved");
+  await expect(page.getByRole("heading", { name: /מבצעים מאושרים/ })).toBeVisible();
   await expect(page.getByText("אין מבצעים מאושרים כרגע.")).toHaveCount(0);
 });
 
@@ -59,7 +61,7 @@ test("the audit log says who did what, and offers nothing to press", async ({ pa
   await expect(page.getByText("המבצע נוסף ופורסם.")).toBeVisible();
 
   // Take down the one just added, not the one the test above left behind.
-  await page.reload();
+  await page.goto("/admin/queue?status=approved");
   await page
     .getByRole("article")
     .filter({ hasText: "₪19.90" })
@@ -150,4 +152,45 @@ test("the submitters screen can stop one account, and shows nothing private", as
   await expect(theirs.getByText(/לא יכול לשלוח מבצעים חדשים/)).toBeVisible();
 
   await other.close();
+});
+
+// Phase U: the moderation list, filtered — and the filter in the URL.
+test("the queue can be narrowed, and the narrowing is in the address", async ({ page }) => {
+  await onboard(page, "מסננת");
+  await makeAdmin("מסננת");
+
+  // One deal by hand, so there is something approved to find.
+  await page.goto("/admin/queue");
+  await page.getByRole("button", { name: "+ הוספת מבצע ידנית" }).click();
+  await page.getByLabel("בירה", { exact: true }).selectOption({ index: 3 });
+  await page.getByLabel("חנות", { exact: true }).selectOption({ index: 3 });
+  await page.getByPlaceholder("24.90").fill("18.90");
+  await page.getByPlaceholder("39.90").fill("33.90");
+  await page.getByRole("button", { name: "הוספה ופרסום" }).click();
+  await expect(page.getByText("המבצע נוסף ופורסם.")).toBeVisible();
+
+  // Pending is the default, and the plain page has a plain address.
+  await page.goto("/admin/queue");
+  await expect(page.getByRole("heading", { name: /ממתינים לאישור/ })).toBeVisible();
+
+  await page.getByRole("navigation", { name: "סטטוס" }).getByRole("link", { name: "מאושרים" }).click();
+  await expect(page).toHaveURL(/status=approved/);
+  await expect(page.getByRole("heading", { name: /מבצעים מאושרים/ })).toBeVisible();
+  await expect(page.getByRole("article").filter({ hasText: "₪18.90" })).toBeVisible();
+
+  // A chain nothing was added for: the list is empty and says it is the FILTER that
+  // is empty, not the queue.
+  await page.getByLabel("הצגה לפי חנות").selectOption({ index: 6 });
+  await page.getByRole("button", { name: "סינון" }).click();
+  await expect(page).toHaveURL(/store=/);
+  await expect(page.getByText("אין מבצעים שמתאימים לסינון.")).toBeVisible();
+
+  // The URL survives a reload, which is the point of putting it there.
+  await page.reload();
+  await expect(page.getByText("אין מבצעים שמתאימים לסינון.")).toBeVisible();
+
+  // And each chosen filter carries its own way out.
+  await page.getByRole("link", { name: "ניקוי הכול" }).click();
+  await expect(page).toHaveURL(/\/admin\/queue$/);
+  await expect(page.getByRole("heading", { name: /ממתינים לאישור/ })).toBeVisible();
 });

@@ -6,6 +6,23 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.24.0 — 2026-10-08
+
+**סינון בלוח המבצעים** · Feature
+
+- בלוח הניהול אפשר עכשיו לסנן מבצעים: לפי סטטוס, חנות, בירה, מקור וחיפוש בהערה.
+- הסינון נשמר בכתובת — רענון, חזור, ושליחת קישור למה שאתם רואים, כולם עובדים.
+- אם הרשימה ארוכה מהמוצג, כתוב בדיוק את זה ולא מספר שהמצאנו.
+
+Internal:
+
+- Phase U. The queue was two fixed lists — every pending deal oldest-first and the last thirty approved. Workable at a hundred deals, useless at four thousand, and 'what did this chain send us?' or 'what have we rejected on this beer?' had no answer at all. One filtered list now, with pending as the default because that is the only list with work in it.
+- The state is in the URL (src/lib/urls.ts), like every other filter in the app: refresh, back button, a tab kept open on 'rejected, Rami Levy', and sending somebody the link all work. A client component holding this in useState would lose all four, and the link-building is where that quietly breaks — so tests/admin-deal-filters.test.ts pins it, including that Hebrew search text is encoded and that an emptied box is no filter at all.
+- The two long lists are a GET <form> with plain <select>s and a submit button, not an onChange that navigates: it works before hydration, and a select that jumps the moment you touch it is unusable with a keyboard. Each chosen filter also carries its own way out — a 'clear all' alone makes somebody start over to drop one of three.
+- NO TOTAL COUNT, deliberately. A count means a second query whose only job is a number, and the local fake the e2e suite runs against does not implement PostgREST's count header — so the number would be real in production and a fiction in the tests. getAdminDeals asks for one row more than it shows and says 'there are more'. That is the honest version of the same information: whether this list is everything.
+- A wildcard typed into the search box is escaped: '%' and '_' are characters somebody typed, not patterns, and a ',' would end a PostgREST filter early. Tested with a note containing '50%'.
+- One real a11y fix found while writing it: the filter's selects were labelled 'חנות' and 'בירה', which the add-a-deal form on the same page already uses. Two controls with one accessible name is an ambiguity for a screen reader, not only for a test, so the filters now read 'הצגה לפי חנות' / 'הצגה לפי בירה'.
+
 ## 0.23.0 — 2026-10-08
 
 **אפשר לעצור מי ששולח מחירים שלא קיימים** · Feature

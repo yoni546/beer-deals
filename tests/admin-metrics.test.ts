@@ -178,3 +178,72 @@ describe("the admin roster is not public (M-3)", () => {
     expect(all.rows.length).toBe(2); // the super admin from world(), and the moderator
   });
 });
+
+/**
+ * The moderation list, filtered (Phase U).
+ *
+ * The queue used to be two fixed lists — every pending deal and the last thirty
+ * approved — so "what did this chain send us?" and "what have we rejected on this
+ * beer?" had no answer. These run against the real policies, as a moderator.
+ */
+describe("the moderation list can be narrowed (Phase U)", () => {
+  /** Submitted by a person, through the policy that is the only way in. */
+  async function sent(w: World, who: string, beerId: string, storeId: string, note: string | null, category = "sixpack") {
+    const { rows } = await asUser(w.db, who, () =>
+      w.db.query<{ id: string }>(
+        `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, notes)
+         values ($1, $2, $3::public.deal_category, 2490, 3990, 'pending', $4, $5) returning id`,
+        [beerId, storeId, category, who, note],
+      ),
+    );
+    return rows[0].id;
+  }
+
+  const read = async (w: World, who: string, sql: string, params: unknown[] = []) =>
+    (await asUser(w.db, who, () => w.db.query<{ id: string }>(sql, params))).rows;
+
+  it("finds what one chain sent, and what one beer was sent for", async () => {
+    const { w, moderator } = await setup();
+    await sent(w, w.visitor, w.ids.goldstar, w.ids.rami, null);
+    await sent(w, w.visitor, w.ids.maccabee, w.ids.shufersal, null);
+    await sent(w, w.visitor, w.ids.goldstar, w.ids.shufersal, null, "case");
+
+    expect(
+      await read(w, moderator, "select id from public.deals where store_id = $1", [w.ids.shufersal]),
+    ).toHaveLength(2);
+    expect(
+      await read(w, moderator, "select id from public.deals where beer_id = $1", [w.ids.goldstar]),
+    ).toHaveLength(2);
+  });
+
+  it("tells a person's submission from one an admin typed in", async () => {
+    const { w, moderator } = await setup();
+    await sent(w, w.visitor, w.ids.goldstar, w.ids.rami, null);
+    await asUser(w.db, moderator, () =>
+      w.db.query("select public.admin_add_deal($1, $2, 'sixpack', 2490, 3990)", [w.ids.maccabee, w.ids.rami]),
+    );
+
+    expect(await read(w, moderator, "select id from public.deals where entered_by_admin")).toHaveLength(1);
+    expect(await read(w, moderator, "select id from public.deals where not entered_by_admin")).toHaveLength(1);
+  });
+
+  it("searches the note a submitter wrote, including in Hebrew", async () => {
+    const { w, moderator } = await setup();
+    await sent(w, w.visitor, w.ids.goldstar, w.ids.rami, "רק במועדון הלקוחות");
+    await sent(w, w.visitor, w.ids.maccabee, w.ids.rami, "עד יום שישי");
+
+    const found = await read(w, moderator, "select id from public.deals where notes ilike $1", ["%מועדון%"]);
+    expect(found).toHaveLength(1);
+  });
+
+  it("treats a wildcard typed into the search box as a character, not a pattern", async () => {
+    const { w, moderator } = await setup();
+    await sent(w, w.visitor, w.ids.goldstar, w.ids.rami, "הנחה 50% מהמחיר");
+    await sent(w, w.visitor, w.ids.maccabee, w.ids.rami, "עד יום שישי");
+
+    // The escaping getAdminDeals applies: '%' is matched literally, so searching for
+    // it finds the one deal rather than every deal there is.
+    const literal = await read(w, moderator, "select id from public.deals where notes ilike $1", ["%50\\%%"]);
+    expect(literal).toHaveLength(1);
+  });
+});

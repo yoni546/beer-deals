@@ -1,6 +1,7 @@
 import "server-only";
 
 import { report } from "@/lib/log";
+import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { AdminDeal, DealReport, DealStatus } from "@/lib/db/types";
 
@@ -285,4 +286,77 @@ export async function getAdminSubmitters(limit = 50): Promise<{ rows: AdminSubmi
     return { rows: [], ok: false };
   }
   return { rows: (data ?? []) as AdminSubmitter[], ok: true };
+}
+
+export type AdminDealFilter = {
+  /** A single status, or "all". The queue's own default is "pending". */
+  status: DealStatus | "all";
+  /** Chain and beer by slug, so a filter survives in the URL and can be shared. */
+  store?: string;
+  beer?: string;
+  /** Where it came from: everything, what people sent, or what an admin typed in. */
+  source: "all" | "users" | "admins";
+  /** Free text over the note a submitter wrote. */
+  q?: string;
+};
+
+export const DEAL_FILTER_DEFAULTS: AdminDealFilter = { status: "pending", source: "all" };
+
+/**
+ * The moderation list, filtered (Phase U).
+ *
+ * Before this the panel had exactly two lists — every pending deal, oldest first,
+ * and the last thirty approved — which is workable at a hundred deals and useless
+ * at four thousand. "What did this chain send us?" and "what have we rejected from
+ * this beer?" had no answer at all.
+ *
+ * It deliberately does NOT report a total. A count would mean a second query whose
+ * only job is a number, and the local fake the e2e runs against does not implement
+ * PostgREST's count header — so the number would be real in production and a
+ * fiction in the tests. Instead it asks for one row more than it shows, and says
+ * "there are more" when it gets it. That is the honest version of the same
+ * information: whether this list is everything.
+ */
+export async function getAdminDeals(
+  filter: AdminDealFilter,
+  limit = 50,
+): Promise<{ rows: AdminDeal[]; more: boolean; ok: boolean }> {
+  const supabase = await supabaseServer();
+  let query = supabase.from("deals").select(DEAL_COLUMNS);
+
+  if (filter.status !== "all") query = query.eq("status", filter.status);
+  if (filter.source === "users") query = query.eq("entered_by_admin", false);
+  if (filter.source === "admins") query = query.eq("entered_by_admin", true);
+  // Slug, not id: the filter lives in the URL and an id there is unreadable and
+  // unshareable. One extra lookup, on tables that are cached site-wide anyway.
+  if (filter.store) {
+    const store = await getStoreBySlug(filter.store);
+    if (!store) return { rows: [], more: false, ok: true };
+    query = query.eq("store_id", store.id);
+  }
+  if (filter.beer) {
+    const beer = await getBeerBySlug(filter.beer);
+    if (!beer) return { rows: [], more: false, ok: true };
+    query = query.eq("beer_id", beer.id);
+  }
+  if (filter.q?.trim()) {
+    // Plain `ilike`, escaped: a % or _ typed into a search box is a character, not
+    // a wildcard, and `,` would otherwise end the filter early in PostgREST.
+    const needle = filter.q.trim().replace(/[%_\\,]/g, (ch) => `\\${ch}`);
+    query = query.ilike("notes", `%${needle}%`);
+  }
+
+  const { data, error } = await query
+    // Oldest first while they are waiting — a queue, not a feed. Newest first
+    // everywhere else, where the question is what changed recently.
+    .order("created_at", { ascending: filter.status === "pending" })
+    .limit(limit + 1);
+
+  if (error) {
+    report("admin.deals_filtered_failed", { code: error.code, reason: error.message });
+    return { rows: [], more: false, ok: false };
+  }
+
+  const all = (data ?? []) as unknown as AdminDeal[];
+  return { rows: await withSubmitters(all.slice(0, limit)), more: all.length > limit, ok: true };
 }
