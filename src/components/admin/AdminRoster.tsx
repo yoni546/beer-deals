@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
+import { useAdminNotice } from "@/components/admin/AdminNotices";
 import { Tape } from "@/components/ui/Tape";
 import { grantAdmin, revokeAdmin } from "@/lib/actions/admin";
 import { IDLE } from "@/lib/actions/result";
@@ -15,6 +16,8 @@ type Row = { user_id: string; level: string; created_at: string };
 export function AdminRoster({ roster, currentUserId }: { roster: Row[]; currentUserId: string }) {
   const [state, submit, pending] = useActionState(grantAdmin, IDLE);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // Revoking takes the person off the list, so the row cannot report it. See AdminNotices.
+  const notify = useAdminNotice();
   const [removing, startRemoving] = useTransition();
 
   return (
@@ -61,9 +64,11 @@ export function AdminRoster({ roster, currentUserId }: { roster: Row[]; currentU
                   onClick={() =>
                     startRemoving(async () => {
                       const result = await revokeAdmin(row.user_id);
-                      setMessage(
-                        result.ok ? { ok: true, text: "ההרשאה הוסרה." } : { ok: false, text: result.error },
-                      );
+                      const said = result.ok
+                        ? { ok: true, text: "ההרשאה הוסרה." }
+                        : { ok: false, text: result.error };
+                      if (notify) notify(said);
+                      else setMessage(said);
                     })
                   }
                   className="btn btn-danger shrink-0"

@@ -231,6 +231,13 @@ begin
   values (uid, clean)
   on conflict (profile_id) do update set display_name = excluded.display_name, updated_at = now();
 
+  -- Naming yourself for the first time has to pick up the deals you already
+  -- submitted (0030). This line went missing in the first draft of this migration,
+  -- because 0030 defines set_display_name TWICE -- once before recount_contributor
+  -- exists and once after -- and the earlier one was the one copied. The e2e caught
+  -- it: a person named themselves and the leaderboard stayed empty.
+  perform public.recount_contributor(uid);
+
   insert into public.display_name_changes (profile_id) values (uid);
 end;
 $$;

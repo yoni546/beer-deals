@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
+import { useAdminNotice } from "@/components/admin/AdminNotices";
 import { SparkIcon } from "@/components/ui/icons";
 import { Price, Saving } from "@/components/ui/Price";
 import { approveDeal, deleteDeal, setDealStatus, setWeeklyDeal, updateDeal } from "@/lib/actions/admin";
@@ -69,11 +70,18 @@ export function AdminDealRow({
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Approving a deal moves it between lists and removing one takes it off the page,
+  // so the panel shows the outcome above the list, where the action cannot unmount
+  // it. Without the provider (a test, or a page that does not have it) the row says
+  // it itself, as it always did.
+  const notify = useAdminNotice();
 
   function run(work: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
       const result = await work();
-      setMessage({ ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") });
+      const said = { ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") };
+      if (notify) notify(said);
+      else setMessage(said);
     });
   }
 

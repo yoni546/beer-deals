@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminNotices } from "@/components/admin/AdminNotices";
 import { Screen, TopBar } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { getViewer } from "@/lib/session";
@@ -66,7 +67,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <AdminNav tabs={tabs} />
 
-      {children}
+      {/* The result of an action is shown HERE, above everything an action can
+          unmount — approving a deal moves it between lists and removing one takes
+          it off the page, and the row used to carry its own confirmation. */}
+      <AdminNotices>{children}</AdminNotices>
     </Screen>
   );
 }

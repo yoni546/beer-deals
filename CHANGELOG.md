@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.21.1 — 2026-10-08
+
+**מנהל רואה מה הוא עשה** · Fix
+
+- בלוח הניהול: אישור או הסרה של מבצע מראים עכשיו אישור שנשאר על המסך.
+- עד היום ההודעה הייתה בתוך השורה עצמה — וכשהשורה נעלמה, גם ההודעה.
+
+Internal:
+
+- Every admin row action reported its result INSIDE the row. That works for an edit and for nothing else: approving a deal moves it from 'ממתינים' to 'מאושרים', removing one takes it off the page, closing a report takes it out of the open list, and revoking an admin takes the person off the roster — so the server re-render unmounts the row and the sentence goes with it. On a destructive action that is the worst outcome available: you cannot tell 'it worked' from 'nothing happened, press it again'.
+- AdminNotices is a provider in the panel layout with one polite live region above the list, outside anything an action can unmount. A success lingers eight seconds — long enough to read and look up at what changed, short enough never to be mistaken for the result of the next thing pressed; a failure does not expire and carries a close button, because it needs acting on. The region is always in the tree even when empty: a live region added to the document at the same moment as its text is not announced by every screen reader. DealActions, ReportRow and AdminRoster use it, each falling back to showing the message in place when there is no provider.
+- Found as an intermittent e2e failure — whether the notice painted before the revalidation landed was a race — which is the worst way for a real bug to present itself. It is the second one this week to arrive disguised as test noise.
+- Also in this commit: 0033 had dropped `perform public.recount_contributor(uid)` from set_display_name, so naming yourself no longer picked up the deals you had already submitted and the leaderboard stayed empty. The cause is worth recording: 0030 defines set_display_name TWICE — once before recount_contributor exists and once after — and the first draft of 0033 copied the earlier one. The e2e caught it; tests/contributors.test.ts now covers it at the unit level too, verified by failing without the line.
+
 ## 0.21.0 — 2026-10-08
 
 **גבול למה שאפשר לשלוח** · Fix

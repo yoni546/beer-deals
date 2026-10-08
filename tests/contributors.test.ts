@@ -146,6 +146,29 @@ describe("the standings reward quality, not volume", () => {
     expect(row).toMatchObject({ display_name: "דנה", weekly: 1, score: 35 }); // 10 + 25
   });
 
+  // A unit test for what the e2e caught twice: naming yourself has to pick up the
+  // deals you already submitted. `recount_contributor` is called at the END of
+  // set_display_name, which makes it the easiest line in the schema to lose when the
+  // function is redefined -- and 0030 defines it twice, once without that line.
+  it("credits the deals somebody already submitted, the moment they choose a name", async () => {
+    const w = await world();
+    const finder = await createUser(w.db, "finder@example.test");
+
+    // Submitted and accepted BEFORE they had a name, so nothing was counted yet.
+    await w.db.query(
+      `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
+       values ($1, $2, 'sixpack', 2490, 3990, 'approved', $3::uuid, $3::uuid, now())`,
+      [w.ids.goldstar, w.ids.rami, finder],
+    );
+    expect(await standings(w)).toEqual([]);
+
+    await name(w, finder, "מוצא");
+
+    const [row] = await standings(w);
+    expect(row, "naming yourself left the board empty").toBeDefined();
+    expect(row).toMatchObject({ display_name: "מוצא", approved: 1, score: 10 });
+  });
+
   it("puts two careful submissions above a hundred careless ones", async () => {
     const w = await world();
     const spammer = await createUser(w.db, "spam@example.test");
