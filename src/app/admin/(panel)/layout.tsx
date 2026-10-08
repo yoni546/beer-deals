@@ -42,6 +42,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/queue", label: "ממתינים" },
     { href: "/admin/reports", label: "דיווחים" },
     { href: "/admin/weekly", label: "מבצע השבוע" },
+    // Every admin can read it, not only a super admin: a log only the most powerful
+    // person can see is not accountability, it is a privilege.
+    { href: "/admin/audit", label: "יומן" },
     ...(viewer.isSuperAdmin
       ? [
           { href: "/admin/admins", label: "מנהלים" },

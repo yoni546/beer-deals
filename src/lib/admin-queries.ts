@@ -179,3 +179,35 @@ export async function getOfferFeedback(limit = 50): Promise<{ rows: OfferFeedbac
   }
   return { rows: (data ?? []) as OfferFeedbackRow[], ok: true };
 }
+
+export type AuditEntry = {
+  id: number;
+  actor: string;
+  actor_email: string | null;
+  action: string;
+  subject_kind: string;
+  subject_id: string | null;
+  details: Record<string, unknown>;
+  at: string;
+  is_me: boolean;
+};
+
+/**
+ * The admin audit log (migration 0032).
+ *
+ * Returns {rows, ok} like the rest of this file: "nobody has done anything yet" and
+ * "we could not read the log" are different sentences, and on this screen in
+ * particular they must not be shown as the same one.
+ */
+export async function getAuditLog(limit = 100, beforeId?: number): Promise<{ rows: AuditEntry[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_audit", {
+    p_limit: limit,
+    p_before_id: beforeId ?? null,
+  });
+  if (error) {
+    report("admin.audit_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as AuditEntry[], ok: true };
+}

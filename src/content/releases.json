@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.20.0",
+    "date": "2026-10-08",
+    "title_he": "יומן פעולות מנהלים",
+    "highlights_he": [
+      "יש עכשיו יומן שאומר מי עשה מה בלוח הניהול, ומתי.",
+      "מבצע שהוסר שומר ביומן מי אישר אותו — עד היום המידע הזה נמחק.",
+      "היומן נכתב בלבד: אי אפשר לערוך או למחוק ממנו, גם לא מנהל ראשי.",
+      "כל מנהל רואה אותו, לא רק מנהל ראשי."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0032. THE GAP: nothing in this database recorded what an administrator did. Each table kept at most the LATEST actor on a column -- approved_by, resolved_by, weekly_deal_set_by, updated_by -- and every one of them is overwritten by the next action and erased by some of them. set_deal_status deliberately nulls approved_by/approved_at (correct: leaving them would misreport who stands behind a deal that is no longer public), so after one click nothing said the deal was ever approved, by whom, or who removed it. admin_delete_deal destroys the row outright.",
+      "APPEND-ONLY, ENFORCED. A trigger refuses UPDATE and DELETE on admin_actions, so the thing being audited cannot rewrite its own record and there is no path in the schema that edits a row. The table has NO write grant for anybody: entries are written only from inside the definer functions that do the work, in the same transaction -- an action that raises leaves no entry because it did not happen, and one that commits cannot leave none. Two tests pin both halves.",
+      "IT DOES NOT MOVE WHEN THE WORLD DOES. actor is a plain uuid with no foreign key, beside the email as it stood at the time. `on delete set null` would let a deleted account blank out who did something, which is the one thing an audit log may not allow.",
+      "Ten functions redefined, each its previous definition with ONE statement added, bodies otherwise unchanged down to the Hebrew error messages -- callers and tests depend on them, and a rewrite that tidied one would be a behaviour change hidden inside an audit feature. The entries carry only what answers a real question: the two columns set_deal_status is about to erase, the whole deal before admin_delete_deal destroys it, and for an edit only the fields that actually moved (jsonb_strip_nulls over before/after pairs).",
+      "record_admin_action does NOT re-check the role: every caller is already behind require_admin()/require_super_admin(), and a second check here would be a second place to get it wrong. It is granted to nobody. Reading goes through admin_audit(), definer and guarded like every other entry point.",
+      "/admin/audit is a reading screen with deliberately nothing to press -- an audit log with controls on it is a log somebody can tidy, and an e2e asserts the page has no buttons. Available to every admin, not only a super admin: a log only the most powerful person can see is not accountability, it is a privilege. Actions are rendered as Hebrew sentences and before/after pairs rather than JSON; the rule is that a field which cannot be put into words on the screen has no business being recorded in the log."
+    ]
+  },
+  {
     "version": "0.19.1",
     "date": "2026-10-08",
     "title_he": "המרחק שבחרתם נשאר",
