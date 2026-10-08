@@ -22,15 +22,17 @@ import { reportOffer } from "@/lib/actions/deals";
  */
 export function OfferFeedback({ offerKey, seenPriceAgorot }: { offerKey: string; seenPriceAgorot?: number }) {
   const [said, setSaid] = useState<"ended" | "still_there" | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function say(verdict: "ended" | "still_there") {
-    setFailed(false);
+    setFailed(null);
     startTransition(async () => {
       const result = await reportOffer(offerKey, verdict, seenPriceAgorot);
       if (result.ok) setSaid(verdict);
-      else setFailed(true);
+      // The database's own words when it has better ones than "try again" -- a rate
+      // limit (0033) says when to come back, and "לא הצלחנו לשלוח" would hide that.
+      else setFailed(result.error);
     });
   }
 
@@ -69,7 +71,7 @@ export function OfferFeedback({ offerKey, seenPriceAgorot }: { offerKey: string;
       </div>
       {failed && (
         <p role="alert" className="text-sm text-ink">
-          לא הצלחנו לשלוח. נסו שוב.
+          {failed}
         </p>
       )}
     </div>

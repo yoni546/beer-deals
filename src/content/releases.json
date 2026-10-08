@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.21.0",
+    "date": "2026-10-08",
+    "title_he": "גבול למה שאפשר לשלוח",
+    "highlights_he": [
+      "יש עכשיו גבול לכמה מבצעים אפשר לשלוח בשעה וביום — כדי שאף אחד לא יוכל לשטוף את התור.",
+      "הגבול נדיב: מי שמוצא מבצעים באמת לא יפגוש אותו.",
+      "אם כן הגעתם אליו, ההודעה אומרת מתי לנסות שוב — והמבצעים שכבר שלחתם לא הולכים לאיבוד."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0033, security finding M-2 — the last one open. An anonymous session (every visitor gets one automatically) could write three things and nothing counted any of them: a deal straight into the moderation queue, feedback on every offer in the feed, and a public display name shown beside other people's prices.",
+      "THE DEAL PATH IS THE SERIOUS ONE. deals_submit (0003) checks that a submission is theirs and pending — not how many. A shell loop over the PostgREST endpoint could put ten thousand rows in front of the moderators and make the queue useless, and NO SERVER ACTION IS IN THAT PATH, so nothing in the app could have stopped it. The limit is therefore in Postgres, where a trigger covers the app, a script and a hand-written request alike.",
+      "It counts the rows themselves in a window rather than keeping a ledger of attempts: a counter table would be one more thing able to drift from the truth it describes, and would need its own write path and cleanup. Deals 8/hour and 25/day; offer feedback 60/hour (high on purpose — somebody answering 'still there' down an aisle is who the feature is for); display name 10/hour, with clearing counted because alternating is the obvious way round a limit that only counts setting it. Rejected submissions count too: being rejected a lot is the signal, and resetting on rejection would reward it. An admin typing a deal in is exempt.",
+      "SQLSTATE 54000 (program_limit_exceeded), deliberately not 42501 — describeDbError turns that into 'you have no permission for this', which would be a lie told to somebody who simply found four deals tonight. The Hebrew message reaches the person and says when to come back; OfferFeedback now shows the database's words instead of a generic 'we could not send'.",
+      "What it is NOT: a defence against a botnet, since a thousand sessions are a thousand quotas. It raises the one-session flood from a shell loop to real work. Supabase's own anonymous sign-in limit (~30/hour/IP) is the layer above and belongs to the hosted project — go-live checklist item E.",
+      "docs/V2-AUDIT-2026-10-07.md section 8 now records all three findings (M-1, M-2, M-3) and where each one ended. That section was missing, which meant an 'open and documented' finding was only half true."
+    ]
+  },
+  {
     "version": "0.20.0",
     "date": "2026-10-08",
     "title_he": "יומן פעולות מנהלים",

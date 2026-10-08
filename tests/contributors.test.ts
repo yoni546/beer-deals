@@ -157,9 +157,13 @@ describe("the standings reward quality, not volume", () => {
     // one per shelf — beer, chain, pack — so each person's approved ones differ.)
     await submit(w, spammer, "approved"); // goldstar · rami · sixpack
     for (const c of ["case", "single"] as const) await submit(w, spammer, "rejected", c);
+    // Spread over twenty days, because that is what a history of rejections looks
+    // like -- and because twenty in one hour is now refused outright (0033), which is
+    // a different defence against the same person and has its own tests.
     await w.db.query(
-      `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by)
-       select $1, $2, 'sixpack', 2490, 3990, 'rejected', $3::uuid from generate_series(1, 20)`,
+      `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, created_at)
+       select $1, $2, 'sixpack', 2490, 3990, 'rejected', $3::uuid, now() - (g || ' days')::interval
+         from generate_series(1, 20) as g`,
       [w.ids.maccabee, w.ids.shufersal, spammer],
     );
 
