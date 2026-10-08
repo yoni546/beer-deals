@@ -247,8 +247,10 @@ test("A deal line says, on the line itself, the regular price it is measured aga
   await expect(line.locator("s")).toHaveText("₪37.90");
   await expect(line).toContainText("המחיר הרגיל, אושר על ידי מנהל"); // read out to screen readers
   await expect(line.getByText("−34%")).toBeVisible();
-  // One unit per deal: nothing to unfold on an ordinary line.
-  await expect(line.locator("summary")).toHaveCount(0);
+  // One unit per deal: nothing to unfold on an ordinary line -- bar the two
+  // disclosures that are on every line by design, the branch list (data-scope) and
+  // "הייתם שם?" (data-feedback, 0031).
+  await expect(line.locator("details:not([data-feedback]):not([data-scope])")).toHaveCount(0);
 });
 
 test.describe("settings", () => {

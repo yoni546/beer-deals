@@ -171,7 +171,7 @@ export function OfferLine({
 
       {/* Every offer, not only the user-submitted ones. Until 0031 the chain feed --
           the bulk of what anybody sees -- had no report path at all. */}
-      <details className="group">
+      <details className="group" data-feedback>
         <summary className="-ms-1 inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1 ps-1 text-xs font-semibold text-ink-2 [&::-webkit-details-marker]:hidden">
           הייתם שם?
           <span aria-hidden className="transition-transform group-open:rotate-180">
