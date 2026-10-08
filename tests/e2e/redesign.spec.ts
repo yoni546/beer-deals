@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedDeals, seedRealCatalog, sql } from "./helpers";
+import { onboard, resetDb, revalidateAppCaches, seedDeals, seedRealCatalog, sql } from "./helpers";
 
 /**
  * The rebuilt screens ("The Tape", DESIGN.md), exercised the way a person uses them.
@@ -474,4 +474,47 @@ test("the credit can be taken back", async ({ page }) => {
 
   // Taken back means the row is gone, not blanked.
   expect(await sql("select 1 from public.contributors where display_name = 'דנה-בדיקה'")).toHaveLength(0);
+});
+
+// Phase V: "המבצע עדיין קיים" / "המבצע נגמר", on a CHAIN offer — the case that had no
+// report path at all before 0031, in the UI or in the schema.
+test("anyone can say a chain offer has ended, and what people said reaches the next person", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/beer/goldstar");
+
+  const line = page.locator("article").filter({ hasText: "הייתם שם?" }).first();
+  await line.getByText("הייתם שם?").click();
+  await line.getByRole("button", { name: "המבצע נגמר" }).click();
+
+  // The wording matters: pressing it must not look like it deleted anything.
+  await expect(line.getByText("לא הסרנו כלום")).toBeVisible();
+
+  // It is a catalogue offer, not a `deals` row — the thing that used to be impossible.
+  const [said] = await sql<{ offer_key: string; verdict: string }>(
+    "select offer_key, verdict from public.offer_feedback",
+  );
+  expect(said, "nothing was recorded").toBeDefined();
+  expect(said.offer_key.startsWith("obs:"), `expected a chain offer, got ${said.offer_key}`).toBe(true);
+  expect(said.verdict).toBe("ended");
+
+  // One tap says nothing to anybody else. That is the whole rule.
+  await page.reload();
+  await expect(page.getByText("משתמשים מדווחים שהמבצע נגמר")).toHaveCount(0);
+
+  // Two more strangers agree, and now the line says so — still showing the offer,
+  // because this is a label and not a deletion.
+  await sql(
+    "insert into auth.users (id, email) values (gen_random_uuid(), 'a@example.test'), (gen_random_uuid(), 'b@example.test')",
+  );
+  await sql(
+    `insert into public.offer_feedback (offer_key, verdict, reported_by)
+     select $1, 'ended', u.id from auth.users u where u.email in ('a@example.test', 'b@example.test')`,
+    [said.offer_key],
+  );
+  // Written behind the app's back, so ring the same doorbell an import does.
+  await revalidateAppCaches();
+
+  await page.goto("/beer/goldstar");
+  await expect(page.getByText("משתמשים מדווחים שהמבצע נגמר").first()).toBeVisible();
+  await expect(line).toBeVisible();
 });

@@ -2,13 +2,29 @@ import Link from "next/link";
 import { ChevronDownIcon } from "@/components/ui/icons";
 import { DealScoreChip } from "@/components/ui/DealScore";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
-import { ReportDealButton } from "@/components/ReportDealButton";
+import { OfferFeedback } from "@/components/OfferFeedback";
 import { ScopeLine } from "@/components/ScopeLine";
 import type { Offer } from "@/lib/db/types";
 import { conditionChips, depositHe, kmHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
 export type LineLead = "chain" | "beer" | "pack";
+
+/**
+ * How a standing is worded on the line (0031).
+ *
+ * Carefully hedged, because the app does not know: people REPORT that a deal has
+ * ended, and the chain's own feed may still be listing it. A disagreement is shown
+ * as a disagreement rather than resolved by a rule, and 'still_there' is worth
+ * saying out loud -- it is the only thing on the line that somebody actually went
+ * and checked.
+ */
+function standingHe(standing: Offer["standing"]): { text: string; hatched: boolean } | null {
+  if (standing === "ended") return { text: "משתמשים מדווחים שהמבצע נגמר", hatched: true };
+  if (standing === "unclear") return { text: "יש דיווחים סותרים", hatched: true };
+  if (standing === "still_there") return { text: "משתמשים אישרו שהמבצע קיים", hatched: false };
+  return null;
+}
 
 /**
  * One line of the tape: what it is, ········ what it costs.
@@ -108,6 +124,7 @@ export function OfferLine({
   if (perLiter && offer.unit_price_per_liter_agorot !== null) facts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);
   // Where it runs (0017): never implies the whole chain without evidence. Without scope data (a user-submitted
   // deal), the branch it was seen at, as before.
+  const standing = standingHe(offer.standing);
   const scope = scopeHe(offer);
   if (scope) facts.push(<ScopeLine key="w" text={scope} promotionId={offer.promotion_id} />);
   else if (where && !showStore) facts.push(<span key="w">{where}</span>);
@@ -142,22 +159,29 @@ export function OfferLine({
         {offer.needs_review && (
           <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">אחוז ההנחה בבדיקה</span>
         )}
+        {/* What the people who were in the shop say (0031). The offer stays on the
+            screen either way -- this is a label, not a removal -- and it is hatched as
+            well as worded, because unverified data is never marked by colour alone. */}
+        {standing && (
+          <span className={`${standing.hatched ? "hatch " : ""}rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink`}>
+            {standing.text}
+          </span>
+        )}
       </div>
 
-      {offer.origin === "legacy" && (
-        // A user-submitted deal (the old flow): the only line with anything more to do.
-        <details className="group">
-          <summary className="-ms-1 inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1 ps-1 text-xs font-semibold text-ink-2 [&::-webkit-details-marker]:hidden">
-            דיווח על המבצע
-            <span aria-hidden className="transition-transform group-open:rotate-180">
-              <ChevronDownIcon size={14} />
-            </span>
-          </summary>
-          <div className="pb-2">
-            <ReportDealButton dealId={offer.offer_key.replace(/^deal:/, "")} />
-          </div>
-        </details>
-      )}
+      {/* Every offer, not only the user-submitted ones. Until 0031 the chain feed --
+          the bulk of what anybody sees -- had no report path at all. */}
+      <details className="group">
+        <summary className="-ms-1 inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1 ps-1 text-xs font-semibold text-ink-2 [&::-webkit-details-marker]:hidden">
+          הייתם שם?
+          <span aria-hidden className="transition-transform group-open:rotate-180">
+            <ChevronDownIcon size={14} />
+          </span>
+        </summary>
+        <div className="pb-2">
+          <OfferFeedback offerKey={offer.offer_key} seenPriceAgorot={offer.effective_agorot} />
+        </div>
+      </details>
     </article>
   );
 }

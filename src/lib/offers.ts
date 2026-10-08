@@ -6,7 +6,7 @@ import { note } from "@/lib/log";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { DealScore, GroupOffer, Offer, Packaging, RegularPrice } from "@/lib/db/types";
+import type { DealScore, GroupOffer, Offer, OfferStanding, Packaging, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
 
@@ -150,9 +150,41 @@ async function withContributors<T extends { offer_key: string }>(rows: T[]): Pro
   return rows.map((row) => ({ ...row, found_by: names[row.offer_key] ?? null }));
 }
 
+/**
+ * What people who were actually in the shop say about each offer (0031).
+ *
+ * One read for the whole screen, not one per line: a Home render touches dozens of
+ * offers. Only offers somebody has spoken about in the last thirty days come back;
+ * everything else is absent and its line says nothing, which is the honest default.
+ *
+ * A missing function (the migration not applied yet) is not allowed to take the
+ * prices down with it — the deals are still true, they simply arrive unlabelled.
+ */
+const readStandings = cachedFeed("offer-standings", async (): Promise<Record<string, OfferStanding>> => {
+  const { data, error } = await publicReader().rpc("offer_standings");
+  if (error) {
+    note("offer_standings.read_failed", { reason: error.message });
+    return {};
+  }
+  const index: Record<string, OfferStanding> = {};
+  for (const row of (data ?? []) as Array<{ offer_key: string; standing: string }>) {
+    if (row.standing === "ended" || row.standing === "still_there" || row.standing === "unclear") {
+      index[row.offer_key] = row.standing;
+    }
+  }
+  return index;
+});
+const getStandings = cache(readStandings);
+
+async function withStandings<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { standing: OfferStanding | null }>> {
+  if (rows.length === 0) return [];
+  const standings = await getStandings();
+  return rows.map((row) => ({ ...row, standing: standings[row.offer_key] ?? null }));
+}
+
 /** Everything a deal line needs that the feed itself does not carry. */
 async function decorate(rows: Offer[]): Promise<Offer[]> {
-  return withContributors(await withScores(await withPackaging(rows))) as Promise<Offer[]>;
+  return withStandings(await withContributors(await withScores(await withPackaging(rows)))) as Promise<Offer[]>;
 }
 
 /** The beers' SKU ids (empty when they have none). */

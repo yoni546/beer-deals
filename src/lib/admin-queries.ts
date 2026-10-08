@@ -152,3 +152,30 @@ export async function getExpiringOffers(withinDays = 7, limit = 12) {
   if (error) report("admin.expiring_failed", { code: error.code, reason: error.message });
   return { rows: data ?? [], ok: !error };
 }
+
+export type OfferFeedbackRow = {
+  offer_key: string;
+  ended_weight: number;
+  still_weight: number;
+  voices: number;
+  newest_at: string;
+  standing: "ended" | "still_there" | "unclear";
+  notes: string[];
+};
+
+/**
+ * What people are saying about offers on the shelf (migration 0031).
+ *
+ * Disagreements first, because those are the ones a rule deliberately refused to
+ * settle. Returns {rows, ok} so the screen can tell "nobody has said anything" from
+ * "we could not look".
+ */
+export async function getOfferFeedback(limit = 50): Promise<{ rows: OfferFeedbackRow[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_offer_feedback", { p_limit: limit });
+  if (error) {
+    report("admin.offer_feedback_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as OfferFeedbackRow[], ok: true };
+}

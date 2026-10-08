@@ -28,8 +28,15 @@ export async function resetDb() {
   await revalidateAppCaches();
 }
 
-/** The same doorbell an ingestion run uses (src/app/api/cache/revalidate/route.ts). */
-async function revalidateAppCaches() {
+/**
+ * The same doorbell an ingestion run uses (src/app/api/cache/revalidate/route.ts).
+ *
+ * Exported because a spec that writes to the database BEHIND the app -- seeding
+ * other people's rows, say -- has to ring it for the same reason an import does:
+ * the shared feed reads are cached for five minutes and Postgres cannot tell Next
+ * that they changed.
+ */
+export async function revalidateAppCaches() {
   const base = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${process.env.E2E_APP_PORT ?? 3200}`;
   await fetch(`${base}/api/cache/revalidate`, {
     method: "POST",

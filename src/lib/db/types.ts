@@ -192,6 +192,14 @@ export type DealScore = {
   band: ScoreBand;
 };
 
+/**
+ * What the people who were in the shop say (migration 0031, `offer_standings`).
+ *
+ * 'quiet' never reaches the app: an offer nobody has spoken about carries no
+ * standing at all, so the line says nothing rather than "unconfirmed".
+ */
+export type OfferStanding = "ended" | "still_there" | "unclear";
+
 export type Offer = {
   offer_key: string;
   origin: "catalog" | "legacy";
@@ -221,6 +229,15 @@ export type Offer = {
    * in which case the line says nothing, rather than "anonymous".
    */
   found_by?: string | null;
+  /**
+   * What people report about this offer (0031). Null when nobody has said anything —
+   * the overwhelmingly common case, and the line then says nothing at all.
+   *
+   * 'ended' is a LABEL, never a deletion: the offer stays on the screen with what
+   * people said about it, because the chain feed may still be right and a shelf may
+   * be refilled. Only a person takes a deal down.
+   */
+  standing?: OfferStanding | null;
   /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
   effective_agorot: number;
   unit_price_per_liter_agorot: number | null;

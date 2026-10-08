@@ -6,6 +6,25 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.19.0 — 2026-10-08
+
+**הייתם שם? אפשר להגיד** · Feature
+
+- על כל מבצע — גם של הרשתות — אפשר עכשיו להגיד "המבצע עדיין קיים" או "המבצע נגמר".
+- לחיצה אחת לא מורידה כלום. צריך כמה אנשים, לאחרונה, כדי שנכתוב שהמבצע נגמר.
+- אם יש דיווחים סותרים, נכתוב בדיוק את זה — ומנהל יבדוק. אנחנו לא מכריעים בשבילכם.
+- גם אישור שווה: מי שהיה בחנות וראה את המבצע עוזר לכל מי שיגיע אחריו.
+
+Internal:
+
+- Migration 0031. THE GAP: until now only a user-submitted deal could be reported at all -- ReportDealButton rendered for origin = 'legacy' alone, and deal_reports.deal_id is a foreign key to deals whose RLS predicate requires an approved deals row. The chain feed is the bulk of what anybody sees, and none of it had a report path, in the UI or in the schema. A person standing in front of an empty shelf had nowhere to say so.
+- So offer_feedback is keyed by offer_key -- the same 'obs:' / 'deal:' / 'grp:' string offers_feed emits and offer_scores (0027) is already keyed by. Deliberately NOT a foreign key: an offer is a row of a view over two tables, and a promotion that ends stops being in the view at all. Feedback about something that has since vanished is still evidence about what happened.
+- A TAP IS NOT A VERDICT, and nothing here deletes anything. offer_standings weighs who said it (1, or 2 from 50 contributor points, 3 from 100 -- capped on purpose: a tie-breaker between neighbours, not a reputation system that lets one person decide alone), how recent it is (full for a week, half for a fortnight, nothing after thirty days) and which way. The answer is one of four words -- ended / still_there / unclear / quiet -- and 'ended' is a LABEL on a line that stays on the screen. Only a person takes a deal down.
+- BOTH DIRECTIONS, because the people most likely to tap are the ones who just had a wasted journey, and an app that collects only complaints collects a biased picture. A confirmation is what lets somebody answer a report instead of only an admin being able to. Where both sides have real weight the answer is 'unclear' and it goes to the admin screen -- the one case a rule should not settle.
+- offer_standing (one key) is now a thin view of offer_standings (every key), so the rules live in one place and the screen reads them in ONE call -- a Home render touches dozens of offers. Offers nobody has spoken about are absent from that read entirely, so a line with nothing to say says nothing. reportOffer clears FEEDS_TAG: the whole point is that the next person in the aisle sees it, not the shelf as it was five minutes ago.
+- ONE STANDING OPINION PER PERSON PER OFFER, replaced when they say it again -- changing your mind is the normal case when a deal comes back. The optional note column is finally reachable; the old flow had a 280-character column the UI could only ever send an empty string to.
+- ReportDealButton is deleted. admin_offer_feedback (require_admin, like every definer function here) shows both directions and the weight behind them, disagreements first.
+
 ## 0.18.1 — 2026-10-08
 
 **ציידי המבצעים** · Feature
