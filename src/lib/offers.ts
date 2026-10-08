@@ -99,9 +99,43 @@ async function withScores<T extends { offer_key: string }>(rows: T[]): Promise<A
   return rows.map((row) => ({ ...row, deal_score: scores[row.offer_key] ?? null }));
 }
 
+/**
+ * Who found each user-submitted deal, by offer_key.
+ *
+ * Read separately rather than joined into offers_feed, for the same reason the Deal
+ * Score is: that view is what every screen reads and two migrations went into making
+ * it cheap. `contributors` is a small, world-readable table (0030), so one read
+ * covers a page.
+ *
+ * Only people who CHOSE a name appear. A deal from somebody who has not is absent
+ * from this map and its line says nothing about who found it — not "anonymous",
+ * which is itself a label somebody did not ask for.
+ */
+const readContributors = cachedFeed("contributors", async (): Promise<Record<string, string>> => {
+  const supabase = publicReader();
+  const { data, error } = await supabase
+    .from("deals")
+    .select("id, contributors!inner(display_name)")
+    .eq("status", "approved")
+    .not("created_by", "is", null);
+  if (error) return {};
+  return Object.fromEntries(
+    ((data ?? []) as unknown as Array<{ id: string; contributors: { display_name: string } | null }>)
+      .filter((row) => row.contributors?.display_name)
+      .map((row) => [`deal:${row.id}`, row.contributors!.display_name]),
+  );
+});
+const getContributors = cache(readContributors);
+
+async function withContributors<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { found_by: string | null }>> {
+  if (rows.length === 0) return [];
+  const names = await getContributors();
+  return rows.map((row) => ({ ...row, found_by: names[row.offer_key] ?? null }));
+}
+
 /** Everything a deal line needs that the feed itself does not carry. */
 async function decorate(rows: Offer[]): Promise<Offer[]> {
-  return withScores(await withPackaging(rows)) as Promise<Offer[]>;
+  return withContributors(await withScores(await withPackaging(rows))) as Promise<Offer[]>;
 }
 
 /** The beers' SKU ids (empty when they have none). */

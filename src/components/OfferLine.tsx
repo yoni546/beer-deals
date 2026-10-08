@@ -100,6 +100,9 @@ export function OfferLine({
       </span>,
     );
   }
+  // Somebody went and looked. Only shown for a person who chose to be named (0030):
+  // the rest say nothing, which is not the same as saying "anonymous".
+  if (offer.found_by) facts.push(<span key="by">דווח על ידי {offer.found_by}</span>);
   if (until) facts.push(<span key="u">{until}</span>);
   if (deposit) facts.push(<span key="d" className="num">{deposit}</span>);
   if (perLiter && offer.unit_price_per_liter_agorot !== null) facts.push(<UnitPrice key="l" agorotPerLiter={offer.unit_price_per_liter_agorot} />);

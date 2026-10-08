@@ -10,10 +10,20 @@ import type { AdminDeal, DealReport, DealStatus } from "@/lib/db/types";
  * unreachable for them anyway.
  */
 
+/**
+ * `contributors(display_name)` is the thing the moderation queue could not do before
+ * 0030: `created_by` has been recorded since 0001, but it was not in this list and
+ * `profiles` is owner-only by RLS, so a moderator judging a deal could not see who
+ * submitted it. `contributors` is the public half of a person and world-readable, so
+ * this join needs no privilege the admin pages did not already have.
+ *
+ * A submitter who has not chosen a name joins to nothing and the row simply says
+ * nothing about them.
+ */
 const DEAL_COLUMNS =
   "id, category, deal_price_agorot, regular_price_agorot, discount_percent, image_url, " +
-  "notes, status, created_at, approved_at, beer_id, store_id, " +
-  "beers(id, slug, name_he), stores(id, slug, name_he)";
+  "notes, status, created_at, approved_at, beer_id, store_id, created_by, entered_by_admin, " +
+  "beers(id, slug, name_he), stores(id, slug, name_he), contributors:created_by(display_name)";
 
 export async function getDealsByStatus(status: DealStatus, limit = 50): Promise<AdminDeal[]> {
   const supabase = await supabaseServer();

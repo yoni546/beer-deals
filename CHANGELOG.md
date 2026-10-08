@@ -6,6 +6,25 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.18.0 — 2026-10-08
+
+**מי מצא את המבצע** · Feature
+
+- אפשר לבחור שם שיוצג על מבצעים שאתם מוצאים: "דווח על ידי יוני".
+- השם הזה נפרד מהשם הפרטי שלכם — הוא נבחר בנפרד, ואפשר להסיר אותו בכל רגע.
+- בלי שם, המבצעים שלכם פשוט לא אומרים מי דיווח. לא "אנונימי".
+- גם בלוח הניהול רואים עכשיו מי שלח כל מבצע — עד היום אי אפשר היה.
+
+Internal:
+
+- Migration 0030. deals.created_by has been recorded since 0001 and shown nowhere: it was not in DEAL_COLUMNS, and profiles is owner-only by RLS (0003 deliberately gives admins no profile read), so no screen could render a name. A new public.contributors table holds the public half of a person -- one name they chose to be credited by -- world-readable under an obvious policy, while profiles.first_name stays private and unchanged. Putting a public name inside profiles would have meant carving an exception into the policy protecting everything else there.
+- CONSENT IS THE DEFAULT. No row until somebody chooses a name; their deals then say nothing about who found them, not 'anonymous', which is itself a label nobody asked for. Clearing it deletes the row. set_display_name is the only way in -- the table has no write grant, like admins.
+- The tallies live ON the row, maintained by an AFTER trigger on deals. Two reasons, and the second decided it: aggregating over deals per page view is the mistake 0018 recorded the cost of, but a view or function over deals would also need SECURITY DEFINER to see rejected rows, and granting a definer function to anon is exactly what tests/function-grants.test.ts forbids. Storing the answer means the public reads an ordinary table and nothing bypasses RLS for an unauthenticated caller. The first draft did add such a function; the guard test refused it, and it was right to.
+- QUALITY, NOT VOLUME: approved +10, became the weekly pick +25 on top, rejected -5, floored at zero. Pending counts nothing. A deal an admin typed in credits nobody. A test seeds one accepted out of twenty-three against two out of two and asserts the careful submitter wins.
+- The COUNT of somebody's rejections is deliberately not stored: the penalty is inside the score, and a person's failures do not belong beside their name on a public leaderboard.
+- deals.was_weekly records that a deal was once the pick -- app_settings holds a pointer with no history, so the credit would otherwise vanish when it moved on. set_weekly_deal is otherwise byte-for-byte the 0002 version, message and updated_by included (a first rewrite changed both and a test caught it).
+- Surfaced: 'דווח על ידי X' on deal lines (read separately on offer_key, like the Deal Score -- offers_feed is not touched), the submitter in the moderation queue, and a name editor in Settings.
+
 ## 0.17.1 — 2026-10-07 (internal)
 
 **הקשחת אבטחה: התמונה שמצרפים למבצע** · Fix

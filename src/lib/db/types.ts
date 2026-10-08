@@ -76,6 +76,11 @@ export type AdminDeal = {
   store_id: string;
   beers: Pick<Beer, "id" | "slug" | "name_he"> | null;
   stores: Pick<Store, "id" | "slug" | "name_he"> | null;
+  /** Who submitted it. Null for a chain feed row and for a deal an admin typed in. */
+  created_by: string | null;
+  entered_by_admin: boolean;
+  /** The name they chose to be credited by (0030); null when they have not chosen one. */
+  contributors: { display_name: string } | null;
 };
 
 export type DealReport = {
@@ -210,6 +215,12 @@ export type Offer = {
    * rather than a number it cannot defend.
    */
   deal_score?: DealScore | null;
+  /**
+   * The name the person who submitted this deal chose to be credited by (0030).
+   * Null when nobody submitted it (a chain feed) or when they have not chosen one —
+   * in which case the line says nothing, rather than "anonymous".
+   */
+  found_by?: string | null;
   /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
   effective_agorot: number;
   unit_price_per_liter_agorot: number | null;

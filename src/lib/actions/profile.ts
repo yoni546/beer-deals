@@ -155,3 +155,28 @@ export async function setNotificationsEnabled(enabled: boolean): Promise<ActionR
   revalidatePath("/settings");
   return { ok: true };
 }
+
+/**
+ * The name a person is credited by on a deal they found (migration 0030).
+ *
+ * Separate from `first_name`, which is private and only used to say hello. This one
+ * is published, so it is chosen deliberately and can be taken back: clearing it
+ * removes the row, and their deals go back to saying nothing about who found them
+ * rather than saying "anonymous".
+ */
+export async function saveDisplayName(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
+  const raw = String(formData.get("displayName") ?? "").trim();
+  if (raw && (raw.length < 2 || raw.length > 24)) {
+    return { ok: false, error: "שם בין שתי אותיות לעשרים וארבע." };
+  }
+
+  const supabase = await supabaseServer();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: "לא הצלחנו לזהות אתכם. רעננו את הדף." };
+
+  const { error } = await supabase.rpc("set_display_name", { p_name: raw });
+  if (error) return { ok: false, error: describeDbError(error) };
+
+  revalidatePath("/", "layout");
+  return { ok: true, message: raw ? "נשמר." : "השם הוסר." };
+}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Screen, TopBar } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
+import { CreditEditor } from "@/components/CreditEditor";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { LocationEditor } from "@/components/LocationEditor";
@@ -10,6 +11,7 @@ import { Tape } from "@/components/ui/Tape";
 import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
+import { currentCreditName } from "@/lib/contributors";
 import { getBeers } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
 import { getViewer } from "@/lib/session";
@@ -22,6 +24,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function SettingsPage() {
   const [viewer, beers] = await Promise.all([getViewer(), getBeers()]);
+  // The published name, if they have chosen one (0030). Read here rather than in
+  // getViewer because it belongs to nobody's session: it is a public fact.
+  const creditName = await currentCreditName(viewer.userId);
   if (viewer.degraded && !viewer.isOnboarded) {
     return (
       <Screen>
@@ -40,6 +45,10 @@ export default async function SettingsPage() {
       <div className="space-y-8">
         <Section id="s-beers" title="הבירות שלי">
           <FavouritesEditor beers={beers} currentName={viewer.profile?.first_name ?? ""} currentFavourites={viewer.favorites} />
+        </Section>
+
+        <Section id="s-credit" title="הקרדיט שלי" note="השם הזה מוצג על מבצעים שאתם מוצאים. השם ב״אהלן״ נשאר פרטי.">
+          <CreditEditor current={creditName} />
         </Section>
 
         <Section id="s-place" title="איפה אני" note="משמש כדי למצוא את הסניף הקרוב אליכם. אפשר להשאיר ריק.">

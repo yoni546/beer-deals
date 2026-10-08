@@ -106,6 +106,18 @@ export function AdminDealRow({
         <Saving pct={deal.discount_percent} className="font-semibold text-ink" />
       </p>
 
+      {/* Who a moderator is actually judging. Before 0030 this row could not say:
+          created_by was recorded but not read, and profiles is owner-only. */}
+      <p className="mt-1 text-sm text-ink-2">
+        {deal.entered_by_admin
+          ? "נוסף ידנית על ידי מנהל"
+          : deal.contributors?.display_name
+            ? `דווח על ידי ${deal.contributors.display_name}`
+            : deal.created_by
+              ? "דווח על ידי משתמש שלא בחר שם"
+              : "מקור לא ידוע"}
+      </p>
+
       {deal.notes && <p className="mt-2 text-sm leading-relaxed text-ink-2">{deal.notes}</p>}
 
       {/* Defence in depth. The submission schema already pins this to the project's own
