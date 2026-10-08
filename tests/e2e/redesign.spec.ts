@@ -397,3 +397,81 @@ test("with a place but no located branches, it says that — it does not invent 
   await expect(page.getByText("עוד אין לנו את המיקומים של הסניפים")).toBeVisible();
   await expect(page.getByRole("heading", { name: "הכי קרוב אליך" })).toHaveCount(0);
 });
+
+// Phase J/K: who found the deal, and the people who find them.
+test("the hunters page explains the score and says plainly when nobody qualifies yet", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/hunters");
+
+  await expect(page.getByRole("heading", { name: "ציידי המבצעים" })).toBeVisible();
+  await expect(page.getByText("עוד אין ציידים")).toBeVisible();
+
+  // A leaderboard nobody understands is a ranking of strangers, so the rules are on the page.
+  await expect(page.getByRole("heading", { name: "איך נספר הניקוד" })).toBeVisible();
+  await expect(page.getByText(/שני דיווחים טובים שווים יותר ממאה דיווחים שלא/)).toBeVisible();
+});
+
+test("choosing a name credits the deals you already found, and puts you on the board", async ({ page }) => {
+  await onboard(page);
+
+  // A deal this person submitted, already approved.
+  const [me] = await sql<{ id: string }>("select id from public.profiles order by created_at desc limit 1");
+  await sql(
+    `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
+     select b.id, s.id, 'sixpack', 2490, 3990, 'approved', $1::uuid, $1::uuid, now()
+       from public.beers b, public.stores s where b.slug = 'goldstar' and s.slug = 'rami-levy'`,
+    [me.id],
+  );
+
+  // Nobody is credited until they ask to be.
+  await page.goto("/hunters");
+  await expect(page.getByText("עוד אין ציידים")).toBeVisible();
+
+  await page.goto("/settings");
+  await page.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני");
+  await page.getByRole("region", { name: "הקרדיט שלי" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  // Naming yourself picks up what you already submitted.
+  await page.goto("/hunters");
+  await expect(page.getByRole("listitem").filter({ hasText: "יוני" })).toBeVisible();
+
+  // The chain the credit travels along, asserted where it can actually be seen to break.
+  const [row] = await sql<{ display_name: string; approved: number }>(
+    "select display_name, approved from public.contributors",
+  );
+  expect(row, "nobody was recorded as a contributor").toBeDefined();
+  expect(row.approved, "the trigger did not count the approved deal").toBe(1);
+
+  const [feed] = await sql<{ offer_key: string; origin: string }>(
+    "select offer_key, origin from public.offers_feed where origin = 'legacy' limit 1",
+  );
+  expect(feed, "the submitted deal never reached offers_feed").toBeDefined();
+
+  // And the deal itself now says who found it. On the beer's own page, which shows
+  // every deal — Home's strips cap at three, and this one need not be in the top three.
+  await page.goto("/beer/goldstar");
+  await expect(page.getByText("דווח על ידי יוני").first()).toBeVisible();
+});
+
+test("the credit can be taken back", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/settings");
+
+  const field = page.getByLabel("השם שיוצג על מבצעים שמצאתם");
+  const save = page.getByRole("region", { name: "הקרדיט שלי" }).getByRole("button", { name: "שמירה" });
+
+  // A name of this test's own, so the assertion is about this person and not about
+  // whatever another test left behind.
+  await field.fill("דנה-בדיקה");
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+  expect(await sql("select 1 from public.contributors where display_name = 'דנה-בדיקה'")).toHaveLength(1);
+
+  await field.fill("");
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "השם הוסר" })).toBeVisible();
+
+  // Taken back means the row is gone, not blanked.
+  expect(await sql("select 1 from public.contributors where display_name = 'דנה-בדיקה'")).toHaveLength(0);
+});

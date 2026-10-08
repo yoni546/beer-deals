@@ -23,11 +23,36 @@ import type { AdminDeal, DealReport, DealStatus } from "@/lib/db/types";
 const DEAL_COLUMNS =
   "id, category, deal_price_agorot, regular_price_agorot, discount_percent, image_url, " +
   "notes, status, created_at, approved_at, beer_id, store_id, created_by, entered_by_admin, " +
-  "beers(id, slug, name_he), stores(id, slug, name_he), contributors:created_by(display_name)";
+  "beers(id, slug, name_he), stores(id, slug, name_he)";
+
+/**
+ * The submitters' chosen names, merged in afterwards.
+ *
+ * Not an embedded select: `deals.created_by` points at auth.users and
+ * `contributors.profile_id` at profiles, so PostgREST has no foreign key between the
+ * two tables to follow. `contributors` is small and world-readable, so one read covers
+ * a page of the queue.
+ */
+async function withSubmitters(rows: AdminDeal[]): Promise<AdminDeal[]> {
+  const ids = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return rows.map((row) => ({ ...row, contributors: null }));
+
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.from("contributors").select("profile_id, display_name").in("profile_id", ids);
+  if (error) report("admin.submitters_failed", { code: error.code, reason: error.message });
+
+  const names = new Map(
+    ((data ?? []) as Array<{ profile_id: string; display_name: string }>).map((row) => [row.profile_id, row.display_name]),
+  );
+  return rows.map((row) => ({
+    ...row,
+    contributors: row.created_by && names.has(row.created_by) ? { display_name: names.get(row.created_by)! } : null,
+  }));
+}
 
 export async function getDealsByStatus(status: DealStatus, limit = 50): Promise<AdminDeal[]> {
   const supabase = await supabaseServer();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("deals")
     .select(DEAL_COLUMNS)
     // Oldest first while they are waiting — a queue, not a feed. Newest first
@@ -35,7 +60,10 @@ export async function getDealsByStatus(status: DealStatus, limit = 50): Promise<
     .order("created_at", { ascending: status === "pending" })
     .eq("status", status)
     .limit(limit);
-  return (data ?? []) as unknown as AdminDeal[];
+  // A failed read must not render as "nothing is pending": that tells a moderator the
+  // queue is clear when the truth is that we could not look.
+  if (error) report("admin.deals_failed", { status, code: error.code, reason: error.message });
+  return withSubmitters((data ?? []) as unknown as AdminDeal[]);
 }
 
 export async function getOpenReports(): Promise<DealReport[]> {

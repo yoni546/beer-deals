@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/Chrome";
 import { saveDisplayName } from "@/lib/actions/profile";
 import { IDLE } from "@/lib/actions/result";
@@ -18,8 +18,20 @@ import { IDLE } from "@/lib/actions/result";
  */
 export function CreditEditor({ current }: { current: string }) {
   const [name, setName] = useState(current);
+  // What is on record. The server prop cannot tell us: this is a client component, so
+  // its initial props do not come back changed after the action revalidates — the same
+  // thing that hid the save notice in LocationEditor.
+  const [saved, setSaved] = useState(current);
   const [state, submit, pending] = useActionState(saveDisplayName, IDLE);
-  const unchanged = name.trim() === current.trim();
+
+  const latest = useRef(name);
+  latest.current = name;
+
+  useEffect(() => {
+    if (state.ok && state.message) setSaved(latest.current.trim());
+  }, [state]);
+
+  const unchanged = name.trim() === saved.trim();
 
   return (
     <form action={submit} className="space-y-3">
@@ -33,8 +45,8 @@ export function CreditEditor({ current }: { current: string }) {
         className="field"
       />
       <p className="text-sm text-on-ground-2">
-        {current
-          ? `מבצעים שתמצאו יציגו "דווח על ידי ${current}". מחיקת השם מסירה את הקרדיט.`
+        {saved
+          ? `מבצעים שתמצאו יציגו "דווח על ידי ${saved}". מחיקת השם מסירה את הקרדיט.`
           : "בלי שם, מבצעים שתמצאו לא יציגו מי דיווח עליהם."}
       </p>
 

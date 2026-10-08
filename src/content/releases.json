@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.18.1",
+    "date": "2026-10-08",
+    "title_he": "ציידי המבצעים",
+    "highlights_he": [
+      "יש עכשיו עמוד שמראה מי מוצא את המבצעים שכולנו רואים, ואיך נספר הניקוד.",
+      "בדף הבית מופיע צייד המבצעים של השבוע — שורה אחת, לא עוד רשימה.",
+      "שני דיווחים טובים שווים יותר ממאה שלא. הכללים כתובים בעמוד, לא מוסתרים."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "/hunters renders the standings from contributors (0030) plus the scoring rules in words — a leaderboard nobody understands is a ranking of strangers. On its own route rather than on Home, which is already long: a leaderboard is something you go and look at, not something that should sit between a person and tonight's beer. Home carries only the top hunter, one line. Empty renders nothing, never an empty frame.",
+      "Two real bugs the e2e found. saveDisplayName did not clear FEEDS_TAG, so somebody who had just named themselves would wait out the five-minute TTL before seeing the credit on their own deals — the exact moment the feature is supposed to land. And the contributor read used an embedded PostgREST select, which cannot work: deals.created_by points at auth.users and contributors.profile_id at profiles, so there is no foreign key between the two tables to follow. It silently returned nothing. Both are now two plain reads merged in TypeScript, and a failed read is logged instead of swallowed.",
+      "CreditEditor had the same stale-prop bug LocationEditor had: a client component's initial props do not come back changed after the action revalidates, so the save notice needs a local snapshot of what is on record.",
+      "getDealsByStatus now reports its error rather than rendering a failed read as 'nothing is pending'."
+    ]
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-08",
     "title_he": "מי מצא את המבצע",

@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { cachedFeed, publicReader } from "@/lib/feeds";
+import { note } from "@/lib/log";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -113,17 +114,33 @@ async function withScores<T extends { offer_key: string }>(rows: T[]): Promise<A
  */
 const readContributors = cachedFeed("contributors", async (): Promise<Record<string, string>> => {
   const supabase = publicReader();
-  const { data, error } = await supabase
-    .from("deals")
-    .select("id, contributors!inner(display_name)")
-    .eq("status", "approved")
-    .not("created_by", "is", null);
-  if (error) return {};
-  return Object.fromEntries(
-    ((data ?? []) as unknown as Array<{ id: string; contributors: { display_name: string } | null }>)
-      .filter((row) => row.contributors?.display_name)
-      .map((row) => [`deal:${row.id}`, row.contributors!.display_name]),
+  // Two reads and a join here, not an embedded select: `deals.created_by` points at
+  // auth.users and `contributors.profile_id` at profiles, so there is no foreign key
+  // between the two tables for PostgREST to follow. Both are small.
+  const [deals, people] = await Promise.all([
+    // No `.not(…, "is", null)`: plain filters only, so this works the same against
+    // PostgREST and against the local fake the e2e suite runs on. Rows with no
+    // submitter simply find no name below.
+    supabase.from("deals").select("id, created_by").eq("status", "approved"),
+    supabase.from("contributors").select("profile_id, display_name"),
+  ]);
+  if (deals.error || people.error) {
+    note("contributors.read_failed", { deals: deals.error?.message, people: people.error?.message });
+    return {};
+  }
+
+  const names = new Map(
+    ((people.data ?? []) as Array<{ profile_id: string; display_name: string }>).map((row) => [
+      row.profile_id,
+      row.display_name,
+    ]),
   );
+  const found: Record<string, string> = {};
+  for (const row of (deals.data ?? []) as Array<{ id: string; created_by: string | null }>) {
+    const name = row.created_by ? names.get(row.created_by) : undefined;
+    if (name) found[`deal:${row.id}`] = name;
+  }
+  return found;
 });
 const getContributors = cache(readContributors);
 

@@ -9,6 +9,7 @@ import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ShareApp } from "@/components/ShareApp";
 import { SortBar } from "@/components/SortBar";
+import { TopHunter } from "@/components/DealHunters";
 import { IntentSwitch, CannotMeasure } from "@/components/IntentSwitch";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
@@ -33,6 +34,7 @@ import {
   type BeerSummary,
   type PackFilter,
 } from "@/lib/offer-logic";
+import { topContributors } from "@/lib/contributors";
 import { distancesFor } from "@/lib/distance";
 import { getBeers, getSettings, getStores } from "@/lib/queries";
 import { attempt, failed, or } from "@/lib/attempt";
@@ -127,6 +129,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // the branch coordinate columns (0026) are deliberately empty until a geocoding
   // provider is configured, so today this reports that we do not know.
   const distances = await distancesFor(viewer, everything);
+  const topHunter = or(await attempt("hunters.top", () => topContributors(1)), [])[0] ?? null;
   const nearby = orderByIntent(everything, "near", distances.available ? distances.byOffer : {}, sort, perLiter);
 
   const summaries: Record<string, BeerSummary> = {};
@@ -276,6 +279,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             )}
           </div>
           )}
+        </>
+      )}
+
+      {/* Who found them. One line on Home; the table is a route of its own, because
+          a leaderboard is something you go and look at, not something that should sit
+          between a person and tonight's beer. */}
+      {topHunter && (
+        <>
+          <Gap />
+          <TopHunter standing={topHunter} />
         </>
       )}
 

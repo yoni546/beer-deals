@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
+import { FEEDS_TAG } from "@/lib/feeds";
 import { report } from "@/lib/log";
 import { supabaseServer } from "@/lib/supabase/server";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
@@ -178,5 +179,9 @@ export async function saveDisplayName(_previous: ActionResult, formData: FormDat
   if (error) return { ok: false, error: describeDbError(error) };
 
   revalidatePath("/", "layout");
+  // The credit on every deal line is read through the shared cache, so without this
+  // somebody who just named themselves would wait out the TTL before seeing it — on
+  // their own deals, which is exactly the moment the feature is supposed to land.
+  revalidateTag(FEEDS_TAG);
   return { ok: true, message: raw ? "נשמר." : "השם הוסר." };
 }
