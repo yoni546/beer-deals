@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.19.1",
+    "date": "2026-10-08",
+    "title_he": "המרחק שבחרתם נשאר",
+    "highlights_he": [
+      "תיקון: מי שבחר יישוב ואז בחר כמה רחוק הוא נוסע — המרחק נמחק בשקט אחרי רגע."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "PlacePicker's blur on the town field is delayed by 120 ms on purpose, so a click on a suggestion lands before the list closes. The delayed work spread the place as it was AT THE MOMENT OF THE BLUR -- before the distance was tapped -- and so wrote the town back over the newer place, resetting radiusKm to null. The geolocation callback had the same hazard.",
+      "The current place is now read from a ref in both paths that run after their render has been replaced, and keepTyped returns early when nothing has been typed since the place was settled, so it can no longer undo anything.",
+      "It presented as an intermittent e2e failure in two different specs -- the worst way for a real bug to show up, because it looks like test noise. tests/place-picker.test.tsx covers it, verified by failing on the original code and passing on the fix. The first version of that test proved nothing: React attaches onBlur to focusout, and a non-bubbling 'blur' event never reaches it.",
+      "Test-side debts the same run exposed: /settings carries three 'שמירה' buttons now (beers, credit, place) and two specs still asked for 'the' save button; and addBeerWithoutIdentity inserted a beer without ringing the cache doorbell, so the onboarding step offered a catalogue up to five minutes old without it."
+    ]
+  },
+  {
     "version": "0.19.0",
     "date": "2026-10-08",
     "title_he": "הייתם שם? אפשר להגיד",
