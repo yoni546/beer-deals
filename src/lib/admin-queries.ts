@@ -257,3 +257,32 @@ export async function getAdminProductCategories(): Promise<Array<{ slug: string;
   if (error) report("admin.categories_failed", { code: error.code, reason: error.message });
   return (data ?? []) as Array<{ slug: string; name_he: string; in_scope: boolean }>;
 }
+
+export type AdminSubmitter = {
+  user_id: string;
+  display_name: string | null;
+  approved: number;
+  rejected: number;
+  pending: number;
+  last_at: string;
+  is_blocked: boolean;
+  block_reason: string | null;
+};
+
+/**
+ * Who has been submitting, and how it has gone (migration 0035).
+ *
+ * Deliberately NOT a list of users: it carries only what a person chose to publish
+ * (their display name, if any) and what they sent us. No email, no first name, no
+ * favourites, no location — admins have never had read access to profiles (0003)
+ * and this screen does not change that.
+ */
+export async function getAdminSubmitters(limit = 50): Promise<{ rows: AdminSubmitter[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_submitters", { p_limit: limit });
+  if (error) {
+    report("admin.submitters_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as AdminSubmitter[], ok: true };
+}

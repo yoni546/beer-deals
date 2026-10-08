@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { makeAdmin, onboard, resetDb } from "./helpers";
 
 /**
@@ -108,4 +108,46 @@ test("the beers screen can switch one off, and says what that does and does not 
   // And the work that needs a deploy is listed rather than rediscovered each time.
   await expect(page.getByRole("heading", { name: "מחכות למראה שלהן" })).toBeVisible();
   await expect(page.getByText("חסרה תמונה").first()).toBeVisible();
+});
+
+// Phase M: the people who submit (0035) — a moderation tool, not a directory.
+test("the submitters screen can stop one account, and shows nothing private", async ({ page, browser }) => {
+  await onboard(page, "מנהל שולחים");
+  await makeAdmin("מנהל שולחים");
+
+  /** A deal sent through the public form, by somebody who is not an admin. */
+  const sendOne = async (sender: Page, beerIndex: number, storeIndex: number) => {
+    await sender.goto("/submit");
+    await sender.getByLabel("איזו בירה?").selectOption({ index: beerIndex });
+    await sender.getByLabel("איפה?").selectOption({ index: storeIndex });
+    await sender.getByPlaceholder("24.90").fill("21.90");
+    await sender.getByPlaceholder("39.90").fill("36.90");
+    await sender.getByRole("button", { name: "שליחה לאישור" }).click();
+  };
+
+  // A separate browser context, so this is a different person and not the admin.
+  const other = await browser.newContext();
+  const theirs = await other.newPage();
+  await onboard(theirs, "שולחת");
+  await sendOne(theirs, 1, 1);
+  await expect(theirs.getByText("תודה! המבצע נשלח לאישור ויפורסם אחרי בדיקה.")).toBeVisible();
+
+  await page.goto("/admin/submitters");
+  const row = page.getByRole("article").first();
+  // They never chose a public name, so the row says that — not their first name,
+  // which admins cannot read, and not "anonymous".
+  await expect(row.getByText("לא בחר שם ציבורי")).toBeVisible();
+  await expect(page.getByText("שולחת")).toHaveCount(0);
+
+  await row.getByRole("button", { name: "חסימת שליחה" }).click();
+  await row.getByLabel("למה?").fill("בדיקה: מחירים שלא קיימים");
+  await row.getByRole("button", { name: "חסימת שליחה" }).last().click();
+  await expect(page.getByText("כל השאר לא נגענו בו")).toBeVisible();
+  await expect(page.getByText("חסום לשליחה")).toBeVisible();
+
+  // And they are told, in words written for them — not "you have no permission".
+  await sendOne(theirs, 2, 2);
+  await expect(theirs.getByText(/לא יכול לשלוח מבצעים חדשים/)).toBeVisible();
+
+  await other.close();
 });

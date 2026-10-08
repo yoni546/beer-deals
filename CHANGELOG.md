@@ -6,6 +6,24 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.23.0 — 2026-10-08
+
+**אפשר לעצור מי ששולח מחירים שלא קיימים** · Feature
+
+- למנהלים יש עכשיו מסך של מי שולח מבצעים, עם כמה אושרו וכמה נדחו.
+- אפשר לעצור חשבון מסוים משליחת מבצעים חדשים — עם סיבה כתובה, וניתן לבטל.
+- זו לא חסימה מהאפליקציה: המועדפות, ההתראות, השם והקרדיט על מה שאושר נשארים.
+- המסך לא מציג שמות פרטיים, כתובות מייל, יישובים או בירות של אף אחד.
+
+Internal:
+
+- Migration 0035. The constraint this is built inside, from 0003: 'Admins are deliberately NOT given read access to every profile. Moderating deals does not require knowing who else uses the app.' That is still true. A 'users' screen listing names, emails, cities and favourite beers would be a straight reversal of it for no moderation benefit, so this is NOT a people directory — it is the one tool the panel was actually missing.
+- What the screen shows about a person is only what they chose to publish (their display name from contributors, 0030, null for somebody who never chose one) and what they did TO US: approved, rejected and pending counts, and when they last sent one. A test asserts the row carries no first_name, home_city, email or coordinates, and that somebody with no public name is shown as 'לא בחר שם ציבורי' rather than by a private name or as 'anonymous'.
+- WHY A BLOCK AND NOT A HARDER LIMIT. 0033 bounds what a session can write — eight deals an hour. That stops a flood and does nothing about somebody sending four bad deals a day for a fortnight. A limit is arithmetic; this is a judgement, so a person makes it, a reason is REQUIRED (a block nobody can explain is a block nobody can review), and it is reversible. The audit entry carries the reason AND the approved/rejected counts as they stood, because reviewed six months later it needs both and the counts will have moved.
+- Enforced on the INSERT, like the rate limits and for the same reason: deals_submit is a direct table insert under RLS, so a check in a server action would be a check on the polite route only. An admin's hand-entered deal is exempt, blocking yourself is refused, and blocking another admin is refused with 'remove the permission first'.
+- NOT A BAN, deliberately. A blocked person keeps their account, favourites, notifications, public name and the leaderboard credit for everything already approved. Taking somebody's beers away because they filed bad prices would be a punishment out of all proportion to the thing being prevented.
+- The refusal raises P0001, not 42501: describeDbError turns 42501 into the fixed 'you have no permission for this', which is right for a request that should never have been made and exactly wrong here — the person made an ordinary request and deserves the sentence written for them. src/lib/actions/result.ts now records that convention, and a test pins the code.
+
 ## 0.22.0 — 2026-10-08
 
 **ניהול בירות** · Feature
