@@ -2,6 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 import { publicReader } from "@/lib/feeds";
+import { note } from "@/lib/log";
+import { supabaseServer } from "@/lib/supabase/server";
+import type { Trust } from "@/lib/trust";
 
 /**
  * The public half of a person (migration 0030).
@@ -40,4 +43,28 @@ export const topContributors = cache(async (limit = 5): Promise<Standing[]> => {
   // Before 0030 the table is not there. A missing leaderboard is not worth a screen.
   if (error) return [];
   return (data ?? []) as Standing[];
+});
+
+export type MyStanding = Standing & { trust: Trust };
+
+/**
+ * This person's own standing (migration 0038).
+ *
+ * Null when they have not chosen a name: there is no contributors row until
+ * somebody asks to be credited (0030), and inventing a "new contributor" row for
+ * everybody else would be a label they never asked for.
+ *
+ * Read through `my_standing()` rather than from the table, so the ladder's word
+ * comes from the same place the shelf tally's weight does.
+ */
+export const myStanding = cache(async (userId: string | null): Promise<MyStanding | null> => {
+  if (!userId) return null;
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("my_standing");
+  if (error) {
+    note("my_standing.read_failed", { reason: error.message });
+    return null;
+  }
+  const rows = (data ?? []) as MyStanding[];
+  return rows[0] ?? null;
 });

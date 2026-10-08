@@ -1,6 +1,7 @@
 import "server-only";
 
 import { report } from "@/lib/log";
+import { trustOf } from "@/lib/trust";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { AdminDeal, DealReport, DealStatus } from "@/lib/db/types";
@@ -39,16 +40,31 @@ async function withSubmitters(rows: AdminDeal[]): Promise<AdminDeal[]> {
   if (ids.length === 0) return rows.map((row) => ({ ...row, contributors: null }));
 
   const supabase = await supabaseServer();
-  const { data, error } = await supabase.from("contributors").select("profile_id, display_name").in("profile_id", ids);
+  // The score comes with the name (0038): a moderator judging a price is better off
+  // knowing whether the person has a record than not. It is CONTEXT — the queue
+  // order is untouched, because a queue that serves trusted people first makes a
+  // newcomer's first submission wait behind everybody else's.
+  const { data, error } = await supabase
+    .from("contributors")
+    .select("profile_id, display_name, score")
+    .in("profile_id", ids);
   if (error) report("admin.submitters_failed", { code: error.code, reason: error.message });
 
-  const names = new Map(
-    ((data ?? []) as Array<{ profile_id: string; display_name: string }>).map((row) => [row.profile_id, row.display_name]),
+  const found = new Map(
+    ((data ?? []) as Array<{ profile_id: string; display_name: string; score: number }>).map((row) => [
+      row.profile_id,
+      row,
+    ]),
   );
-  return rows.map((row) => ({
-    ...row,
-    contributors: row.created_by && names.has(row.created_by) ? { display_name: names.get(row.created_by)! } : null,
-  }));
+  return rows.map((row) => {
+    const person = row.created_by ? found.get(row.created_by) : undefined;
+    return {
+      ...row,
+      contributors: person
+        ? { display_name: person.display_name, score: person.score, trust: trustOf(person.score) }
+        : null,
+    };
+  });
 }
 
 export async function getDealsByStatus(status: DealStatus, limit = 50): Promise<AdminDeal[]> {

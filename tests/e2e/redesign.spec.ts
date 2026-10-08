@@ -561,3 +561,33 @@ test("following with no price is a real choice, and the app says what it means",
   const [row] = await sql<{ max_price_agorot: number | null }>("select max_price_agorot from public.watchlist");
   expect(row.max_price_agorot).toBeNull();
 });
+
+// Phase W: trust is context and weight — never authority, and said as a record.
+test("standing is shown to the person it belongs to, and says exactly what it does", async ({ page }) => {
+  await onboard(page);
+
+  // Nothing before a name is chosen: no row exists, and inventing one would be a
+  // label nobody asked for.
+  await page.goto("/settings");
+  const credit = page.getByRole("region", { name: "הקרדיט שלי" });
+  await expect(credit.getByText(/נקודות/)).toHaveCount(0);
+
+  const [me] = await sql<{ id: string }>("select id from public.profiles order by created_at desc limit 1");
+  await sql(
+    `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
+     select b.id, s.id, 'sixpack', 2490, 3990, 'approved', $1::uuid, $1::uuid, now()
+       from public.beers b, public.stores s where b.slug = 'goldstar' and s.slug = 'rami-levy'`,
+    [me.id],
+  );
+
+  await credit.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני");
+  await credit.getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("אתם בתחילת הדרך")).toBeVisible();
+  // The only thing standing does, said plainly. No rank, no badge, and nothing that
+  // reads like permission.
+  await expect(page.getByText(/ייחשב יותר/)).toBeVisible();
+  await expect(page.getByText("1 מבצע שלכם אושר")).toBeVisible();
+});

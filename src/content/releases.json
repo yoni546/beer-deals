@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.27.0",
+    "date": "2026-10-08",
+    "title_he": "רקורד, ומה הוא עושה",
+    "highlights_he": [
+      "בהגדרות רואים עכשיו את הרקורד שלכם: כמה מהדיווחים שלכם אושרו, וכמה נקודות.",
+      "וכתוב בדיוק מה זה עושה: מה שאתם אומרים על מדף ריק נחשב יותר. זה הכול.",
+      "רקורד הוא לא הרשאה. גם למי שהכי אמין אין שום דבר שלמשתמש רגיל אין."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0038, Phase W. Trust is context for a person's judgement and weight in a tally. That is the whole list.",
+      "THE TEMPTATION CLOSED OFF DELIBERATELY: auto-approving a trusted person's submission. It is the obvious reward, it would save a moderator real time, and it is exactly what the brief rules out — a reputation number that publishes prices is one that can be farmed into publishing a wrong one. deals_submit (0003) pins every submission to 'pending' at the storage layer and nothing here touches it. tests/trust.test.ts gives somebody a score of 100000 and then proves every door is shut: cannot approve, cannot publish without moderation, cannot read one thing a stranger cannot, is not exempt from the 8/hour submission limit, and can still be blocked like anybody else.",
+      "ONE LADDER. It was already in the schema, written inline inside offer_standings (0031) as `least(2, score / 50)`. One ladder in two places is two ladders waiting to disagree, and the second is always the one somebody forgets. contributor_weight and contributor_trust are now the only copies in SQL, src/lib/trust.ts is the only copy in TypeScript (no server-only, so the test can import it), and a test asserts the two agree at every boundary and either side of it.",
+      "THE QUEUE ORDER IS UNTOUCHED, on purpose. Serving trusted people first would make a newcomer's FIRST submission wait behind everybody else's — and that first wait is what decides whether they ever send a second one. The standing appears beside the submitter's name as context for the judgement, worded as a record ('a good record over time') rather than as a rank, because a rank reads like authority.",
+      "A ladder nobody can see is not an incentive, it is a secret — so Settings says where somebody stands and what it does, small and exact. Null until they choose a name: there is no contributors row before that (0030), and inventing a 'new contributor' row for everybody would be a label they never asked for."
+    ]
+  },
+  {
     "version": "0.26.0",
     "date": "2026-10-08",
     "title_he": "עקבו אחרי בירה",

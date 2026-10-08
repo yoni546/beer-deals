@@ -10,6 +10,18 @@ import { CATEGORY_LABEL, CATEGORY_LABEL_ONE, DEAL_CATEGORIES } from "@/lib/categ
 import { formatAgorot, formatPrice } from "@/lib/money";
 import type { AdminDeal, Beer, DealStatus, Store } from "@/lib/db/types";
 
+/**
+ * The ladder, in words a moderator can act on (0038).
+ *
+ * Said as a record rather than as a rank: "two finds accepted" is something to weigh,
+ * where "level 2" is something to obey — and this must never read like authority.
+ */
+const TRUST_HE: Record<"new" | "known" | "trusted", string> = {
+  new: "אין לו עוד רקורד",
+  known: "כמה דיווחים שלו אושרו",
+  trusted: "רקורד טוב לאורך זמן",
+};
+
 const STATUS_LABEL: Record<DealStatus, string> = {
   pending: "ממתין",
   approved: "מאושר",
@@ -115,7 +127,9 @@ export function AdminDealRow({
       </p>
 
       {/* Who a moderator is actually judging. Before 0030 this row could not say:
-          created_by was recorded but not read, and profiles is owner-only. */}
+          created_by was recorded but not read, and profiles is owner-only.
+          The standing (0038) is context for the judgement — it does not move this
+          row up the queue, and it grants the person nothing. */}
       <p className="mt-1 text-sm text-ink-2">
         {deal.entered_by_admin
           ? "נוסף ידנית על ידי מנהל"
@@ -124,6 +138,7 @@ export function AdminDealRow({
             : deal.created_by
               ? "דווח על ידי משתמש שלא בחר שם"
               : "מקור לא ידוע"}
+        {deal.contributors && <> · {TRUST_HE[deal.contributors.trust]}</>}
       </p>
 
       {deal.notes && <p className="mt-2 text-sm leading-relaxed text-ink-2">{deal.notes}</p>}

@@ -11,7 +11,8 @@ import { Tape } from "@/components/ui/Tape";
 import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
-import { currentCreditName } from "@/lib/contributors";
+import { currentCreditName, myStanding } from "@/lib/contributors";
+import { MyStanding } from "@/components/MyStanding";
 import { WatchlistEditor } from "@/components/WatchlistEditor";
 import { getBeers, getBeersById, getMyWatchlist } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
@@ -33,6 +34,9 @@ export default async function SettingsPage() {
   // The published name, if they have chosen one (0030). Read here rather than in
   // getViewer because it belongs to nobody's session: it is a public fact.
   const creditName = await currentCreditName(viewer.userId);
+  // Where they stand, and what it does (0038). Null until they choose a name: there
+  // is no row before that, and inventing one would be a label nobody asked for.
+  const standing = await myStanding(viewer.userId);
   if (viewer.degraded && !viewer.isOnboarded) {
     return (
       <Screen>
@@ -55,6 +59,7 @@ export default async function SettingsPage() {
 
         <Section id="s-credit" title="הקרדיט שלי" note="השם הזה מוצג על מבצעים שאתם מוצאים. השם ב״אהלן״ נשאר פרטי.">
           <CreditEditor current={creditName} />
+          {standing && <MyStanding standing={standing} />}
         </Section>
 
         <Section

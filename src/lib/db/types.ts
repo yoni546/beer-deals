@@ -79,8 +79,14 @@ export type AdminDeal = {
   /** Who submitted it. Null for a chain feed row and for a deal an admin typed in. */
   created_by: string | null;
   entered_by_admin: boolean;
-  /** The name they chose to be credited by (0030); null when they have not chosen one. */
-  contributors: { display_name: string } | null;
+  /**
+   * The name they chose to be credited by (0030), with their standing (0038);
+   * null when they have not chosen a name.
+   *
+   * The standing is CONTEXT for the moderator's judgement and nothing else: it
+   * grants no permission, and it does not move this row up the queue.
+   */
+  contributors: { display_name: string; score: number; trust: "new" | "known" | "trusted" } | null;
 };
 
 export type DealReport = {
