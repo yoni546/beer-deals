@@ -71,6 +71,21 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
             {chip.label}
           </span>
         ))}
+        {/* What people in the shop say (0031). pickHero already refuses to recommend
+            an offer reported gone — this is for the one hero it cannot refuse: an
+            administrator's weekly pick, which is a deliberate human choice and stays.
+            It does not stay SILENT, though: hatched as well as worded, because
+            unverified data is never marked by colour alone. */}
+        {offer.standing === "ended" && (
+          <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
+            משתמשים מדווחים שהמבצע נגמר
+          </span>
+        )}
+        {offer.standing === "unclear" && (
+          <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
+            יש דיווחים סותרים
+          </span>
+        )}
       </p>
     </Tape>
   );

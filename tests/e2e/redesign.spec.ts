@@ -591,3 +591,41 @@ test("standing is shown to the person it belongs to, and says exactly what it do
   await expect(page.getByText(/ייחשב יותר/)).toBeVisible();
   await expect(page.getByText("1 מבצע שלכם אושר")).toBeVisible();
 });
+
+// Phase P: Home tells you about the price you asked to be told about.
+test("Home leads with a followed beer that reached your price, and only then with its own picks", async ({ page }) => {
+  await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
+
+  // Nothing before anything is followed: no empty frame about nothing happening.
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
+
+  // Follow a beer that is NOT a favourite, at a price the seeded catalogue beats.
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+  await page.getByLabel("להודיע לי כשהמחיר מתחת ל־ (רשות)").fill("500");
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText(/נודיע לכם כשהמחיר יגיע לשם/)).toBeVisible();
+
+  await page.goto("/");
+  const section = page.getByRole("region", { name: /המחיר/ });
+  await expect(section).toBeVisible();
+  // The claim is checkable: it says which price was reached.
+  await expect(section.getByText(/ביקשתם מתחת ל/)).toBeVisible();
+  await expect(section.getByText("קרלסברג").first()).toBeVisible();
+
+  // It is above the person's own four beers, because they asked for this one.
+  const order = await page.evaluate(() => {
+    const names = [...document.querySelectorAll("h2")].map((h) => h.textContent?.trim() ?? "");
+    return { watch: names.findIndex((n) => n.includes("המחיר")), mine: names.indexOf("הבירות שלי") };
+  });
+  expect(order.watch).toBeGreaterThanOrEqual(0);
+  expect(order.watch).toBeLessThan(order.mine);
+
+  // And it goes away when the follow does.
+  await page.goto("/settings");
+  await page.getByRole("region", { name: "בירות שאני עוקב אחריהן" }).getByRole("button", { name: "הסרה" }).click();
+  await expect(page.getByText("הפסקנו לעקוב.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
+});

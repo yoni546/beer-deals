@@ -31,12 +31,14 @@ import {
   pickHero,
   type SearchIntent,
   summarize,
+  watchHits,
   type BeerSummary,
   type PackFilter,
 } from "@/lib/offer-logic";
 import { topContributors } from "@/lib/contributors";
 import { distancesFor } from "@/lib/distance";
-import { getBeers, getSettings, getStores } from "@/lib/queries";
+import { getBeers, getMyWatchlist, getSettings, getStores } from "@/lib/queries";
+import { WatchHits } from "@/components/WatchHits";
 import { attempt, failed, or } from "@/lib/attempt";
 import { getViewer } from "@/lib/session";
 
@@ -90,13 +92,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // Every read in one round trip, and every one of them allowed to fail on its own. A page that
   // put all seven in a bare Promise.all lost the whole screen whenever any single one timed out —
   // including the purely decorative "last updated". See src/lib/attempt.ts.
-  const [catalogue, mineRead, moreRead, groupsRead, settingsRead, freshnessRead] = await Promise.all([
+  const watchlist = or(await attempt("home.watchlist", () => getMyWatchlist()), {});
+  const watchedIds = Object.keys(watchlist);
+
+  const [catalogue, mineRead, moreRead, groupsRead, settingsRead, freshnessRead, watchedRead] = await Promise.all([
     attempt("catalogue", async () => ({ beers: await getBeers(), stores: await getStores() })),
     attempt("home.mine", () => getOffers({ beerIds: favouriteIds, packsOnly: true })),
     attempt("home.more", () => getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true })),
     attempt("home.groups", () => getGroupOffers({ beerIds: favouriteIds })),
     attempt("settings", () => getSettings()),
     attempt("freshness", () => getFreshness()),
+    // Beers they follow (0037) are in neither of the two reads above: not favourites,
+    // and not necessarily among the best savings anywhere. Skipped entirely when
+    // nobody is followed, which is most people.
+    watchedIds.length > 0
+      ? attempt("home.watched", () => getOffers({ beerIds: watchedIds, packsOnly: true }))
+      : null,
   ]);
 
   const { beers: allBeers, stores: allStores } = or(catalogue, { beers: [], stores: [] });
@@ -105,6 +116,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const myGroupsAll = or(groupsRead, []);
   const settings = or(settingsRead, null);
   const updatedAt = or(freshnessRead, null);
+  const watchedAll = watchedRead ? or(watchedRead, []) : [];
 
   // Which parts of the screen must say "we could not look" instead of showing nothing.
   const myDealsFailed = failed(mineRead) || failed(groupsRead);
@@ -122,7 +134,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const more = moreAll.filter(packsOnly);
   const myGroups = myGroupsAll.filter((group) => groupPackClass(group) !== "single");
 
-  const everything = [...mine, ...more];
+  // What reached the price they asked for, and what did not. The rest joins the
+  // ordinary lists rather than getting a section of its own: a beer somebody follows
+  // is not news until it does what they asked.
+  const { hits: watchReached, rest: watchedOther } = watchHits(watchedAll.filter(packsOnly), watchlist);
+
+  const everything = [...mine, ...more, ...watchedOther];
   const freshest = updatedAt ?? newestObservation(everything);
 
   // How far each one is, or the reason we cannot say. Nothing here invents a position:
@@ -183,6 +200,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           />
         )}
       </div>
+
+      {/* Above everything the app chose, because they chose this. */}
+      <WatchHits hits={watchReached} />
 
       <section aria-labelledby="mine" className="mb-6">
         <h2 id="mine" className="mb-2 text-sm font-semibold text-on-ground-2">

@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.28.0",
+    "date": "2026-10-08",
+    "title_he": "דף הבית אומר לכם מה ביקשתם לדעת",
+    "highlights_he": [
+      "בירה שאתם עוקבים אחריה והגיעה למחיר שקבעתם — מופיעה בראש דף הבית, מעל כל מה שאנחנו בחרנו.",
+      "וכתוב איזה מחיר ביקשתם, כדי שתוכלו לבדוק אותנו.",
+      "מבצע שמשתמשים מדווחים שנגמר לא יהיה יותר ההמלצה הראשית של הדף."
+    ],
+    "kind": [
+      "feature",
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phase P. Home was already developed — hero, the four keys, the intent switch, strips, groups, the top hunter — so this closes the two real gaps rather than redesigning for its own sake.",
+      "THE GAP I MADE IN 0.26.0: somebody follows a beer at ₪24.90 and Home says nothing about it. They find out from a notification — if notifications are on, which for most people they are not. A promise kept only through a channel most people never enable is not kept. The section sits ABOVE everything the app chose for them, because they chose this, and it names the price that was reached so the claim is checkable rather than a feeling.",
+      "Absent entirely when nothing reached its price: an empty frame saying 'no beer you follow is cheap today' is a daily reminder of nothing happening on the screen somebody opens to find beer. The extra feed read is skipped when nobody is followed, which is most people.",
+      "A follow with no price is NOT reported as 'reached'. It means 'the same rules as my number one', which is a statement about notifications and not a claim about any particular shelf — those offers join the ordinary lists.",
+      "AND THE HERO NO LONGER RECOMMENDS WHAT THE SHELF HAS CONTRADICTED. pickHero skips an offer whose standing is 'ended' (0031), however good it looks: on a line in a list the label beside it is enough and the person can weigh it, but the hero is the one thing the app puts its name to and the only thing many people will look at. Sending somebody out on a journey the shop has already contradicted is the single worst thing this screen can do. It stays in every list, labelled — it just stops being the recommendation, and the test asserts the app would rather have no hero than a contradicted one.",
+      "'unclear' is not 'gone': a disputed offer can still be the hero. An administrator's weekly pick also stays — it is a deliberate human choice — but the Hero now carries the standing beside it, hatched as well as worded."
+    ]
+  },
+  {
     "version": "0.27.0",
     "date": "2026-10-08",
     "title_he": "רקורד, ומה הוא עושה",
