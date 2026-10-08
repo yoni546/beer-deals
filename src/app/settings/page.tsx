@@ -12,7 +12,8 @@ import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
 import { currentCreditName } from "@/lib/contributors";
-import { getBeers } from "@/lib/queries";
+import { WatchlistEditor } from "@/components/WatchlistEditor";
+import { getBeers, getBeersById, getMyWatchlist } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
 import { getViewer } from "@/lib/session";
 
@@ -23,7 +24,12 @@ export const dynamic = "force-dynamic";
  * headed on the counter, so the page reads as a short list of decisions rather than one long form.
  */
 export default async function SettingsPage() {
-  const [viewer, beers] = await Promise.all([getViewer(), getBeers()]);
+  const [viewer, beers, watchlist, allBeers] = await Promise.all([
+    getViewer(),
+    getBeers(),
+    getMyWatchlist(),
+    getBeersById(),
+  ]);
   // The published name, if they have chosen one (0030). Read here rather than in
   // getViewer because it belongs to nobody's session: it is a public fact.
   const creditName = await currentCreditName(viewer.userId);
@@ -49,6 +55,26 @@ export default async function SettingsPage() {
 
         <Section id="s-credit" title="הקרדיט שלי" note="השם הזה מוצג על מבצעים שאתם מוצאים. השם ב״אהלן״ נשאר פרטי.">
           <CreditEditor current={creditName} />
+        </Section>
+
+        <Section
+          id="s-watchlist"
+          title="בירות שאני עוקב אחריהן"
+          note="מעבר לבירה הראשית. אותן הגבלות התראה — אותה הגבלה יומית ואותן שעות שקט."
+        >
+          {/* From every beer, not the list people choose from: a beer an admin
+              switched off (0034) is still followed, and must not vanish from here. */}
+          <WatchlistEditor
+            rows={Object.entries(watchlist)
+              .map(([beerId, watch]) => ({ beer: allBeers[beerId], watch }))
+              .filter((row) => row.beer)
+              .map(({ beer, watch }) => ({
+                beerId: beer.id,
+                slug: beer.slug,
+                nameHe: beer.name_he,
+                maxPriceAgorot: watch.maxPriceAgorot,
+              }))}
+          />
         </Section>
 
         <Section id="s-place" title="איפה אני" note="משמש כדי למצוא את הסניף הקרוב אליכם. אפשר להשאיר ריק.">

@@ -520,3 +520,44 @@ test("anyone can say a chain offer has ended, and what people said reaches the n
   await expect(page.getByText("משתמשים מדווחים שהמבצע נגמר").first()).toBeVisible();
   await expect(line).toBeVisible();
 });
+
+// Phase O/N: following a beer beyond the four favourites, at a price of your own.
+test("a beer can be followed at your own price, and it shows up in Settings", async ({ page }) => {
+  await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
+
+  // A beer that is NOT one of the four: the thing the app could not do before.
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+  await page.getByLabel("להודיע לי כשהמחיר מתחת ל־ (רשות)").fill("24.90");
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText("נודיע לכם כשהמחיר יגיע לשם.")).toBeVisible();
+  await expect(page.getByText(/עוקבים · נודיע מתחת ל/)).toBeVisible();
+
+  // It is on record, with the price in agorot.
+  const [row] = await sql<{ max_price_agorot: number }>("select max_price_agorot from public.watchlist");
+  expect(row.max_price_agorot).toBe(2490);
+
+  // And Settings lists it, with a way out.
+  await page.goto("/settings");
+  const section = page.getByRole("region", { name: "בירות שאני עוקב אחריהן" });
+  await expect(section.getByText("קרלסברג")).toBeVisible();
+  await expect(section.getByText(/נודיע מתחת ל/)).toBeVisible();
+  await section.getByRole("button", { name: "הסרה" }).click();
+  await expect(page.getByText("הפסקנו לעקוב.")).toBeVisible();
+  expect(await sql("select 1 from public.watchlist")).toHaveLength(0);
+});
+
+test("following with no price is a real choice, and the app says what it means", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+
+  // Empty is not a mistake: it means "the same rules as my number one", and the
+  // copy says so before the button is pressed.
+  await expect(page.getByText(/בלי מחיר — נודיע לכם על מבצע חזק/)).toBeVisible();
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText("כמו על הבירה הראשית שלכם.")).toBeVisible();
+
+  const [row] = await sql<{ max_price_agorot: number | null }>("select max_price_agorot from public.watchlist");
+  expect(row.max_price_agorot).toBeNull();
+});

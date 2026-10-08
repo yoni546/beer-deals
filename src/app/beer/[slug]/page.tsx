@@ -23,7 +23,8 @@ import {
   sortRegular,
   type PackFilter,
 } from "@/lib/offer-logic";
-import { getBeerBySlug } from "@/lib/queries";
+import { getBeerBySlug, getMyWatchlist } from "@/lib/queries";
+import { FollowBeer } from "@/components/FollowBeer";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +45,12 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
   const { slug } = await params;
   const query = await searchParams;
 
-  const [beer, offers, regular, groups] = await Promise.all([
+  const [beer, offers, regular, groups, watchlist] = await Promise.all([
     getBeerBySlug(slug),
     getOffers({ beerSlug: slug }),
     getRegularPrices({ beerSlug: slug }),
     getGroupOffers({ beerSlug: slug }),
+    getMyWatchlist(),
   ]);
   if (!beer) notFound();
 
@@ -87,6 +89,13 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
           </>
         }
       />
+
+      {/* "Tell me when this one is cheap" (0037). Above the sort, because it is about
+          the beer rather than about this list — and it is the one thing on the page
+          that is worth doing when there is no deal on it at all today. */}
+      <div className="mb-5">
+        <FollowBeer beerId={beer.id} beerName={beer.name_he} watching={watchlist[beer.id] ?? null} />
+      </div>
 
       {(dealCount > 0 || regular.length > 0) && (
         <div className="mb-6">

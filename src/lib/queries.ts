@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 import { cachedFeed, publicReader } from "@/lib/feeds";
+import { note } from "@/lib/log";
+import { supabaseServer } from "@/lib/supabase/server";
 import type { AppSettings, Beer, Store } from "@/lib/db/types";
 
 /**
@@ -77,6 +79,18 @@ export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> 
   return (await readStoreIndex())[slug] ?? null;
 });
 
+/**
+ * Every beer, by id — including the ones switched off.
+ *
+ * `getBeers()` returns the list somebody CHOOSES from, which is active beers only.
+ * Anything naming a beer somebody already picked or followed has to read this
+ * instead, or a beer deactivated by an admin (0034) silently disappears from their
+ * own screens while still being theirs. The same mistake getBeerBySlug once made.
+ */
+export const getBeersById = cache(async (): Promise<Record<string, Beer>> => {
+  return Object.fromEntries(Object.values(await readBeerIndex()).map((beer) => [beer.id, beer]));
+});
+
 const readSettings = cachedFeed("settings", async (): Promise<AppSettings | null> => {
   const { data } = await publicReader()
     .from("app_settings")
@@ -90,3 +104,28 @@ const readSettings = cachedFeed("settings", async (): Promise<AppSettings | null
   return (data as AppSettings | null) ?? null;
 });
 export const getSettings = cache(readSettings);
+
+/**
+ * What this person is following, by beer id (migration 0037).
+ *
+ * Read per request and not cached site-wide: it is one person's answer, and the
+ * shared feed caches exist precisely because everything in them is the same for
+ * everybody. Empty for a visitor with no session.
+ */
+export const getMyWatchlist = cache(async (): Promise<Record<string, { maxPriceAgorot: number | null }>> => {
+  const supabase = await supabaseServer();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return {};
+
+  const { data, error } = await supabase.from("watchlist").select("beer_id, max_price_agorot");
+  if (error) {
+    // A missing table (the migration not applied yet) must not take a beer page down.
+    note("watchlist.read_failed", { reason: error.message });
+    return {};
+  }
+  const index: Record<string, { maxPriceAgorot: number | null }> = {};
+  for (const row of (data ?? []) as Array<{ beer_id: string; max_price_agorot: number | null }>) {
+    index[row.beer_id] = { maxPriceAgorot: row.max_price_agorot };
+  }
+  return index;
+});

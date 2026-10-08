@@ -218,7 +218,10 @@ describe("the worker", () => {
     const second = await promotion({ store: shufersalId });
     await processNotificationEvents({ db, send, now: new Date(at.getTime() + 2 * HOUR) });
     expect(send).toHaveBeenCalledTimes(1);
-    expect((await eventFor(second.offerKey))?.outcome).toBe("all_skipped");
+    // Since 0037 an event whose every recipient was skipped for the SAME reason says
+    // that reason, as the threshold cases above already did — "all_skipped" is kept
+    // for a genuine mixture.
+    expect((await eventFor(second.offerKey))?.outcome).toBe("cooldown");
     expect((await deliveriesOf(user)).map((d) => [d.status, d.reason])).toEqual([["sent", null], ["skipped", "cooldown"]]);
   });
 
@@ -387,5 +390,134 @@ describe("a chain promotion seen at several branches (0014)", () => {
       [promo.observationId],
     );
     expect(await eventFor(`obs:${club.id}`)).toBeUndefined();
+  });
+});
+
+/**
+ * The watchlist (migration 0037), through the real pipeline.
+ *
+ * What this has to prove is as much about what did NOT change: the outbox, the
+ * worker and every per-person protection are the ones that were already here. A
+ * watch adds a second reason somebody may be told, and lets them name their own
+ * price — it does not buy them a way past the cooldown, the daily cap or the night.
+ */
+describe("a watched beer can reach a phone too (0037)", () => {
+  /** Somebody whose number one is a DIFFERENT beer, watching `beer` at `price`. */
+  async function watcher(opts: { price?: number | null; beer?: string } = {}) {
+    const id = await person({ beer: otherBeerId });
+    await rows("insert into public.watchlist (profile_id, beer_id, max_price_agorot) values ($1, $2, $3)", [
+      id,
+      opts.beer ?? beerId,
+      opts.price ?? null,
+    ]);
+    return id;
+  }
+
+  it("tells somebody about a beer that is not their number one", async () => {
+    const user = await watcher({ price: 2600 });
+    await promotion({ price: 2500 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((await deliveriesOf(user)).map((d) => d.status)).toEqual(["sent"]);
+  });
+
+  it("honours their price and not the admin's percentage", async () => {
+    // 10 % off: well below the admin's 25 % minimum, and exactly what this person
+    // asked to be told about. Their ceiling is the more specific statement of intent.
+    const user = await watcher({ price: 3500 });
+    await promotion({ price: 3400, regular: 3790 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((await deliveriesOf(user)).map((d) => d.status)).toEqual(["sent"]);
+  });
+
+  it("says nothing when the price is above their ceiling", async () => {
+    const user = await watcher({ price: 2000 });
+    const promo = await promotion({ price: 2500 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).not.toHaveBeenCalled();
+    expect((await deliveriesOf(user)).map((d) => [d.status, d.reason])).toEqual([["skipped", "over_my_price"]]);
+    expect((await eventFor(promo.offerKey))?.outcome).toBe("over_my_price");
+  });
+
+  it("reaches a watcher even on an offer the admin's rules would have dropped for everyone", async () => {
+    // No regular price, so no verified saving: the old pipeline closed the EVENT on
+    // this and nobody was ever asked. A watch hit states the price and claims no
+    // percentage, so a trusted saving is not what it needs.
+    const user = await watcher({ price: 1000 });
+    await promotion({ regular: null, price: 500 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((await deliveriesOf(user)).map((d) => d.status)).toEqual(["sent"]);
+  });
+
+  it("still applies the admin's rules to a watch with no price of its own", async () => {
+    const user = await watcher({ price: null });
+    await promotion({ price: 3400, regular: 3790 }); // 10 %, under the minimum
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).not.toHaveBeenCalled();
+    expect((await deliveriesOf(user)).map((d) => d.reason)).toEqual(["below_threshold"]);
+  });
+
+  it("buys no way past the daily cap", async () => {
+    await rows("update public.app_settings set notify_cooldown_hours = 0");
+    const user = await watcher({ price: 9900 });
+    const at = daytime();
+    const send = okSender();
+    for (let i = 0; i < 3; i += 1) {
+      await promotion({ price: 2500 });
+      await processNotificationEvents({ db, send, now: new Date(at.getTime() + i * 60_000) });
+    }
+    // Two, like everybody else. A watchlist is a statement about what matters, not a
+    // subscription to noise.
+    expect(send).toHaveBeenCalledTimes(2);
+    expect((await deliveriesOf(user)).map((d) => d.reason)).toEqual([null, null, "daily_cap"]);
+  });
+
+  it("buys no way past the night either", async () => {
+    const user = await watcher({ price: 9900 });
+    await promotion({ price: 2500, validToHours: 100 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: nextIsraelTime(23) });
+
+    expect(send).not.toHaveBeenCalled();
+    expect(await deliveriesOf(user)).toEqual([]); // deferred, not decided
+  });
+
+  it("says nothing to somebody with notifications off, watch or no watch", async () => {
+    const id = await person({ beer: otherBeerId, enabled: false });
+    await rows("insert into public.watchlist (profile_id, beer_id, max_price_agorot) values ($1, $2, 9900)", [
+      id,
+      beerId,
+    ]);
+    await promotion({ price: 2500 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not notify twice when the beer is BOTH their number one and watched", async () => {
+    const user = await person({ beer: beerId });
+    await rows("insert into public.watchlist (profile_id, beer_id, max_price_agorot) values ($1, $2, 9900)", [
+      user,
+      beerId,
+    ]);
+    await promotion({ price: 2500 });
+    const send = okSender();
+    await processNotificationEvents({ db, send, now: daytime() });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(await deliveriesOf(user)).toHaveLength(1);
   });
 });

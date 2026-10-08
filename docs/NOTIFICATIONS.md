@@ -28,7 +28,10 @@ whole flow runs in `tests/notifications-worker.test.ts` with the repo's real mig
 | The deal must still be running | event | `expires_at` = the promotion's `valid_to`, else 24 h. |
 | It must carry a **verified** saving | event | `offers_feed.value_pct` is null unless the reference price is trusted (same pack, same chain, seen in the last 14 days, from a chain feed or an admin). No verified saving ⇒ no push, however cheap the price looks. |
 | Saving ≥ minimum **and** price ≤ cap | event | Admin settings (`app_settings`): default 25 % and ₪30. |
-| Only the **primary** beer (favourite #1) | person | #2–#4 shape the app, never the phone. |
+| The **primary** beer (favourite #1), **or a beer on their watchlist** (0037) | person | #2–#4 shape the app, never the phone. A watch is the way to ask about anything else. |
+| A watch with a **price of its own** is measured against that price, and nothing else | person | Their ceiling replaces the admin's minimum percentage and price cap. The verified-**saving** rule does not apply, because a watch-hit message states the price and claims no percentage — a trusted saving and a trusted price are different things. A watch with no price falls back to the admin's rules, exactly like a number one. |
+| Cooldown, daily cap and quiet hours apply to a watch unchanged | person | They are protections for a person, not thresholds for an offer. Somebody watching eight beers gets the same two a day as everybody else. |
+| At most **ten** watched beers | person | Enforced in the database (0037). Beyond that the daily cap would be picking which of them a person hears about, arbitrarily. |
 | Notifications on, and a device registered | person | |
 | Cooldown per beer | person | Default 20 h. |
 | Daily cap | person | Default 2 per Israeli calendar day. |

@@ -3,8 +3,8 @@ import type { Offer } from "@/lib/db/types";
 import { buildOfferNotification } from "@/lib/push/message";
 import {
   decide,
-  eventVerdict,
   israelDayStart,
+  stillOn,
   type NotifySettings,
   type PushRecipient,
 } from "@/lib/push/rules";
@@ -150,26 +150,52 @@ export async function processNotificationEvents(input: {
       continue;
     }
 
-    // 2. Event-level rules: the same answer for everyone.
-    const verdict = eventVerdict(
-      { beerId: event.beer_id, priceAgorot: offer.effective_agorot, valuePct: offer.value_pct },
-      settings,
-      now,
-      expiresAt,
-    );
-    if (!verdict.ok) {
-      await finish(event.id, verdict.reason);
+    // 2. The one event-level rule: is it still on? Everything else is about a
+    //    person, since 0037 — deciding the admin's thresholds here would close the
+    //    event for a watcher with a ceiling of their own before they were asked.
+    if (!stillOn(now, expiresAt)) {
+      await finish(event.id, "expired");
       continue;
     }
 
-    // 3. Who could be told: people for whom this is beer #1, with notifications on.
-    const profilesResult = await db
-      .from("profiles")
-      .select("id, primary_beer_id, notifications_enabled")
-      .eq("primary_beer_id", event.beer_id)
-      .eq("notifications_enabled", true);
+    // 3. Who could be told: people for whom this is beer #1, and people watching it
+    //    (0037). Two reads rather than an `or`, because they are two different
+    //    questions and PostgREST's `or` across an embedded table is not one of them.
+    const [profilesResult, watchersResult] = await Promise.all([
+      db
+        .from("profiles")
+        .select("id, primary_beer_id, notifications_enabled")
+        .eq("primary_beer_id", event.beer_id)
+        .eq("notifications_enabled", true),
+      db.from("watchlist").select("profile_id, max_price_agorot").eq("beer_id", event.beer_id),
+    ]);
     if (profilesResult.error) throw new Error(`profiles unavailable: ${profilesResult.error.message}`);
-    const profiles = (profilesResult.data ?? []) as ProfileRow[];
+    // A missing watchlist table (the migration not applied yet) must not stop the
+    // notifications that worked before it existed.
+    const watches = new Map(
+      ((watchersResult.data ?? []) as Array<{ profile_id: string; max_price_agorot: number | null }>).map((row) => [
+        row.profile_id,
+        { maxPriceAgorot: row.max_price_agorot },
+      ]),
+    );
+
+    const primary = (profilesResult.data ?? []) as ProfileRow[];
+    const byId = new Map(primary.map((profile) => [profile.id, profile]));
+
+    // A watcher who is not already in the list needs their own profile row read, for
+    // the two things every decision needs: are notifications on, and what is their #1.
+    const missing = [...watches.keys()].filter((id) => !byId.has(id));
+    if (missing.length > 0) {
+      const extra = await db
+        .from("profiles")
+        .select("id, primary_beer_id, notifications_enabled")
+        .in("id", missing)
+        .eq("notifications_enabled", true);
+      if (extra.error) throw new Error(`profiles unavailable: ${extra.error.message}`);
+      for (const profile of (extra.data ?? []) as ProfileRow[]) byId.set(profile.id, profile);
+    }
+
+    const profiles = [...byId.values()];
     if (profiles.length === 0) {
       await finish(event.id, "no_recipients");
       continue;
@@ -203,6 +229,8 @@ export async function processNotificationEvents(input: {
 
     let candidates = 0;
     let waiting = 0; // deferred or awaiting a retry: keep the event open
+    /** Every reason somebody was skipped, so a unanimous one can be named below. */
+    const skipReasons = new Set<string>();
     let sentHere = 0;
 
     for (const profile of profiles) {
@@ -221,6 +249,7 @@ export async function processNotificationEvents(input: {
       const recipient: PushRecipient = {
         userId: profile.id,
         primaryBeerId: profile.primary_beer_id,
+        watching: watches.get(profile.id) ?? null,
         notificationsEnabled: profile.notifications_enabled,
         subscriptions: subscriptions.length,
         lastSentForBeerAt: lastForBeer ?? null,
@@ -236,6 +265,7 @@ export async function processNotificationEvents(input: {
       }
       if (decision.action === "skip") {
         summary.skipped += 1;
+        skipReasons.add(decision.reason);
         await recordDelivery(db, previous, { event_id: event.id, user_id: profile.id, beer_id: event.beer_id, status: "skipped", reason: decision.reason, attempts: previous?.attempts ?? 0 });
         continue;
       }
@@ -290,7 +320,13 @@ export async function processNotificationEvents(input: {
     // 5. Close the event unless someone is still waiting (quiet hours, a retry) and it has not expired.
     if (waiting > 0 && now < expiresAt) continue;
     const anySent = sentHere > 0 || [...deliveryByUser.values()].some((row) => row.status === "sent");
-    await finish(event.id, anySent ? "sent" : candidates === 0 ? "no_recipients" : waiting > 0 ? "expired" : "all_skipped");
+    // When everybody was skipped for the SAME reason, the event says that reason
+    // rather than "all_skipped". The thresholds moved to the person in 0037 and the
+    // decision really is per person now — but "why did this news go nowhere?" still
+    // deserves a one-glance answer where there is a single one, and for a threshold
+    // nobody could clear there always is.
+    const onlyReason = skipReasons.size === 1 ? [...skipReasons][0] : "all_skipped";
+    await finish(event.id, anySent ? "sent" : candidates === 0 ? "no_recipients" : waiting > 0 ? "expired" : onlyReason);
   }
 
   return summary;

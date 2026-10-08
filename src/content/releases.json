@@ -1,5 +1,32 @@
 [
   {
+    "version": "0.26.0",
+    "date": "2026-10-08",
+    "title_he": "עקבו אחרי בירה",
+    "highlights_he": [
+      "אפשר עכשיו לעקוב אחרי בירה שהיא לא אחת מארבע שבחרתם — ולקבוע מחיר שבו נודיע לכם.",
+      "בלי מחיר? נודיע על מבצע חזק, לפי אותם כללים של הבירה הראשית.",
+      "ההתראות לא נעשות רועשות יותר: אותה הגבלה יומית, אותן שעות שקט, אותו זמן המתנה.",
+      "עד עשר בירות במעקב, והרשימה נמצאת בהגדרות."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0037, phases O and N together — a watchlist that does not notify is a bookmark list, and 'we will tell you' has to either work or not be said.",
+      "WHAT COULD HAPPEN BEFORE: exactly one beer could reach a phone, favourite #1, and only on a deal clearing the admin's global thresholds (25 %, under ₪30). Somebody who wanted to hear about a sixth beer, or about their own price rather than an admin's percentage, had nowhere to say it.",
+      "THE PIPELINE IS EXTENDED, NOT REPLACED: same outbox, same worker, same per-person protections. The seam was in the wrong place, though — the admin's thresholds were EVENT-level, so an offer that failed them closed the event for everybody and a watcher with a ceiling of their own could never have been reached. Event level now holds the one rule that really is the same for everyone ('is it still on'); everything else is a question about the person. eventVerdict is kept unchanged as the admin-level summary and its 17 tests pass untouched.",
+      "WHAT A WATCH RELAXES, deliberately: the verified-SAVING rule. It exists because the message claims a percentage, and a watch-hit message states the price — the fact the person asked about. A trusted saving and a trusted price are different things, and conflating them would make the feature impossible for every chain whose reference price we cannot vouch for.",
+      "WHAT IT DOES NOT RELAX: cooldown, daily cap and quiet hours. Those are protections for a person, not thresholds for an offer, and a watch is not permission to ignore them — somebody watching eight beers gets the same two notifications a day as everybody else. Nine tests in the worker suite cover the watch paths, including that it buys no way past the cap or the night, and that a beer which is BOTH number one and watched notifies once.",
+      "TEN AT A TIME, in the database. Beyond that the daily cap would be choosing which watched beer a person hears about, arbitrarily. A test caught that the BEFORE INSERT trigger fires before Postgres detects an upsert's conflict, so somebody at the limit could not change a price they had already set; it counts the OTHER beers now.",
+      "The fake Supabase caught a missing grant: the worker reads the watchlist with the service role, which the first draft granted nothing. Read only — a watch is set by the person whose watch it is.",
+      "An event whose every recipient was skipped for the SAME reason now closes with that reason rather than 'all_skipped'. The decision moved to the person, but 'why did this news go nowhere?' still deserves a one-glance answer where there is a single one.",
+      "Settings lists what you follow and reads it from EVERY beer rather than the list people choose from: a beer an admin switched off (0034) is still followed and must not vanish from its owner's screen. getBeersById exists for exactly that, and it is the same mistake getBeerBySlug once made.",
+      "One UI bug found by the e2e and fixed properly: removing the last followed beer took the list away, and the confirmation lived inside it — the same shape as the admin-row bug in 0.21.1. The message renders outside the branch now."
+    ]
+  },
+  {
     "version": "0.25.0",
     "date": "2026-10-08",
     "title_he": "מסך כיסוי הרשתות",
