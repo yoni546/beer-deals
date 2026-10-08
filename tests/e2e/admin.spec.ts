@@ -194,3 +194,20 @@ test("the queue can be narrowed, and the narrowing is in the address", async ({ 
   await expect(page).toHaveURL(/\/admin\/queue$/);
   await expect(page.getByRole("heading", { name: /ממתינים לאישור/ })).toBeVisible();
 });
+
+// Phase T: coverage, as the database holds it (0036).
+test("the coverage screen says what we know now, and points at what it cannot know", async ({ page }) => {
+  await onboard(page, "בודקת כיסוי");
+  await makeAdmin("בודקת כיסוי");
+
+  await page.goto("/admin/coverage");
+  await expect(page.getByRole("heading", { name: "כיסוי הרשתות" })).toBeVisible();
+
+  // The e2e database has chains and no branch scan, and the screen says exactly
+  // that rather than "0 of 0 checked", which would read like a result.
+  await expect(page.getByText("לא נסרקה").first()).toBeVisible();
+  await expect(page.getByText("הרשת הזאת לא נסרקה אף פעם.").first()).toBeVisible();
+
+  // And it names the document that holds what no table can.
+  await expect(page.getByText(/RETAILER-COVERAGE\.md/)).toBeVisible();
+});

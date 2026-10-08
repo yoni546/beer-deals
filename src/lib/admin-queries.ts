@@ -360,3 +360,37 @@ export async function getAdminDeals(
   const all = (data ?? []) as unknown as AdminDeal[];
   return { rows: await withSubmitters(all.slice(0, limit)), more: all.length > limit, ok: true };
 }
+
+export type AdminCoverage = {
+  store_id: string;
+  store_slug: string;
+  store_name: string;
+  branches: number;
+  located: number;
+  last_scan_id: string | null;
+  last_scan_at: string | null;
+  checked: number;
+  promo_checked: number;
+  no_promo_file: number;
+  not_published: number;
+  stale: number;
+  failed: number;
+  live_offers: number;
+};
+
+/**
+ * What the database knows about each retailer's coverage (migration 0036).
+ *
+ * Deliberately narrower than docs/RETAILER-COVERAGE.md: that document is produced
+ * by the scan and knows things no table holds (why a source is blocked, a
+ * publisher's own note). This is the evidence in `branch_scans`, as it stands now.
+ */
+export async function getAdminCoverage(): Promise<{ rows: AdminCoverage[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_coverage");
+  if (error) {
+    report("admin.coverage_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as AdminCoverage[], ok: true };
+}

@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.25.0",
+    "date": "2026-10-08",
+    "title_he": "מסך כיסוי הרשתות",
+    "highlights_he": [
+      "בלוח הניהול רואים עכשיו לכל רשת: כמה סניפים, כמה נבדקו בסריקה האחרונה, ומתי.",
+      "ורואים כמה סניפים יש לנו להם מיקום — המספר שקובע אם ״הכי קרוב אליי״ יכול לעבוד.",
+      "הכיסוי מוצג לפי מה שהמערכת יודעת עכשיו, לא לפי מסמך שנוצר פעם אחת."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0036, Phase T. docs/RETAILER-COVERAGE.md is produced by scripts/ingest/coverage.mjs on the machine that ran a scan. It is the fuller picture — it knows why Super Yuda is BLOCKED, because that lives in publisher metadata and in no table — and it is a snapshot of one run on somebody's laptop. Nothing in the app could say what the database holds NOW.",
+      "WHAT IT DELIBERATELY DOES NOT DO: reproduce coverage.mjs's status model. That model reads the scan plan (blocked, sourcePartial, a publisher's note), which no table contains, so a SQL copy would be guessing at the half it cannot see — and the first time a publisher's situation changed, the panel and the document would disagree while both looked authoritative. So the vocabulary is about OUR RECORD ('every branch was checked in the last scan' is a fact about branch_scans), and the page names the document for the rest.",
+      "A test caught a flaw that would have been badly wrong in production: the first draft picked the latest scan per chain by matching max(scanned_at), but every branch of a scan carries its own timestamp — a real run takes about ninety seconds — so the equality counted exactly one branch per chain. It groups by the latest scan_id now.",
+      "Latest scan PER CHAIN, not the latest scan overall: a scan is incremental and need not touch every retailer, and showing one chain's numbers from a run that skipped it would be confidently stale. A chain never scanned reads as 'never scanned' rather than '0 of 0 checked', which would look like a result.",
+      "It also carries the number the geo work (0026) had no surface for anywhere: how many of a chain's branches we can place on a map. That was invisible everywhere, which is how 'we have no locations' stayed true for a fortnight without anybody seeing it."
+    ]
+  },
+  {
     "version": "0.24.0",
     "date": "2026-10-08",
     "title_he": "סינון בלוח המבצעים",
