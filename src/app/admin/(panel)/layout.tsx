@@ -41,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const tabs = [
     { href: "/admin", label: "בית" },
     { href: "/admin/queue", label: "ממתינים" },
+    { href: "/admin/beers", label: "בירות" },
     { href: "/admin/reports", label: "דיווחים" },
     { href: "/admin/weekly", label: "מבצע השבוע" },
     // Every admin can read it, not only a super admin: a log only the most powerful

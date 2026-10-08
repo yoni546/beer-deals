@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.22.0",
+    "date": "2026-10-08",
+    "title_he": "ניהול בירות",
+    "highlights_he": [
+      "בלוח הניהול יש עכשיו מסך בירות: הוספה, שינוי שם, סדר, וקטגוריה.",
+      "אפשר להסיר בירה מרשימת הבחירה — ומי שכבר בחר אותה שומר אותה, גם כבירה ראשית.",
+      "לפני הסרה רואים כמה אנשים בחרו אותה וכמה היא הבירה הראשית שלהם.",
+      "יש רשימה של הבירות שעוד מחכות לזהות ויזואלית ולתמונת בקבוק."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0034. What was already there: beers_admin_write (0003) was `for all` with is_admin(), so an admin could insert, update and DELETE a beer by hand through PostgREST — with no screen, no audit entry and no guard against the two edits that quietly break things.",
+      "DELETING IS GONE. user_favorite_beers and deals reference a beer, so a delete either fails on a foreign key or takes somebody's favourite with it. The rest of this system deactivates and keeps the record; beers now do the same. The DELETE policy is dropped and the grant revoked, for admins and super admins alike, and a test asserts both.",
+      "THE SLUG IS FOREVER, enforced by a trigger rather than by the form: it is the URL of /beer/<slug>, the key of the beer's identity in src/design/themes.ts and the filename of its bottle photo. Changing it in the database alone silently takes the beer's whole appearance away and breaks every link anybody shared. A script, a hand-written PostgREST call and a future migration all go through the trigger.",
+      "WHAT AN ADMIN CANNOT DO FROM HERE, deliberately: give a beer its look. An identity is code and a photo is a reviewed asset with provenance (CLAUDE.md). A colour picker in the panel would be a second source of truth for the one thing this product is built around, and a photo field would be an invitation to paste a hotlink. So the screen REPORTS which active beers have neither — read from the same code that decides the look, so the list cannot drift — and that is a list of work for a deploy, not a form. It doubles as the tracking surface for the bottle-photo gaps.",
+      "admin_beers() carries the counts that make the decision possible: chosen_by and first_for are deliberately two numbers, because favourite #1 is the app. Deactivating records first_for in the audit log at the moment it happened — the number changes afterwards, and 'how many did this affect?' can only be answered from there.",
+      "admin_add_beer explains the one-beer-per-brand-per-variant rule (0007) in words — 'if this is another version, give the version a name' — instead of letting a unique index name reach a person. A new beer lands at the end of the list so nobody else's order moves behind their back.",
+      "admin_product_categories() reads the category names through a definer function rather than from the table: product_categories has a read POLICY for anon and authenticated (0014) and no table GRANT, so that policy has never actually let anybody read it. Widening the grant to serve one admin form would have been the wrong way round."
+    ]
+  },
+  {
     "version": "0.21.1",
     "date": "2026-10-08",
     "title_he": "מנהל רואה מה הוא עשה",

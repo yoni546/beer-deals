@@ -211,3 +211,49 @@ export async function getAuditLog(limit = 100, beforeId?: number): Promise<{ row
   }
   return { rows: (data ?? []) as AuditEntry[], ok: true };
 }
+
+export type AdminBeer = {
+  id: string;
+  slug: string;
+  name_he: string;
+  name_en: string;
+  category: string;
+  sort_order: number;
+  is_active: boolean;
+  brand_name_he: string;
+  variant: string | null;
+  chosen_by: number;
+  first_for: number;
+  live_offers: number;
+  packs: number;
+};
+
+/**
+ * Every beer as the panel sees it (migration 0034), with the counts that make
+ * "switch this one off" a decision somebody can actually take.
+ */
+export async function getAdminBeers(): Promise<{ rows: AdminBeer[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_beers");
+  if (error) {
+    report("admin.beers_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as AdminBeer[], ok: true };
+}
+
+/** The brands a new beer can be attached to (migration 0034). */
+export async function getAdminBrands(): Promise<Array<{ slug: string; name_he: string }>> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_brands");
+  if (error) report("admin.brands_failed", { code: error.code, reason: error.message });
+  return (data ?? []) as Array<{ slug: string; name_he: string }>;
+}
+
+/** The categories a beer can be in (migration 0034), by name. */
+export async function getAdminProductCategories(): Promise<Array<{ slug: string; name_he: string; in_scope: boolean }>> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_product_categories");
+  if (error) report("admin.categories_failed", { code: error.code, reason: error.message });
+  return (data ?? []) as Array<{ slug: string; name_he: string; in_scope: boolean }>;
+}

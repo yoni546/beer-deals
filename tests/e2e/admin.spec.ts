@@ -81,3 +81,31 @@ test("the audit log says who did what, and offers nothing to press", async ({ pa
   // A log with controls on it is a log somebody can tidy.
   await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
 });
+
+// Phase D: the beers, from the panel (0034).
+test("the beers screen can switch one off, and says what that does and does not do", async ({ page }) => {
+  await onboard(page, "מנהלת בירות");
+  await makeAdmin("מנהלת בירות");
+
+  await page.goto("/admin/beers");
+  await expect(page.getByRole("heading", { name: "בירות", exact: true })).toBeVisible();
+
+  const goldstar = page.getByRole("article").filter({ hasText: "גולדסטאר" }).first();
+  await goldstar.getByRole("button", { name: "הסרה מרשימת הבחירה" }).click();
+
+  // The confirmation says the part people get wrong, and it survives the row
+  // re-rendering (0.21.1) because it is shown above the list, not inside the row.
+  await expect(page.getByText("מי שכבר בחר אותה שומר אותה")).toBeVisible();
+  await expect(goldstar.getByText("לא בבחירה")).toBeVisible();
+  await goldstar.getByRole("button", { name: "החזרה לרשימה" }).click();
+  await expect(page.getByText("חזרה לרשימת הבחירה")).toBeVisible();
+
+  // What cannot be done from here is SAID, where somebody would look for the field.
+  await goldstar.getByRole("button", { name: "עריכה" }).click();
+  await expect(goldstar.getByText(/המראה נמצא בקוד/)).toBeVisible();
+  await expect(goldstar.getByLabel("מזהה")).toHaveCount(0);
+
+  // And the work that needs a deploy is listed rather than rediscovered each time.
+  await expect(page.getByRole("heading", { name: "מחכות למראה שלהן" })).toBeVisible();
+  await expect(page.getByText("חסרה תמונה").first()).toBeVisible();
+});
