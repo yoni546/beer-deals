@@ -9403,3 +9403,271 @@ begin
   return row;
 end;
 $$;
+
+-- ======================== 0041_admin_people.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0041 — the fields the owner asked for on the people screen.
+--
+-- 0035 built a deliberately narrow screen: the public name somebody chose, and
+-- what they sent us. It left out city, search radius, favourite beers and the
+-- registration date, on the strength of a comment in 0003 saying administrators
+-- are not given profile reads. The owner asked for those four by name and called
+-- them non-sensitive, which is the call that is theirs to make. This is that
+-- change, made narrowly rather than by opening `profiles`.
+--
+-- WHAT IS STILL NOT HERE, and will not be without being asked for again:
+--   · first_name          — the private name. The PUBLIC one (contributors,
+--                           0030) is a different field somebody chose to publish.
+--   · home_lat/home_lon   — a coordinate is a doorstep. The TOWN answers every
+--                           question this screen exists for.
+--   · email               — reachable to an owner through grant_admin by address;
+--                           it has no job on a moderation screen.
+--   · notification state, push endpoints, watchlist, feedback they filed.
+--
+-- `profiles` KEEPS its owner-only policy. Nothing here grants a table read: the
+-- function below is SECURITY DEFINER and returns four columns, so widening it
+-- later is an edit somebody has to make on purpose rather than a door left open.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.admin_people(p_limit integer default 100)
+returns table (
+  user_id        uuid,
+  display_name   text,
+  home_city      text,
+  search_radius_km integer,
+  registered_at  timestamptz,
+  favourites     text[],
+  approved       integer,
+  rejected       integer,
+  pending        integer,
+  score          integer,
+  trust          text,
+  is_blocked     boolean,
+  block_reason   text,
+  admin_level    text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  -- Moderation, not management: the people here are the ones sending us prices.
+  perform public.require_moderator();
+
+  return query
+  select p.id,
+         c.display_name,
+         p.home_city,
+         p.search_radius_km,
+         p.created_at,
+         coalesce(
+           (select array_agg(b.name_he order by f.rank)
+              from public.user_favorite_beers f
+              join public.beers b on b.id = f.beer_id
+             where f.profile_id = p.id),
+           '{}'
+         ),
+         coalesce(c.approved, 0),
+         -- Rejections are counted here and deliberately NOT stored on
+         -- `contributors` (0030), which is world-readable: how often somebody was
+         -- turned down is a fact for a moderator, not for a leaderboard.
+         (select count(*)::integer from public.deals d
+           where d.created_by = p.id and d.status = 'rejected'),
+         (select count(*)::integer from public.deals d
+           where d.created_by = p.id and d.status = 'pending'),
+         coalesce(c.score, 0),
+         public.contributor_trust(c.score),
+         (b.user_id is not null),
+         b.reason,
+         a.level::text
+    from public.profiles p
+    left join public.contributors c on c.profile_id = p.id
+    left join public.submission_blocks b on b.user_id = p.id
+    left join public.admins a on a.user_id = p.id
+   -- People who have done something, newest first. Somebody who opened the app
+   -- once and chose nothing is not a person this screen is about.
+   where p.onboarded_at is not null
+   order by p.created_at desc
+   limit greatest(1, least(coalesce(p_limit, 100), 500));
+end;
+$$;
+
+revoke execute on function public.admin_people(integer) from public, anon;
+grant execute on function public.admin_people(integer) to authenticated;
+
+-- --------------------------------------------------------------------------
+-- Where the people are, and where the deals are not (Phase T).
+--
+-- The question this answers is the only one that changes what gets built next:
+-- WHICH TOWNS HAVE PEOPLE AND NO DEALS. Everything else on the coverage screen
+-- describes the pipeline; this describes the gap.
+--
+-- Counted by the town somebody typed, not by a coordinate — the town is what
+-- they told us, and it is enough to decide where to go looking for prices.
+-- --------------------------------------------------------------------------
+
+create or replace function public.admin_people_by_city(p_limit integer default 50)
+returns table (
+  city            text,
+  people          integer,
+  with_radius     integer,
+  -- How many live offers somebody in this town could actually reach, within the
+  -- radius they themselves set. Null while no branch has a position (0026) —
+  -- which is "we do not know", not zero.
+  deals_nearby    integer
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  located boolean;
+begin
+  perform public.require_admin();
+
+  select exists (select 1 from public.branches b where b.latitude is not null) into located;
+
+  return query
+  select p.home_city,
+         count(*)::integer,
+         count(*) filter (where p.search_radius_km is not null)::integer,
+         case when located then count(distinct reach.offer_key)::integer end
+    from public.profiles p
+    -- Per PERSON, not per town: two people in the same place may have set
+    -- different radii, and one of them having said "nationwide" does not mean
+    -- the town is covered. Measuring from a town centre would also quietly
+    -- discard the precise position of anybody who tapped "use my location".
+    left join lateral (
+      select o.offer_key
+        from public.offers_feed o
+        join public.branches br
+          on br.store_id = o.store_id
+         and br.latitude is not null
+         and (
+           -- 0 means nationwide (RADIUS_CHOICES); null means they never said, and
+           -- 25 km is what the app assumes for them elsewhere.
+           coalesce(p.search_radius_km, 25) = 0
+           or public.km_between(p.home_lat, p.home_lon, br.latitude, br.longitude)
+              <= coalesce(nullif(p.search_radius_km, 0), 25)
+         )
+       where located and p.home_lat is not null
+    ) reach on true
+   where p.home_city is not null and p.onboarded_at is not null
+   group by p.home_city
+   -- Most people first, and within that the emptiest: that ordering IS the
+   -- question this screen exists to answer.
+   order by count(*) desc, count(distinct reach.offer_key), p.home_city
+   limit greatest(1, least(coalesce(p_limit, 50), 200));
+end;
+$$;
+
+revoke execute on function public.admin_people_by_city(integer) from public, anon;
+grant execute on function public.admin_people_by_city(integer) to authenticated;
+
+-- ======================== 0042_dashboard_highlights.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0042 — the dashboard answers the questions it was asked to answer.
+--
+-- The brief lists what the admin dashboard should show, and ends with a rule
+-- that decides the shape of this migration: "Do not add vanity metrics that
+-- cannot be correctly calculated."
+--
+-- So, item by item, what the data can and cannot support:
+--
+--   CAN     most popular beer      — by how many people have it as favourite #1,
+--                                    which is the only sense in which this app has
+--                                    a popular beer: #1 is the app (PRODUCT.md).
+--   CAN     most popular chain     — by live offers people can actually use.
+--   CAN     most active town       — by people who said where they live.
+--   CAN     highest Deal Score     — straight from offer_scores (0027).
+--   CAN     strongest contributors — contributors, already ranked (0030).
+--   CAN     new registrations, new/approved/rejected/removed deals, reports,
+--           notifications sent — all already counted in admin_overview (0025).
+--
+--   CANNOT  "active users today" / "this week". Nothing records a visit. There is
+--           no session table, no page-view log, and the app deliberately collects
+--           none. Counting people who DID something (submitted, reported, set a
+--           name) and calling it "active users" would be a different number
+--           wearing that label, and the dashboard's whole problem in 0.11.1 was
+--           four numbers that did not mean what they said. It is left out, and
+--           the screen says why rather than leaving a gap somebody fills in with
+--           an assumption.
+--
+-- Every figure here is a count over rows that exist, with its window stated.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.admin_highlights()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  result jsonb;
+begin
+  perform public.require_admin();
+
+  select jsonb_build_object(
+    'top_beer', (
+      -- Favourite #1 only. #2–#4 shape the app and are a different question; mixing
+      -- them would make "popular" mean two things at once.
+      select jsonb_build_object('name', b.name_he, 'slug', b.slug, 'people', count(*))
+        from public.user_favorite_beers f
+        join public.beers b on b.id = f.beer_id
+       where f.rank = 1
+       group by b.name_he, b.slug
+       order by count(*) desc, b.name_he
+       limit 1
+    ),
+    'top_store', (
+      -- By what somebody could actually buy today, not by how much we have stored.
+      select jsonb_build_object('name', s.name_he, 'slug', s.slug, 'offers', count(*))
+        from public.offers_feed o
+        join public.stores s on s.id = o.store_id
+       group by s.name_he, s.slug
+       order by count(*) desc, s.name_he
+       limit 1
+    ),
+    'top_city', (
+      select jsonb_build_object('city', p.home_city, 'people', count(*))
+        from public.profiles p
+       where p.home_city is not null and p.onboarded_at is not null
+       group by p.home_city
+       order by count(*) desc, p.home_city
+       limit 1
+    ),
+    'best_score', (
+      select jsonb_build_object(
+               'score', sc.score,
+               'band', sc.band,
+               'beer', o.beer_name,
+               'store', o.store_name,
+               'offer_key', sc.offer_key
+             )
+        from public.offer_scores sc
+        join public.offers_feed o on o.offer_key = sc.offer_key
+       order by sc.score desc
+       limit 1
+    ),
+    'top_contributors', coalesce((
+      select jsonb_agg(jsonb_build_object('name', c.display_name, 'score', c.score, 'approved', c.approved)
+                       order by c.score desc, c.approved desc)
+        from (select * from public.contributors where score > 0 order by score desc, approved desc limit 3) c
+    ), '[]'::jsonb),
+    -- Said in the payload rather than assumed by the screen: there is no visit
+    -- log, so "active users" is a number this system cannot produce honestly.
+    'activity_measurable', false,
+    'as_of', now()
+  ) into result;
+
+  return result;
+end;
+$$;
+
+revoke execute on function public.admin_highlights() from public, anon;
+grant execute on function public.admin_highlights() to authenticated;

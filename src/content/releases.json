@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.32.0",
+    "date": "2026-10-09",
+    "title_he": "האנשים, מי מצא, ומה גדול עכשיו",
+    "highlights_he": [
+      "המבצע הראשי בדף הבית אומר עכשיו מי מצא אותו.",
+      "בלוח הניהול: מסך אנשים עם היישוב, המרחק והבירות שלהם, ולוח שמראה מה גדול עכשיו.",
+      "ורואים איפה יש אנשים — כדי לדעת איפה חסרים מבצעים.",
+      "אם יצאה גרסה חדשה בזמן שהאפליקציה פתוחה, היא מציעה לרענן. לא מרעננת לבד."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phases L, M, R, T, Y and Z, after a pass over the brief found seven phases I had reported on loosely or not at all.",
+      "L: the Hero names who found the deal, which the brief's own example asked for. getOfferByKey already decorates, so the weekly pick carries it too.",
+      "M: migration 0041 adds the four fields the owner asked for by name — town, search radius, favourite beers in their own order, registration date. 0035 had left them out on my own judgement, citing a comment in 0003; the owner called them non-sensitive and that call is theirs. Added NARROWLY: `profiles` keeps its owner-only policy and this reads through one definer function returning those columns and no others. Still absent, and only on request: first_name, coordinates, email, notification state. Rejection counts are returned here but still NOT stored on world-readable `contributors` — how often somebody was turned down is a fact for a moderator, not a leaderboard.",
+      "The submitters screen now redirects to the people screen: the same rows, counts and blocking control plus the new fields, so keeping both would be two screens for one job drifting apart a wording at a time.",
+      "R: migration 0042. Most popular beer (by favourite #1 — the only sense in which this app has one), most popular chain by LIVE offers, most active town, highest Deal Score, top contributors. 'Active users today' is deliberately absent AND the absence is said on screen: nothing records a visit, by design, so the number would be something else wearing that label — which is exactly what 0.11.1 was spent fixing.",
+      "T: where the people are, counted per PERSON against the radius they themselves set rather than from a town centre — two people in one town may have set different radii, and measuring from a centre would discard the precise position of anybody who tapped 'use my location'. Reports 'we do not know' rather than zero while no branch has a position.",
+      "Y: the PWA review I had never done. The manifest, icons, iOS meta, install prompt, offline page and caching strategy were all already right. The gap was the UPDATE strategy: /api/version existed with no consumer. A deploy can leave an installed PWA running the previous build's JavaScript for days, which posts a Server Action the new server never heard of — the 'Failed to find Server Action' history sw.js records in its own comments. NewVersion checks when the tab becomes visible (not on a timer: a PWA returning from the background is the moment that matters), notices a rollback as well as a newer build, and NEVER reloads by itself.",
+      "Z: the review is now a test. tests/security-sweep.test.ts asserts RLS on every table, that a table without a policy is one of five deliberate deny-alls, that anon has no write grant anywhere, that every SECURITY DEFINER function is guarded or scoped to auth.uid() (with the single exception proven unreachable), the uploads bucket's size limit and mime allowlist and its three policies, and that no grant exists without a policy behind it. Its first run reported two dozen false findings because a FOR ALL policy has polcmd '*' — noise that teaches people to ignore a sweep, so it was fixed rather than filtered."
+    ]
+  },
+  {
     "version": "0.31.0",
     "date": "2026-10-09",
     "title_he": "ארבעה תפקידים בלוח הניהול",

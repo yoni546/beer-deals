@@ -1,7 +1,7 @@
 import { AdminList, AdminSection } from "@/components/admin/AdminUi";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { EmptyState } from "@/components/Chrome";
-import { getAdminCoverage, type AdminCoverage } from "@/lib/admin-queries";
+import { getAdminCoverage, getPeopleByCity, type AdminCoverage } from "@/lib/admin-queries";
 import { relativeTimeHe } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ function recordHe(row: AdminCoverage): { text: string; hatched: boolean } {
 }
 
 export default async function AdminCoveragePage() {
-  const { rows, ok } = await getAdminCoverage();
+  const [{ rows, ok }, cities] = await Promise.all([getAdminCoverage(), getPeopleByCity()]);
   const located = rows.reduce((sum, row) => sum + row.located, 0);
   const branches = rows.reduce((sum, row) => sum + row.branches, 0);
 
@@ -93,6 +93,36 @@ export default async function AdminCoveragePage() {
           </AdminList>
         )}
       </AdminSection>
+
+      {cities.ok && cities.rows.length > 0 && (
+        <AdminSection
+          title="איפה האנשים"
+          note="לפי היישוב שהם אמרו. ״מבצעים בטווח״ נספר לכל אדם לפי המרחק שהוא עצמו קבע — וכל עוד אין לנו מיקומי סניפים, אין מה לספור."
+        >
+          <AdminList>
+            {cities.rows.map((row) => (
+              <div key={row.city} className="flex items-baseline justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-ink">{row.city}</p>
+                  <p className="mt-0.5 text-sm text-ink-2">
+                    <span className="num">{row.with_radius}</span> מתוכם קבעו מרחק
+                  </p>
+                </div>
+                <p className="shrink-0 text-sm text-ink-2">
+                  <span className="num font-bold text-ink">{row.people}</span> אנשים ·{" "}
+                  {row.deals_nearby === null ? (
+                    "מבצעים בטווח: לא יודעים"
+                  ) : (
+                    <>
+                      <span className="num font-bold text-ink">{row.deals_nearby}</span> מבצעים בטווח
+                    </>
+                  )}
+                </p>
+              </div>
+            ))}
+          </AdminList>
+        </AdminSection>
+      )}
 
       {ok && branches > 0 && (
         <AdminSection

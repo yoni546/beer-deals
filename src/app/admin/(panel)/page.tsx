@@ -2,7 +2,8 @@ import Link from "next/link";
 import { AdminSection } from "@/components/admin/AdminUi";
 import { EmptyState } from "@/components/Chrome";
 import { Price } from "@/components/ui/Price";
-import { getAdminOverview, getExpiringOffers } from "@/lib/admin-queries";
+import { Highlights } from "@/components/admin/Highlights";
+import { getAdminOverview, getExpiringOffers, getHighlights } from "@/lib/admin-queries";
 import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/session";
 
@@ -63,10 +64,11 @@ export default async function AdminHomePage() {
   const gate = await getViewer();
   if (!gate.isAdmin) redirect("/admin/queue");
 
-  const [overview, expiring, viewer] = await Promise.all([
+  const [overview, expiring, viewer, highlights] = await Promise.all([
     getAdminOverview(7),
     getExpiringOffers(7, 8),
     getViewer(),
+    getHighlights(),
   ]);
 
   if (!overview) {
@@ -103,6 +105,10 @@ export default async function AdminHomePage() {
           />
         </div>
       </AdminSection>
+
+      {/* What is big right now (0042). Below the counts, because the counts are
+          the health of the thing and these are its shape. */}
+      {highlights.ok && highlights.data && <Highlights data={highlights.data} />}
 
       <AdminSection title="השבוע האחרון">
         <div className="grid grid-cols-2 gap-3">

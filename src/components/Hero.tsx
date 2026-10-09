@@ -45,6 +45,12 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
       </h2>
       <p className="mt-0.5 text-sm text-ink-2">
         {packText(offer)} · {offer.store_name}
+        {/* Who found it (0030). On the headline deal above all, because this is the
+            one the app is recommending — and a community that finds the deals should
+            be visible on the thing everybody looks at, not only on the lines below.
+            Absent for a chain feed and for somebody who chose no name; saying
+            "anonymous" would be a label nobody asked for. */}
+        {offer.found_by && <> · נמצא על ידי {offer.found_by}</>}
         {/* Where it runs (0017) — the headline never implies the whole chain without evidence. */}
         {scope && <> · <span data-scope>{scope.label}</span></>}
       </p>

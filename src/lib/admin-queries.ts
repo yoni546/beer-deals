@@ -410,3 +410,72 @@ export async function getAdminCoverage(): Promise<{ rows: AdminCoverage[]; ok: b
   }
   return { rows: (data ?? []) as AdminCoverage[], ok: true };
 }
+
+export type AdminPerson = {
+  user_id: string;
+  display_name: string | null;
+  home_city: string | null;
+  search_radius_km: number | null;
+  registered_at: string;
+  favourites: string[];
+  approved: number;
+  rejected: number;
+  pending: number;
+  score: number;
+  trust: "new" | "known" | "trusted";
+  is_blocked: boolean;
+  block_reason: string | null;
+  admin_level: string | null;
+};
+
+/**
+ * The people screen (migration 0041).
+ *
+ * Four fields the owner asked for by name — town, radius, favourites, registration
+ * date — beside what each person sent us. `profiles` keeps its owner-only policy:
+ * this reads through one definer function that returns those columns and no others.
+ */
+export async function getAdminPeople(limit = 100): Promise<{ rows: AdminPerson[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_people", { p_limit: limit });
+  if (error) {
+    report("admin.people_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as AdminPerson[], ok: true };
+}
+
+export type CityGap = { city: string; people: number; with_radius: number; deals_nearby: number | null };
+
+/** Where the people are, and whether there is anything near them (Phase T, 0041). */
+export async function getPeopleByCity(limit = 50): Promise<{ rows: CityGap[]; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_people_by_city", { p_limit: limit });
+  if (error) {
+    report("admin.people_by_city_failed", { code: error.code, reason: error.message });
+    return { rows: [], ok: false };
+  }
+  return { rows: (data ?? []) as CityGap[], ok: true };
+}
+
+export type Highlights = {
+  top_beer: { name: string; slug: string; people: number } | null;
+  top_store: { name: string; slug: string; offers: number } | null;
+  top_city: { city: string; people: number } | null;
+  best_score: { score: number; band: string; beer: string; store: string; offer_key: string } | null;
+  top_contributors: Array<{ name: string; score: number; approved: number }>;
+  /** False, and said rather than assumed: nothing in this system records a visit. */
+  activity_measurable: boolean;
+  as_of: string;
+};
+
+/** The dashboard's answers to "what is big right now" (migration 0042). */
+export async function getHighlights(): Promise<{ data: Highlights | null; ok: boolean }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("admin_highlights");
+  if (error) {
+    report("admin.highlights_failed", { code: error.code, reason: error.message });
+    return { data: null, ok: false };
+  }
+  return { data: data as Highlights, ok: true };
+}

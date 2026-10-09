@@ -573,14 +573,16 @@ test("standing is shown to the person it belongs to, and says exactly what it do
   await expect(credit.getByText(/נקודות/)).toHaveCount(0);
 
   const [me] = await sql<{ id: string }>("select id from public.profiles order by created_at desc limit 1");
+  // A shelf no other test in this file uses: one approved deal per beer, chain and
+  // pack (0005), and an earlier test already claims goldstar · rami-levy · sixpack.
   await sql(
     `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
-     select b.id, s.id, 'sixpack', 2490, 3990, 'approved', $1::uuid, $1::uuid, now()
-       from public.beers b, public.stores s where b.slug = 'goldstar' and s.slug = 'rami-levy'`,
+     select b.id, s.id, 'case', 8900, 11900, 'approved', $1::uuid, $1::uuid, now()
+       from public.beers b, public.stores s where b.slug = 'tuborg' and s.slug = 'victory'`,
     [me.id],
   );
 
-  await credit.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני");
+  await credit.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני-רקורד");
   await credit.getByRole("button", { name: "שמירה" }).click();
   await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 

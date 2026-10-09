@@ -113,7 +113,7 @@ test("the beers screen can switch one off, and says what that does and does not 
 });
 
 // Phase M: the people who submit (0035) — a moderation tool, not a directory.
-test("the submitters screen can stop one account, and shows nothing private", async ({ page, browser }) => {
+test("the people screen can stop one account, and shows nothing private", async ({ page, browser }) => {
   await onboard(page, "מנהל שולחים");
   await makeAdmin("מנהל שולחים");
 
@@ -134,7 +134,7 @@ test("the submitters screen can stop one account, and shows nothing private", as
   await sendOne(theirs, 1, 1);
   await expect(theirs.getByText("תודה! המבצע נשלח לאישור ויפורסם אחרי בדיקה.")).toBeVisible();
 
-  await page.goto("/admin/submitters");
+  await page.goto("/admin/people");
   const row = page.getByRole("article").first();
   // They never chose a public name, so the row says that — not their first name,
   // which admins cannot read, and not "anonymous".
