@@ -6,6 +6,23 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.30.0 — 2026-10-09
+
+**לדלפק יש עכשיו עומק** · Design
+
+- שלושת הבקבוקים על הדלפק עומדים עכשיו במרחב אמיתי — שניים מאחור ומופנים הצידה.
+- הבקבוק הראשי מתיישב פעם אחת כשמגיעים, ואז נח. לא מתנועע כל הזמן.
+- מי שביקש פחות תנועה מקבל את העומק בלי התזוזה.
+
+Internal:
+
+- Phase Q, which the brief gated on the app being fast and stable — so the gate was MEASURED first, not assumed. tests/e2e/perf.spec.ts now holds a navigation budget in the suite, where it fails a pull request rather than being rediscovered in an audit. Before: TTFB 40–136 ms, DCL 73–226 ms across the five routes people move between, on a 103 kB shared bundle. After: unchanged within noise, and the bundle is byte-identical because this is CSS only — no library, no per-frame JavaScript.
+- The budgets are deliberately generous (2.5 s). This runs on CI hardware against a local fake database and cannot tell us what a phone in a shop in Haifa experiences; what it CAN catch is the regression that turns 200 ms into 2 s. A tight budget here would be a flaky test pretending to be a guarantee.
+- WHAT THE 3D IS: a perspective on the bottle stage, so the two bottles behind the hero are set back in Z and turned away rather than merely smaller. They read as further away because they ARE. Long focal length (1400px) on purpose — a short one distorts the label of the one bottle this app is about.
+- The hero settles once on arrival, transform-only so it is composited, and then never moves again: a bottle that keeps moving is a bottle you stop seeing. `both` on the animation matters — without it the bottle jumps to its un-animated transform for one frame first — and translateX(-50%) is repeated in both keyframes because animating `transform` replaces the property outright.
+- IT DOES NOT RUN ON THE ONE NAVIGATION THAT IS ALREADY ANIMATED. Arriving from onboarding, this same element is the view transition's travelling bottle; two animations competing for one transform is how a tuned 780 ms journey becomes a twitch. The reveal script now marks that arrival on <html>, because the mark survives the transition where the transition TYPE does not, and a test asserts both halves: silent on that arrival, settling on every later one.
+- Under reduced motion the MOTION goes and the DEPTH stays: a perspective is composition, not movement, and somebody who asked for no animation did not ask for a flatter picture. The test asserts the computed DURATION rather than a class name — the global reduced-motion rule works by duration, so testing for the animation's name would pass while the bottle still moved.
+
 ## 0.29.0 — 2026-10-09
 
 **איזה סניף קרוב אליי** · Feature

@@ -62,7 +62,7 @@ export const viewport: Viewport = {
  * arrival on Home from onboarding (globals.css, "arriving from onboarding") — so this tags that one
  * and cancels the browser's default cross-fade for every other. A fixed string: nothing user-supplied.
  */
-const REVEAL_SCRIPT = `addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;var a=window.navigation&&navigation.activation,f=a&&a.from&&a.from.url;if(f&&new URL(f).pathname==="/welcome"&&location.pathname==="/")t.types.add("from-welcome");else t.skipTransition()})`;
+const REVEAL_SCRIPT = `addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;var a=window.navigation&&navigation.activation,f=a&&a.from&&a.from.url;if(f&&new URL(f).pathname==="/welcome"&&location.pathname==="/"){t.types.add("from-welcome");document.documentElement.dataset.arrived="welcome"}else t.skipTransition()})`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const preset = await currentTheme();
