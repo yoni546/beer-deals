@@ -13,6 +13,16 @@ export type Viewer = {
   /** Favourite #1 — drives the theme, and is ranked first for notifications. */
   primaryBeer: Beer | null;
   adminLevel: AdminLevel | null;
+  /**
+   * May they review deals? True for all three levels (0040) — an administrator
+   * does not lose the job by gaining others. This is what opens the panel.
+   */
+  isModerator: boolean;
+  /**
+   * May they manage? Admin or owner, and since 0040 NOT a moderator. It mirrors
+   * `public.is_admin()` exactly, so a screen and the database cannot disagree
+   * about who somebody is.
+   */
   isAdmin: boolean;
   isSuperAdmin: boolean;
   /** False before onboarding, and the reason `/` redirects to `/welcome`. */
@@ -31,6 +41,7 @@ const EMPTY: Viewer = {
   favorites: [],
   primaryBeer: null,
   adminLevel: null,
+  isModerator: false,
   isAdmin: false,
   isSuperAdmin: false,
   isOnboarded: false,
@@ -101,7 +112,8 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     favorites,
     primaryBeer: favorites[0] ?? null,
     adminLevel,
-    isAdmin: adminLevel !== null,
+    isModerator: adminLevel !== null,
+    isAdmin: adminLevel === "admin" || adminLevel === "super_admin",
     isSuperAdmin: adminLevel === "super_admin",
     // One beer is enough (V2: a person picks between one and four). `onboarded_at` is
     // the real signal; the favourites check only guards the window between the profile

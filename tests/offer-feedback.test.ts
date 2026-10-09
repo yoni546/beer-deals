@@ -180,7 +180,7 @@ describe("what an admin is shown", () => {
     const w = await world();
     await expect(
       asUser(w.db, w.visitor, () => w.db.query("select public.admin_offer_feedback()")),
-    ).rejects.toThrow(/admin privileges required/);
+    ).rejects.toThrow(/moderator privileges required/);
   });
 
   it("leaves out the offers nobody has said anything meaningful about", async () => {

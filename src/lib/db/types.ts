@@ -2,7 +2,15 @@ import type { DealCategory } from "@/lib/categories";
 
 export type DealStatus = "pending" | "approved" | "rejected" | "inactive";
 export type ReportStatus = "open" | "resolved" | "dismissed";
-export type AdminLevel = "admin" | "super_admin";
+/**
+ * The four roles (migration 0040). `user` is the absence of a row, so it is not
+ * in this type: a level exists only for somebody who has one.
+ *
+ *   moderator    reviews deals and reports. Nothing else.
+ *   admin        the catalogue, the weekly pick, coverage, the dashboard.
+ *   super_admin  the owner: grants and revokes, deletes, notification rules.
+ */
+export type AdminLevel = "moderator" | "admin" | "super_admin";
 
 export type Beer = {
   id: string;

@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.31.0",
+    "date": "2026-10-09",
+    "title_he": "ארבעה תפקידים בלוח הניהול",
+    "highlights_he": [
+      "אפשר עכשיו למנות ״מנהל תוכן״ שמאשר ודוחה מבצעים — וזה כל מה שהוא יכול.",
+      "ניהול בירות, מבצע השבוע וכיסוי נשארים למנהל; הרשאות, מחיקה והתראות למנהל על.",
+      "ההגבלה היא בבסיס הנתונים, לא בהסתרת כפתורים."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0040. Until now there were two levels and is_admin() meant 'has a row in admins' — everybody who could review a deal could also manage the catalogue and reach every screen. The brief asked for Owner / Admin / Moderator / User, and it is the right separation: reviewing prices is the job you hand to somebody else, managing beers and granting privileges is the job you do not.",
+      "is_admin() IS TIGHTENED, NOT WIDENED: it means admin-or-owner now, and a moderator is not one. Every policy and every require_admin() that already existed therefore CLOSED to moderators by default, and 0040 re-opens exactly the ones the job needs, by name. That direction is the whole safety argument — the mistake you cannot recover from is a new role silently inheriting a permission nobody listed.",
+      "A moderator gets: approve, reject, close a report, edit a deal, add one by hand, the queue and reports screens, the submitters screen with blocking, and the audit log (their own actions are in it — a log only the most powerful person can see is not accountability, it is a privilege). They do not get: beers, coverage, the weekly pick, the dashboard, grants, deletion, notification rules.",
+      "'You cannot block an admin' is generalised to 'you cannot block somebody at your level or above', which is the same rule once there are three levels. It leans on the enum's declared order, so moderator < admin < super_admin compares directly.",
+      "tests/roles.test.ts walks every door for all four. One assertion had to be written differently and is stronger for it: RLS on an UPDATE filters rows rather than raising, so a moderator's attempt to edit a beer directly is asserted by the OUTCOME — nothing matched, nothing changed — rather than by an error that never comes.",
+      "And the third repeat of one mistake: admin_add_deal is defined in both 0025 and 0032, and the first draft re-issued the 0025 body, which silently dropped the audit entry 0032 added. A test caught it, as it did the two previous times."
+    ]
+  },
+  {
     "version": "0.30.0",
     "date": "2026-10-09",
     "title_he": "לדלפק יש עכשיו עומק",

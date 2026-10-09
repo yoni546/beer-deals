@@ -3,6 +3,7 @@ import { AdminSection } from "@/components/admin/AdminUi";
 import { EmptyState } from "@/components/Chrome";
 import { Price } from "@/components/ui/Price";
 import { getAdminOverview, getExpiringOffers } from "@/lib/admin-queries";
+import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,11 @@ function Tile({
 }
 
 export default async function AdminHomePage() {
+  // A moderator has no dashboard: admin_overview() is management, and the panel
+  // opens on the queue for them — the only screen whose job is theirs.
+  const gate = await getViewer();
+  if (!gate.isAdmin) redirect("/admin/queue");
+
   const [overview, expiring, viewer] = await Promise.all([
     getAdminOverview(7),
     getExpiringOffers(7, 8),

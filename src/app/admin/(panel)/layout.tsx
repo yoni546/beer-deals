@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const viewer = await getViewer();
   // A failed read must not look like "you are not an admin" — that bounced signed-in
   // admins to the sign-in page whenever the database hiccuped.
-  if (viewer.degraded && !viewer.isAdmin) {
+  if (viewer.degraded && !viewer.isModerator) {
     return (
       <Screen>
         <div className="pt-10">
@@ -36,7 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </Screen>
     );
   }
-  if (!viewer.isAdmin) redirect("/admin/login");
+  if (!viewer.isModerator) redirect("/admin/login");
 
   const tabs = [
     { href: "/admin", label: "בית" },

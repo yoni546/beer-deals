@@ -217,7 +217,7 @@ describe("an action that did not happen leaves no trace", () => {
     const deal = await submit(w, w.visitor, w.ids.goldstar, w.ids.rami);
     await expect(
       asUser(w.db, w.visitor, () => w.db.query("select public.approve_deal($1)", [deal])),
-    ).rejects.toThrow(/admin privileges required/);
+    ).rejects.toThrow(/moderator privileges required/);
     expect((await w.db.query("select 1 from public.admin_actions")).rows).toHaveLength(0);
   });
 });
@@ -258,7 +258,7 @@ describe("the log cannot be rewritten by the people it is about", () => {
     const { w } = await setup();
     await expect(
       asUser(w.db, w.visitor, () => w.db.query("select public.admin_audit()")),
-    ).rejects.toThrow(/admin privileges required/);
+    ).rejects.toThrow(/moderator privileges required/);
     await expect(
       asUser(w.db, w.visitor, () => w.db.query("select 1 from public.admin_actions"), "anon"),
     ).rejects.toThrow(/permission denied/);

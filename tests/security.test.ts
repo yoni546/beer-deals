@@ -178,7 +178,7 @@ describe("only admins moderate", () => {
 
     await asUser(db, userId, async () => {
       await expect(db.query("select public.approve_deal($1)", [dealId])).rejects.toThrow(
-        /admin privileges required/,
+        /moderator privileges required/,
       );
     });
   });
@@ -298,7 +298,7 @@ describe("reports never remove a deal", () => {
     await asUser(db, reporter, async () => {
       await expect(
         db.query("select public.resolve_report($1, 'resolved')", [reportId]),
-      ).rejects.toThrow(/admin privileges required/);
+      ).rejects.toThrow(/moderator privileges required/);
     });
   });
 });

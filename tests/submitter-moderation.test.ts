@@ -179,7 +179,9 @@ describe("a block is a judgement, so it is explained and recorded", () => {
     ).rejects.toThrow(/את עצמכם/);
     await expect(
       asUser(w.db, moderator, () => w.db.query("select public.admin_block_submitter($1, 'סיבה כלשהי')", [w.admin])),
-    ).rejects.toThrow(/אי אפשר לחסום מנהל/);
+    // Generalised in 0040: "somebody at your level or above", which is the same
+    // rule once there are three levels rather than two.
+    ).rejects.toThrow(/דרגה שלכם או מעליה/);
   });
 
   it("refuses lifting a block that is not there", async () => {
@@ -246,7 +248,7 @@ describe("it is not a directory of people", () => {
       `select public.admin_unblock_submitter('${w.visitor}')`,
     ]) {
       await expect(asUser(w.db, w.visitor, () => w.db.query(call)), call).rejects.toThrow(
-        /admin privileges required/,
+        /moderator privileges required/,
       );
     }
     // And the table itself is closed to everybody, admins included.

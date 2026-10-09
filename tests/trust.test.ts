@@ -90,8 +90,10 @@ describe("trust is not a permission", () => {
       "select public.admin_audit()",
       `select public.admin_block_submitter('${w.visitor}', 'סיבה כלשהי')`,
     ]) {
+      // Either gate, depending on the door: moderation functions say "moderator",
+      // management functions say "admin". Both are a refusal, which is the subject.
       await expect(asUser(w.db, trusted, () => w.db.query(call)), call).rejects.toThrow(
-        /admin privileges required/,
+        /(moderator|admin) privileges required/,
       );
     }
   });

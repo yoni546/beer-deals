@@ -9,6 +9,13 @@ import { IDLE } from "@/lib/actions/result";
 
 type Row = { user_id: string; level: string; created_at: string };
 
+/** What each role may actually do, said where somebody is choosing one. */
+const LEVEL_HE: Record<string, string> = {
+  moderator: "מנהל תוכן · מאשר ודוחה מבצעים",
+  admin: "מנהל · גם בירות, מבצע השבוע וכיסוי",
+  super_admin: "מנהל על · גם הרשאות, מחיקה והתראות",
+};
+
 /**
  * Adding and removing admins. Super admin only — and the check that matters is
  * in grant_admin/revoke_admin, which raise 42501 for anyone else.
@@ -31,7 +38,10 @@ export function AdminRoster({ roster, currentUserId }: { roster: Row[]; currentU
             המשתמש צריך להיות כבר רשום עם האימייל הזה בסופאבייס.
           </p>
           <input id="email" name="email" type="email" required dir="ltr" className="field" />
-          <select name="level" defaultValue="admin" aria-label="רמת הרשאה" className="field">
+          {/* Four roles since 0040. "User" is the absence of a row, so it is not
+              here: you remove somebody rather than demote them to it. */}
+          <select name="level" defaultValue="moderator" aria-label="רמת הרשאה" className="field">
+            <option value="moderator">מנהל תוכן</option>
             <option value="admin">מנהל</option>
             <option value="super_admin">מנהל על</option>
           </select>
@@ -53,7 +63,7 @@ export function AdminRoster({ roster, currentUserId }: { roster: Row[]; currentU
                   {row.user_id}
                 </p>
                 <p className="text-sm text-ink-2">
-                  {row.level === "super_admin" ? "מנהל על" : "מנהל"}
+                  {LEVEL_HE[row.level] ?? row.level}
                   {row.user_id === currentUserId ? " · זה אתם" : ""}
                 </p>
               </div>
