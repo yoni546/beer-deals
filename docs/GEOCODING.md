@@ -127,3 +127,41 @@ Once branches have positions, `branches_within_km()` (migration 0026) starts
 returning them, `distancesFor()` starts measuring, and "הכי קרוב אליי" stops
 explaining itself and starts sorting. Nothing else has to change: the screens were
 written against the finished shape and have been waiting for the data.
+
+## Why there is no tile map (Phase H, 2026-10-09)
+
+Phase H of the V2 brief asked for a map. There is not one, and this is the reasoning
+rather than an omission.
+
+**A map of this data would be an empty map.** `branches.latitude` is null for every
+branch: migration 0026 shipped the columns with no provider configured, deliberately,
+because inventing a position is worse than admitting we have none. Nothing would be
+drawn on it today.
+
+**It is not a small dependency.** A tile map means an external tile service that sees
+every viewer's IP on every pan, a key the owner has to obtain and keep, and a map
+library — on an app whose loudest complaint in the audit was that it was slow
+(§2: measured TTFB of 2–5 s). That is the same trade Phase Q (3D transitions) is
+explicitly gated on, and it fails the gate for the same reason: not until the app is
+fast and stable.
+
+**What somebody actually wants from a map here is one sentence:** *which branch near
+me has this?* That is answerable from the data we already hold the moment any branch
+has a position, and answerable in text today — including the honest answer.
+
+So migration 0039 (`promotion_branches_near`) orders the branch list that already
+opens under a deal's "where" line by distance, says how far each one is, and keeps the
+branches it cannot place *after* the ones it can rather than dropping them — a branch
+we cannot locate is still a branch the deal is at. A town-centre fix is labelled as a
+town centre, because "2 km" measured from a city centre is a precision we do not have.
+
+Until a geocoder runs, the sheet says which of the two reasons there are no distances:
+*"we do not yet have the branches' locations"* or *"you have not told us where you
+are"* — the second being the one a person can do something about.
+
+**What would change the decision.** Coordinates existing (run
+`scripts/ingest/geocode.mjs --target staging --apply`), plus a decision by the owner
+about a tile provider, taken knowing it is a third party watching every viewer. At
+that point a map is an additive route that can lazy-load its library, and the SQL it
+needs — `km_between`, `branches_within_km`, `promotion_branches_near` — is already
+here and tested.

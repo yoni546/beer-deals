@@ -6,6 +6,23 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.29.0 — 2026-10-09
+
+**איזה סניף קרוב אליי** · Feature
+
+- ברשימת הסניפים של מבצע: הקרוב אליכם ראשון, עם המרחק.
+- סניף שאין לנו את המיקום שלו נשאר ברשימה — אחרי הממוקמים, ובלי מרחק מומצא.
+- כשאין מרחקים, כתוב למה: או שאין לנו את מיקומי הסניפים, או שלא סיפרתם לנו איפה אתם.
+
+Internal:
+
+- Migration 0039, Phase H. The brief asked for a map; there is not one, and docs/GEOCODING.md records the reasoning rather than leaving it an omission. A map of this data would be an EMPTY map — branches.latitude is null for every branch (0026 shipped the columns with no provider on purpose) — and it would add an external tile service that sees every viewer's IP on every pan, a key the owner must obtain, and a map library, on an app whose loudest audit complaint was that it was slow. That is the trade Phase Q is gated on and it fails the gate the same way.
+- What somebody wants from a map here is one sentence: which branch near me has this. That is answerable from the data we hold the moment any branch has a position, and answerable in text now — including the honest answer.
+- promotion_branches_near orders the sheet that already opens under a deal's 'where' line by distance. A branch we cannot place keeps its alphabetical order AFTER the ones we can rather than being dropped: a branch we cannot locate is still a branch the deal is at. A 'locality' fix is labelled as a town centre, because '2 km' measured from a city centre is a precision we do not have.
+- The point distance is measured from is the viewer's own home, read on the SERVER from their profile — never taken from the request. A client-supplied point would let anybody ask about somebody else's town, and worse, would put a person's home in a URL: in logs, in a referrer, in a shared link. Not SECURITY DEFINER either: promotion_branches (0017) and branches (0008) are world-readable by policy and a branch's address is public. What would be private is storing where somebody asked from, and this stores nothing.
+- The sheet says WHICH of the two reasons there are no distances — no branch locations, or no home on record — because the second is the one a person can do something about.
+- Two things the first draft got wrong, both caught before anything ran: `precision` is a reserved word in Postgres (as in `double precision`) and will not parse as an OUT column name, and I had guessed the promotions/promotion_occurrences columns rather than reading them.
+
 ## 0.28.0 — 2026-10-08
 
 **דף הבית אומר לכם מה ביקשתם לדעת** · Feature, Fix
