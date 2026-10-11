@@ -9671,3 +9671,18 @@ $$;
 
 revoke execute on function public.admin_highlights() from public, anon;
 grant execute on function public.admin_highlights() to authenticated;
+
+-- ======================== the ledger ========================
+
+do $ledger$
+begin
+  create schema if not exists supabase_migrations;
+  create table if not exists supabase_migrations.schema_migrations (version text primary key);
+  insert into supabase_migrations.schema_migrations (version)
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042')
+  on conflict (version) do nothing;
+  raise notice 'ledger: recorded 42 migrations';
+exception when others then
+  raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
+end
+$ledger$;

@@ -43,7 +43,29 @@ export function renderCombinedSql(migrationsDir = join(ROOT, "supabase", "migrat
     const body = readFileSync(join(migrationsDir, name), "utf8").replace(/\r\n/g, "\n").trim();
     return `\n-- ======================== ${name} ========================\n\n${body}\n`;
   });
-  return HEADER + parts.join("");
+  // Same ledger note as the range file: a project built from this paste has never
+  // been touched by the CLI, so without this a later `supabase db push` would offer
+  // to apply all of them again. Wrapped in a handler because bookkeeping must not
+  // roll back a schema that applied correctly.
+  const versions = files.map((name) => name.slice(0, 4));
+  const ledger = `
+-- ======================== the ledger ========================
+
+do $ledger$
+begin
+  create schema if not exists supabase_migrations;
+  create table if not exists supabase_migrations.schema_migrations (version text primary key);
+  insert into supabase_migrations.schema_migrations (version)
+  values ${versions.map((v) => `('${v}')`).join(", ")}
+  on conflict (version) do nothing;
+  raise notice 'ledger: recorded ${versions.length} migrations';
+exception when others then
+  raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
+end
+$ledger$;
+`;
+
+  return HEADER + parts.join("") + ledger;
 }
 
 export const COMBINED_SQL_PATH = OUT;
