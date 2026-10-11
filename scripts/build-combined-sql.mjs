@@ -79,22 +79,56 @@ export const COMBINED_SQL_PATH = OUT;
  * these again: two sources of truth about one database, which is how a schema ends
  * up half-applied.
  */
-export function renderRangeSql(from, to, migrationsDir = join(ROOT, "supabase", "migrations")) {
+export function migrationsInRange(from, to, migrationsDir = join(ROOT, "supabase", "migrations")) {
   const all = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort();
   const inRange = all.filter((name) => {
     const n = name.slice(0, 4);
     return n >= from && n <= to;
   });
   if (inRange.length === 0) throw new Error(`no migrations between ${from} and ${to}`);
+  return inRange;
+}
+
+/**
+ * Split a list of migrations into groups no bigger than `maxBytes`. A migration is
+ * never split: the largest single file sets the floor, and a group that would
+ * exceed the budget starts a new one instead. Needed because the Supabase SQL
+ * editor silently truncates a very large paste, and a truncated paste fails inside
+ * a function body with an error that looks nothing like "too big".
+ */
+export function chunkMigrations(files, maxBytes, migrationsDir = join(ROOT, "supabase", "migrations")) {
+  const groups = [];
+  let current = [];
+  let size = 0;
+  for (const name of files) {
+    const bytes = readFileSync(join(migrationsDir, name)).length;
+    if (current.length > 0 && size + bytes > maxBytes) {
+      groups.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(name);
+    size += bytes;
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
+}
+
+export function renderRangeSql(from, to, migrationsDir = join(ROOT, "supabase", "migrations"), only = null, part = null) {
+  const inRange = only ?? migrationsInRange(from, to, migrationsDir);
 
   const versions = inRange.map((name) => name.slice(0, 4));
+  const title = part
+    ? `PART ${part.index} OF ${part.total} — migrations ${versions[0]} … ${versions[versions.length - 1]}`
+    : `migrations ${versions[0]} … ${versions[versions.length - 1]}, in order`;
+  const order = part
+    ? `-- RUN THE PARTS IN ORDER. This is part ${part.index}; do not run it before part ${part.index - 1}.\n--\n`
+    : "";
   const header = `-- ===========================================================================
--- Beer Deals — migrations ${versions[0]} … ${versions[versions.length - 1]}, in order.
+-- Beer Deals — ${title}.
 --     *** GENERATED, for ONE database at ONE moment — do not keep this file ***
 --
--- Regenerate:  node scripts/build-combined-sql.mjs --from ${from} --to ${to} --out <path>
---
--- For a database that ALREADY has everything before ${versions[0]}. Paste the whole
+${order}-- For a database that ALREADY has everything before ${versions[0]}. Paste the whole
 -- thing into the SQL Editor and press Run, once. It runs in a single transaction:
 -- if any statement fails, nothing is applied and the error names the line.
 --
@@ -151,6 +185,17 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     if (!out) {
       console.error("--from needs --out <path>: the range file is not committed, so it needs somewhere to go");
       process.exit(2);
+    }
+    const chunkBytes = Number(flag("chunk-bytes") ?? 0);
+    if (chunkBytes > 0) {
+      // <out> is treated as a prefix: <out>-1-of-N.sql, and so on.
+      const groups = chunkMigrations(migrationsInRange(from, to), chunkBytes);
+      groups.forEach((group, i) => {
+        const path = `${out}-${i + 1}-of-${groups.length}.sql`;
+        writeFileSync(path, renderRangeSql(from, to, undefined, group, { index: i + 1, total: groups.length }));
+        console.log(`wrote ${path}  (${group.length} migrations, ${Buffer.byteLength(readFileSync(path, "utf8"))} bytes)`);
+      });
+      process.exit(0);
     }
     writeFileSync(out, renderRangeSql(from, to));
     console.log(`wrote ${out}`);
