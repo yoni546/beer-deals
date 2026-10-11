@@ -145,4 +145,60 @@ describe("the whole schema, swept", () => {
     // what becomes a live one the day somebody adds a permissive policy.
     expect(rows.map((r) => `${r.t}:${r.p}`)).toEqual([]);
   });
+  it("holds the worker's role to the privileges the worker uses, and no more", async () => {
+    // The counterpart to 0006's test, which can only prove the positive half: at
+    // 0006 the platform's own default privileges still gave service_role
+    // everything, and 0043 is what takes it back. Here the whole schema is
+    // applied, so the "and no more" is finally a true statement.
+    //
+    // service_role bypasses RLS, so unlike anon there is no second layer behind
+    // these grants. The grant list IS the security boundary for this role, which
+    // is the reason to assert it rather than trust it.
+    const db = await freshDatabase();
+    const { rows } = await db.query<{ t: string; p: string }>(
+      `select table_name as t, privilege_type as p
+         from information_schema.role_table_grants
+        where grantee = 'service_role' and table_schema = 'public'
+          and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+        order by 1, 2`,
+    );
+    const held = rows.map((r) => `${r.t}:${r.p}`);
+
+    // Everything the ingestion and the notification worker write DIRECTLY. The
+    // list is short because most of the import does not write tables at all: a
+    // price goes through record_prices(), a promotion through
+    // record_promotion_occurrences(), the run itself through
+    // start_ingestion_run() / finish_ingestion_run(). Those are the doors
+    // tests/catalog.test.ts proves are the only ones.
+    expect(held).toEqual([
+      "branches:INSERT",
+      "branches:UPDATE",
+      "ingestion_runs:INSERT",
+      "ingestion_runs:UPDATE",
+      "notification_deliveries:INSERT",
+      "notification_deliveries:UPDATE",
+      "notification_events:UPDATE",
+      "push_log:INSERT",
+      "push_subscriptions:DELETE",
+      "sku_barcodes:INSERT",
+      "sku_barcodes:UPDATE",
+      "skus:INSERT",
+      "skus:UPDATE",
+      "source_products:INSERT",
+      "source_products:UPDATE",
+    ]);
+
+    // And nothing anywhere may be emptied wholesale.
+    expect(held.filter((h) => h.endsWith(":TRUNCATE"))).toEqual([]);
+
+    // `deals` is UPDATE on one column only (0006): the worker stamps notified_at
+    // and may not touch a price. A table-wide UPDATE here would pass the list
+    // above and still be wrong.
+    const { rows: cols } = await db.query<{ c: string }>(
+      `select column_name as c from information_schema.column_privileges
+        where grantee = 'service_role' and table_schema = 'public'
+          and table_name = 'deals' and privilege_type = 'UPDATE' order by 1`,
+    );
+    expect(cols.map((r) => r.c)).toEqual(["notified_at"]);
+  });
 });

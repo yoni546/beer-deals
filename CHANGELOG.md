@@ -6,6 +6,27 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.32.1 — 2026-10-11
+
+**סגירת פרצה שהתגלתה בחזרה הגנרלית** · Fix
+
+- יומן פעולות המנהלים היה פתוח להרשאות שאיש לא העניק לו. נסגר.
+- מעכשיו כל טבלה חדשה נולדת סגורה, וצריך לפתוח אותה במפורש.
+- שום מידע של אף אדם לא נחשף ולא השתנה.
+
+Internal:
+
+- Migration 0043. Found on staging — the first time this schema was verified against a real Supabase project rather than against PGlite.
+- `anon`, the role every visitor's browser arrives as, held SELECT, INSERT, DELETE and TRUNCATE on public.admin_actions, the append-only audit log that 0032 deliberately grants nobody anything on. 123 unintended write privileges for anon across 87 tables, none of them granted by any migration.
+- Source: every Supabase project is created with `alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role`, so a table created by a later migration is handed to the API roles before that migration speaks. The whole schema was written on the opposite assumption, which is CLAUDE.md's first non-negotiable.
+- Exposure was narrower than the grant list: RLS is on for every table in public and a table with RLS and no policy answers a role with nothing, so the log was never readable or writable through the API. Two things were real anyway — TRUNCATE ignores RLS entirely (PostgREST does not expose it, but 'no path I can find' is not 'no path'), and the two independent layers we describe everywhere were one.
+- tests/sql/bootstrap.sql is why this survived: security-sweep.test.ts asserts exactly this and passed, because PGlite has no such default privileges. The bootstrap now starts from the platform's defaults, which made the sweep fail immediately and will ask the same question of every table added from here on.
+- 0043 revokes the default privileges, revokes everything from anon, authenticated and service_role on every table and view in public, and re-grants what 0001–0042 actually grant. The list is REPLAYED from their own GRANT and REVOKE statements in order, column-level grants included — reading only the grants handed `beers` its DELETE back (0034 removed it: a beer is deactivated, never deleted) and dropped `profiles`' column-level UPDATE (0010), which would have stopped people changing their own name. Both were caught by the suite.
+- service_role was not in the first plan and is in scope now because three tests assert the worker's role has 'exactly the privileges it uses, and no more' and failed the moment the bootstrap was honest. It bypasses RLS, so for that role the grant list IS the boundary, with no second layer behind it.
+- 0006's test lost its 'and nothing more' half, which was never true at 0006 — the platform's grants were still in force there, on the real thing as much as in the test. The assertion moved to the sweep, against the whole schema, where it is true.
+- One casualty, accepted: scripts/seed-demo-deals.mjs inserted into `deals` as the service role on a privilege no migration granted. It is a dev/staging seeder that already refuses to run on production, and widening the live write path to keep a seeder convenient is the wrong trade.
+- npm test: 989 passed, 70 files. Migration 0043 needs applying to staging and production.
+
 ## 0.32.0 — 2026-10-09
 
 **האנשים, מי מצא, ומה גדול עכשיו** · Feature

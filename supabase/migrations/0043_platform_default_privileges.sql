@@ -46,19 +46,29 @@
 -- WHAT THIS DOES
 --   1. Stops the bleeding: revokes the default privileges, so a table created
 --      by a later migration arrives unreachable, as the schema assumes.
---   2. Revokes everything from anon and authenticated, on every table and view
---      in public.
+--   2. Revokes everything from anon, authenticated and service_role, on every
+--      table and view in public.
 --   3. Re-grants exactly what migrations 0001–0042 actually grant — the list
---      below is replayed from their own GRANT **and REVOKE** statements in
---      migration order, not retyped from memory. Reading only the grants
---      handed `beers` its DELETE back, which 0034 had removed on purpose
---      (a beer is deactivated, never deleted: somebody's favourite points
---      at it). The sweep caught that, which is the whole point of it.
+--      below is replayed from their own GRANT and REVOKE statements in
+--      migration order, COLUMN-LEVEL GRANTS INCLUDED, not retyped from memory.
+--      Two things only a replay gets right, and the suite caught both:
+--        * `beers` loses DELETE. 0003 grants it, 0034 takes it away on purpose
+--          (a beer is deactivated, never deleted — somebody's favourite points
+--          at it), and reading the grants alone hands it back.
+--        * `profiles` keeps UPDATE on two columns and no more. 0010 revokes
+--          table-wide UPDATE and re-grants `update (first_name,
+--          notifications_enabled)`; a version of this migration that ignored
+--          column grants left people unable to change their own name.
 --
--- `service_role` is deliberately left alone. It bypasses RLS by design, it is
--- the key the ingestion and the notification worker run as, it is server-only
--- and never shipped to a browser, and narrowing it is a separate change with
--- its own failure modes. It is not the role a visitor arrives as.
+-- `service_role` IS in scope, which was not the first plan. It bypasses RLS by
+-- design and is server-only, so the exposure is nothing like anon's — but the
+-- suite settled it: three tests assert that the worker's role has "exactly the
+-- privileges it uses, and no more" (0006, and twice in notifications-security),
+-- and they failed the moment the bootstrap started handing out the platform's
+-- defaults. The schema states an intention about this role that the platform
+-- had quietly voided too, so it is restored here on the same terms: revoke, then
+-- re-grant what the migrations actually give it, including 0006's single column
+-- on `deals`.
 --
 -- Additive and reversible in the sense that matters: it only removes privileges
 -- nothing is supposed to be using, and re-states the ones that are. If it were
@@ -67,59 +77,80 @@
 -- ---------------------------------------------------------------------------
 
 -- 1. The source.
-alter default privileges in schema public revoke all on tables from anon, authenticated;
-alter default privileges in schema public revoke all on sequences from anon, authenticated;
+alter default privileges in schema public revoke all on tables from anon, authenticated, service_role;
+alter default privileges in schema public revoke all on sequences from anon, authenticated, service_role;
 
 -- 2. The accumulated grants. Safe for sequences: every generated key in this
 --    schema is an identity column, and an identity column needs no sequence
 --    privilege from the role doing the insert.
-revoke all on all tables in schema public from anon, authenticated;
-revoke all on all sequences in schema public from anon, authenticated;
+revoke all on all tables in schema public from anon, authenticated, service_role;
+revoke all on all sequences in schema public from anon, authenticated, service_role;
 
 -- 3. What the migrations actually mean to grant.
 grant select on public.admins to authenticated;
-grant select on public.app_settings to anon, authenticated;
-grant select on public.beers to anon;
+grant select on public.app_settings to anon, authenticated, service_role;
+grant select on public.beers to anon, service_role;
 grant select, insert, update on public.beers to authenticated;
-grant select on public.branch_scans to authenticated;
+grant select on public.branch_scans to authenticated, service_role;
 grant select on public.branches to anon;
+grant select, insert, update on public.branches to service_role;
 grant select, insert, update, delete on public.branches to authenticated;
-grant select on public.brands to anon;
+grant select on public.brands to anon, service_role;
 grant select, insert, update, delete on public.brands to authenticated;
-grant select on public.contributors to anon, authenticated;
+grant select on public.contributors to anon, authenticated, service_role;
 grant select, insert, update on public.deal_reports to authenticated;
-grant select on public.deals to anon;
+grant select on public.deals to anon, service_role;
 grant select, insert, update, delete on public.deals to authenticated;
-grant select on public.deals_public to anon, authenticated;
-grant select on public.group_offers_feed to anon, authenticated;
+grant update (notified_at) on public.deals to service_role;
+grant select on public.deals_public to anon, authenticated, service_role;
+grant select on public.group_offers_feed to anon, authenticated, service_role;
 grant select on public.ingestion_runs to authenticated;
-grant select on public.offer_feedback to anon, authenticated;
-grant select on public.offer_scores to anon, authenticated;
-grant select on public.offers_feed to anon, authenticated;
-grant select on public.offers_ranked to anon, authenticated;
-grant select on public.price_observations to anon, authenticated;
-grant select on public.product_categories to anon, authenticated;
-grant select on public.profiles to authenticated;
-grant select on public.promotion_branches to anon, authenticated;
-grant select on public.promotion_group_items to anon, authenticated;
-grant select on public.promotion_groups to anon, authenticated;
-grant select on public.promotion_occurrences to anon, authenticated;
-grant select on public.promotions to anon, authenticated;
-grant select on public.promotions_current to anon, authenticated;
+grant select, insert, update on public.ingestion_runs to service_role;
+grant select, insert, update on public.notification_deliveries to service_role;
+grant select, update on public.notification_events to service_role;
+grant select on public.offer_feedback to anon, authenticated, service_role;
+grant select on public.offer_scores to anon, authenticated, service_role;
+grant select on public.offers_feed to anon, authenticated, service_role;
+grant select on public.offers_ranked to anon, authenticated, service_role;
+grant select on public.price_observations to anon, authenticated, service_role;
+grant select on public.product_categories to anon, authenticated, service_role;
+grant select on public.profiles to authenticated, service_role;
+grant update (first_name, notifications_enabled) on public.profiles to authenticated;
+grant select on public.promotion_branches to anon, authenticated, service_role;
+grant select on public.promotion_group_items to anon, authenticated, service_role;
+grant select on public.promotion_groups to anon, authenticated, service_role;
+grant select on public.promotion_occurrences to anon, authenticated, service_role;
+grant select on public.promotions to anon, authenticated, service_role;
+grant select on public.promotions_current to anon, authenticated, service_role;
 grant select on public.push_log to authenticated;
+grant select, insert on public.push_log to service_role;
+grant select, delete on public.push_subscriptions to service_role;
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
-grant select on public.regular_prices_current to anon, authenticated;
-grant select on public.regular_prices_feed to anon, authenticated;
+grant select on public.regular_prices_current to anon, authenticated, service_role;
+grant select on public.regular_prices_feed to anon, authenticated, service_role;
 grant select on public.sku_barcodes to anon;
+grant select, insert, update on public.sku_barcodes to service_role;
 grant select, insert, update, delete on public.sku_barcodes to authenticated;
 grant select on public.skus to anon;
+grant select, insert, update on public.skus to service_role;
 grant select, insert, update, delete on public.skus to authenticated;
 grant select, update on public.source_products to authenticated;
-grant select on public.sources to anon, authenticated;
-grant select on public.stores to anon;
+grant select, insert, update on public.source_products to service_role;
+grant select on public.sources to anon, authenticated, service_role;
+grant select on public.stores to anon, service_role;
 grant select, insert, update, delete on public.stores to authenticated;
+grant select on public.user_favorite_beers to service_role;
 grant select, insert, update, delete on public.user_favorite_beers to authenticated;
+grant select on public.watchlist to service_role;
 grant select, insert, update, delete on public.watchlist to authenticated;
+
+-- One tool loses a privilege it was using: scripts/seed-demo-deals.mjs inserts
+-- into `deals` as the service role, which no migration ever granted — it worked
+-- only because the platform had. It is a dev/staging seeder that already refuses
+-- to run against production, and widening the boundary of the live write path to
+-- keep a seeder convenient is the wrong trade. If it is wanted back, it should
+-- go through admin_add_deal() like every other manual deal.
+--
 -- And the three tables that are meant to have nothing, named here so that the
 -- intent is visible rather than implied by their absence from the list above:
 -- admin_actions (0032), display_name_changes (0033), submission_blocks (0035).

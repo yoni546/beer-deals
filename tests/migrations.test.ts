@@ -107,7 +107,7 @@ describe("0006 · retire sample deals, honest notification default, service-role
     expect(await flag(fresh)).toBe(false);
   });
 
-  it("gives the push sender's service role exactly the privileges it uses", async () => {
+  it("gives the push sender's service role every privilege it uses", async () => {
     const { db, real, subscribed } = await productionLikeDatabase();
     await applyMigration(db, "0006");
 
@@ -126,10 +126,12 @@ describe("0006 · retire sample deals, honest notification default, service-role
         await db.query("insert into public.push_log (user_id, deal_id) values ($1, $2)", [subscribed, real]);
         await db.query("delete from public.push_subscriptions where endpoint = 'https://push.example/1'");
 
-        // …and nothing more: it cannot rewrite prices or invent deals.
-        await expect(db.query("update public.deals set deal_price_agorot = 1 where id = $1", [real])).rejects.toMatchObject({ code: "42501" });
-        await expect(db.query("delete from public.deals where id = $1", [real])).rejects.toMatchObject({ code: "42501" });
-        await expect(db.query("update public.profiles set first_name = 'x'")).rejects.toMatchObject({ code: "42501" });
+        // The matching "…and nothing more" lives in tests/security-sweep.test.ts,
+        // against the whole schema, because it is not true here. A Supabase
+        // project grants the API roles everything in `public` by default, and
+        // nothing took that back until 0043 — so at 0006 the worker's role really
+        // could rewrite a price, on the real thing as much as in this test. The
+        // guarantee is real from 0043 onward, and that is where it is asserted.
       },
       "service_role",
     );
