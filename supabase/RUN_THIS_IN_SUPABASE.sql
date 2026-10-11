@@ -334,8 +334,7 @@ as $$
 declare
   target_profile uuid := coalesce(new.profile_id, old.profile_id);
 begin
-  update public.profiles p
-     set primary_beer_id = (
+  update public.profiles p set primary_beer_id = (
        select f.beer_id from public.user_favorite_beers f
         where f.profile_id = target_profile and f.rank = 1
      )
@@ -481,8 +480,7 @@ begin
     raise exception 'the four beers must be different' using errcode = '22023';
   end if;
 
-  update public.profiles
-     set first_name   = trim(p_first_name),
+  update public.profiles set first_name   = trim(p_first_name),
          onboarded_at = coalesce(onboarded_at, now())
    where id = uid;
 
@@ -517,8 +515,7 @@ declare
 begin
   perform public.require_admin();
 
-  update public.deals
-     set status      = 'approved',
+  update public.deals set status      = 'approved',
          approved_by = auth.uid(),
          approved_at = now()
    where id = p_deal_id
@@ -548,8 +545,7 @@ begin
     return public.approve_deal(p_deal_id);
   end if;
 
-  update public.deals
-     set status = p_status,
+  update public.deals set status = p_status,
          -- Leaving approved_by/at set on a deal that is no longer approved
          -- would misreport who stands behind it now.
          approved_by = null,
@@ -562,8 +558,7 @@ begin
   end if;
 
   -- A deal that is no longer public cannot remain the Weekly Deal.
-  update public.app_settings
-     set weekly_deal_id = null
+  update public.app_settings set weekly_deal_id = null
    where id and weekly_deal_id = p_deal_id;
 
   return row;
@@ -590,8 +585,7 @@ declare
 begin
   perform public.require_admin();
 
-  update public.deals
-     set beer_id              = p_beer_id,
+  update public.deals set beer_id              = p_beer_id,
          store_id             = p_store_id,
          category             = p_category,
          deal_price_agorot    = p_deal_price_agorot,
@@ -634,8 +628,7 @@ begin
     raise exception 'a report is resolved or dismissed, not reopened' using errcode = '22023';
   end if;
 
-  update public.deal_reports
-     set status = p_status, resolved_by = auth.uid(), resolved_at = now()
+  update public.deal_reports set status = p_status, resolved_by = auth.uid(), resolved_at = now()
    where id = p_report_id
   returning * into row;
 
@@ -666,8 +659,7 @@ begin
     raise exception 'the weekly deal must be an approved deal' using errcode = '22023';
   end if;
 
-  update public.app_settings
-     set weekly_deal_id     = p_deal_id,
+  update public.app_settings set weekly_deal_id     = p_deal_id,
          weekly_deal_set_by = auth.uid(),
          weekly_deal_set_at = now(),
          updated_by         = auth.uid()
@@ -692,8 +684,7 @@ begin
   -- setting rather than an ordinary admin one, per the spec.
   perform public.require_super_admin();
 
-  update public.app_settings
-     set notify_min_discount_percent = p_min_discount_percent,
+  update public.app_settings set notify_min_discount_percent = p_min_discount_percent,
          notify_max_price_agorot     = p_max_price_agorot,
          notify_cooldown_hours       = p_cooldown_hours,
          updated_by                  = auth.uid()
@@ -784,8 +775,7 @@ begin
 
   insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
   values (auth.uid(), p_endpoint, p_p256dh, p_auth, p_user_agent)
-  on conflict (endpoint) do update
-    set user_id    = excluded.user_id,
+  on conflict (endpoint) do update set user_id    = excluded.user_id,
         p256dh     = excluded.p256dh,
         auth       = excluded.auth,
         user_agent = excluded.user_agent,
@@ -1124,8 +1114,7 @@ insert into public.beers (slug, name_he, name_en, theme_base, theme_surface, the
   ('negev',      'נגב',           'Negev',           '#171208', '#281f10', '#cf9a3a', '#f8f2e6', 20),
   ('bazelet',    'בזלת',          'Bazelet',         '#0c0d10', '#181a20', '#8b90a0', '#eff0f3', 21),
   ('somersby',   'סאמרסבי',       'Somersby',        '#151206', '#26220c', '#d8c14a', '#f9f6e6', 22)
-on conflict (slug) do update
-  set name_he       = excluded.name_he,
+on conflict (slug) do update set name_he       = excluded.name_he,
       name_en       = excluded.name_en,
       theme_base    = excluded.theme_base,
       theme_surface = excluded.theme_surface,
@@ -1180,8 +1169,7 @@ with ranked as (
     from public.deals
    where status = 'approved'
 )
-update public.deals d
-   set status = 'inactive', approved_by = null, approved_at = null
+update public.deals d set status = 'inactive', approved_by = null, approved_at = null
   from ranked
  where d.id = ranked.id and ranked.n > 1;
 
@@ -1227,8 +1215,7 @@ begin
       using errcode = '23505';
   end if;
 
-  update public.deals
-     set status      = 'approved',
+  update public.deals set status      = 'approved',
          approved_by = auth.uid(),
          approved_at = now()
    where id = p_deal_id
@@ -1259,12 +1246,10 @@ $$;
 -- them. Approval attribution is cleared, as set_deal_status() does.
 -- --------------------------------------------------------------------------
 
-update public.app_settings
-   set weekly_deal_id = null
+update public.app_settings set weekly_deal_id = null
  where weekly_deal_id in (select id from public.deals where notes = 'מבצע לדוגמה');
 
-update public.deals
-   set status = 'inactive', approved_by = null, approved_at = null
+update public.deals set status = 'inactive', approved_by = null, approved_at = null
  where notes = 'מבצע לדוגמה' and status <> 'inactive';
 
 -- --------------------------------------------------------------------------
@@ -1279,8 +1264,7 @@ update public.deals
 
 alter table public.profiles alter column notifications_enabled set default false;
 
-update public.profiles p
-   set notifications_enabled = false
+update public.profiles p set notifications_enabled = false
  where p.notifications_enabled
    and not exists (select 1 from public.push_subscriptions s where s.user_id = p.id);
 
@@ -1365,8 +1349,7 @@ alter table public.beers
   add column brand_id uuid references public.brands (id) on delete restrict,
   add column variant  text check (variant is null or char_length(trim(variant)) between 1 and 40);
 
-update public.beers b
-   set brand_id = br.id
+update public.beers b set brand_id = br.id
   from public.brands br
  where b.brand_id is null
    and br.slug = case when b.slug = 'tuborg-red' then 'tuborg' else b.slug end;
@@ -1770,8 +1753,7 @@ begin
     if v_newer is not null then
       update public.price_observations set status = 'superseded', superseded_by = v_newer where id = v_row.id;
     else
-      update public.price_observations o
-         set status = 'superseded', superseded_by = v_row.id
+      update public.price_observations o set status = 'superseded', superseded_by = v_row.id
        where o.sku_id = v_row.sku_id
          and o.store_id = v_row.store_id
          and o.branch_id is not distinct from v_row.branch_id
@@ -2173,8 +2155,7 @@ begin
     raise exception 'the four beers must be different' using errcode = '22023';
   end if;
 
-  update public.profiles
-     set first_name   = trim(p_first_name),
+  update public.profiles set first_name   = trim(p_first_name),
          onboarded_at = coalesce(onboarded_at, now())
    where id = uid;
 
@@ -2213,8 +2194,7 @@ begin
 
   insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
   values (auth.uid(), p_endpoint, p_p256dh, p_auth, p_user_agent)
-  on conflict (endpoint) do update
-    set user_id    = excluded.user_id,
+  on conflict (endpoint) do update set user_id    = excluded.user_id,
         p256dh     = excluded.p256dh,
         auth       = excluded.auth,
         user_agent = excluded.user_agent,
@@ -2268,8 +2248,7 @@ begin
     raise exception 'the four beers must be different' using errcode = '22023';
   end if;
 
-  update public.profiles
-     set first_name   = nullif(trim(p_first_name), ''),
+  update public.profiles set first_name   = nullif(trim(p_first_name), ''),
          onboarded_at = coalesce(onboarded_at, now())
    where id = uid;
 
@@ -2513,8 +2492,7 @@ declare
 begin
   perform public.require_super_admin();
 
-  update public.app_settings
-     set notify_min_discount_percent = p_min_discount_percent,
+  update public.app_settings set notify_min_discount_percent = p_min_discount_percent,
          notify_max_price_agorot     = p_max_price_agorot,
          notify_cooldown_hours       = p_cooldown_hours,
          notify_daily_cap            = p_daily_cap,
@@ -2609,8 +2587,7 @@ begin
     raise exception 'a run finishes as succeeded or failed' using errcode = '22023';
   end if;
 
-  update public.ingestion_runs
-     set status = p_status, finished_at = now(), stats = stats || coalesce(p_stats, '{}'::jsonb)
+  update public.ingestion_runs set status = p_status, finished_at = now(), stats = stats || coalesce(p_stats, '{}'::jsonb)
    where id = p_run_id and status = 'running'
   returning * into v_run;
 
@@ -2813,13 +2790,11 @@ begin
   end loop;
 
   -- A bad price must not be announced later.
-  update public.notification_events e
-     set status = 'done', outcome = 'rolled_back', processed_at = now()
+  update public.notification_events e set status = 'done', outcome = 'rolled_back', processed_at = now()
    where e.status = 'pending'
      and e.offer_key in (select 'obs:' || o.id from public.price_observations o where o.run_id = p_run_id);
 
-  update public.ingestion_runs
-     set status = 'rolled_back',
+  update public.ingestion_runs set status = 'rolled_back',
          finished_at = coalesce(finished_at, now()),
          stats = stats || jsonb_build_object(
            'rollback', jsonb_build_object('rejected', v_rejected, 'restored', v_restored, 'reason', p_reason, 'at', now())
@@ -3167,8 +3142,7 @@ begin
   insert into public.promotion_group_items (group_id, sku_id) select v_id, s from unnest(v_skus) s;
 
   if v_status = 'live' then
-    update public.promotion_groups g
-       set status = 'superseded'
+    update public.promotion_groups g set status = 'superseded'
      where g.store_id = (p_group ->> 'store_id')::uuid
        and g.branch_id is not distinct from (p_group ->> 'branch_id')::uuid
        and g.natural_key = p_group ->> 'natural_key'
@@ -3577,13 +3551,11 @@ begin
    where run_id = p_run_id and status in ('live', 'held');
   get diagnostics v_groups = row_count;
 
-  update public.notification_events e
-     set status = 'done', outcome = 'rolled_back', processed_at = now()
+  update public.notification_events e set status = 'done', outcome = 'rolled_back', processed_at = now()
    where e.status = 'pending'
      and e.offer_key in (select 'obs:' || o.id from public.price_observations o where o.run_id = p_run_id);
 
-  update public.ingestion_runs
-     set status = 'rolled_back',
+  update public.ingestion_runs set status = 'rolled_back',
          finished_at = coalesce(finished_at, now()),
          stats = stats || jsonb_build_object(
            'rollback', jsonb_build_object('rejected', v_rejected, 'restored', v_restored, 'groups_rejected', v_groups,
@@ -3756,8 +3728,7 @@ begin
     if v_newer is not null then
       update public.price_observations set status = 'superseded', superseded_by = v_newer where id = v_row.id;
     else
-      update public.price_observations o
-         set status = 'superseded', superseded_by = v_row.id
+      update public.price_observations o set status = 'superseded', superseded_by = v_row.id
        where o.sku_id = v_row.sku_id
          and o.store_id = v_row.store_id
          and o.branch_id is not distinct from v_row.branch_id
@@ -3836,8 +3807,7 @@ begin
   insert into public.promotion_group_items (group_id, sku_id) select v_id, s from unnest(v_skus) s;
 
   if v_status = 'live' then
-    update public.promotion_groups g
-       set status = 'superseded'
+    update public.promotion_groups g set status = 'superseded'
      where g.store_id = (p_group ->> 'store_id')::uuid
        and g.branch_id is not distinct from (p_group ->> 'branch_id')::uuid
        and g.natural_key = p_group ->> 'natural_key'
@@ -4267,8 +4237,7 @@ begin
          (b ->> 'price_file_at')::timestamptz, (b ->> 'promo_file_at')::timestamptz, left(b ->> 'reason', 300)
     from jsonb_array_elements(p_branches) b
     join public.branches br on br.id = (b ->> 'branch_id')::uuid and br.store_id = p_store_id
-  on conflict (scan_id, branch_id) do update
-     set status = excluded.status, price_file = excluded.price_file, promo_file = excluded.promo_file,
+  on conflict (scan_id, branch_id) do update set status = excluded.status, price_file = excluded.price_file, promo_file = excluded.promo_file,
          price_file_at = excluded.price_file_at, promo_file_at = excluded.promo_file_at, reason = excluded.reason,
          scanned_at = excluded.scanned_at;
   get diagnostics v_count = row_count;
@@ -4296,8 +4265,7 @@ begin
          coalesce(r -> 'conditions', '{}'::jsonb), coalesce((r ->> 'published')::boolean, false), left(r ->> 'reason', 300)
     from jsonb_array_elements(p_rows) r
     join public.branches br on br.id = (r ->> 'branch_id')::uuid and br.store_id = p_store_id
-  on conflict (branch_id, source_file, canonical_key, source_promotion_id) do update
-     set published = excluded.published, reason = excluded.reason;
+  on conflict (branch_id, source_file, canonical_key, source_promotion_id) do update set published = excluded.published, reason = excluded.reason;
   get diagnostics v_count = row_count;
   return v_count;
 end;
@@ -4318,12 +4286,10 @@ declare
   v_groups integer;
 begin
   perform public.require_price_writer();
-  update public.price_observations
-     set status = 'superseded'
+  update public.price_observations set status = 'superseded'
    where branch_id = p_branch_id and kind = 'promotion' and status = 'live' and observed_at < p_observed_at;
   get diagnostics v_prices = row_count;
-  update public.promotion_groups
-     set status = 'superseded'
+  update public.promotion_groups set status = 'superseded'
    where branch_id = p_branch_id and status = 'live' and observed_at < p_observed_at;
   get diagnostics v_groups = row_count;
   return v_prices + v_groups;
@@ -4391,8 +4357,7 @@ begin
       from current_listing
      group by canonical_key
   )
-  update public.promotions p
-     set branches_known    = coalesce(v_known, 0),
+  update public.promotions p set branches_known    = coalesce(v_known, 0),
          branches_checked  = coalesce(v_checked, 0),
          branches_matching = coalesce(m.n, 0),
          scope             = sc.scope,
@@ -4840,8 +4805,7 @@ begin
     )
   );
 
-  update public.ingestion_runs
-     set stats  = v_run.stats,
+  update public.ingestion_runs set stats  = v_run.stats,
          -- Only when nothing is left. A half-finished rollback must never read
          -- as finished, or the next operator will stop too early.
          status = case when v_remaining = 0 then 'rolled_back' else status end
@@ -5082,8 +5046,7 @@ create trigger skus_default_packaging
   before insert or update of pack_quantity, packaging on public.skus
   for each row execute function public.skus_default_packaging();
 
-update public.skus s
-   set packaging = case
+update public.skus s set packaging = case
      when s.pack_quantity <= 1 then 'single'
      when s.container = 'bottle' and s.pack_quantity >= 12 and exists (
        select 1 from public.source_products sp
@@ -5350,8 +5313,7 @@ begin
   -- turn into a successful-looking save that never finishes onboarding.
   insert into public.profiles (id) values (uid) on conflict (id) do nothing;
 
-  update public.profiles
-     set first_name   = nullif(trim(p_first_name), ''),
+  update public.profiles set first_name   = nullif(trim(p_first_name), ''),
          onboarded_at = coalesce(onboarded_at, now())
    where id = uid;
 
@@ -5469,8 +5431,7 @@ begin
     return public.approve_deal(p_deal_id);
   end if;
 
-  update public.deals
-     set status = p_status,
+  update public.deals set status = p_status,
          -- Leaving approved_by/at set on a deal that is no longer approved
          -- would misreport who stands behind it now.
          approved_by = null,
@@ -5486,8 +5447,7 @@ begin
   end if;
 
   -- A deal that is no longer public cannot remain the Weekly Deal.
-  update public.app_settings
-     set weekly_deal_id = null
+  update public.app_settings set weekly_deal_id = null
    where id and weekly_deal_id = p_deal_id;
 
   return row;
@@ -5826,8 +5786,7 @@ begin
   -- reports success and changes nothing.
   insert into public.profiles (id) values (uid) on conflict (id) do nothing;
 
-  update public.profiles
-     set home_city        = nullif(trim(p_city), ''),
+  update public.profiles set home_city        = nullif(trim(p_city), ''),
          home_lat         = p_lat,
          home_lon         = p_lon,
          search_radius_km = p_radius_km
@@ -6128,8 +6087,7 @@ begin
          f.basis,
          now()
     from final f
-  on conflict (offer_key) do update
-     set score = excluded.score,
+  on conflict (offer_key) do update set score = excluded.score,
          band = excluded.band,
          basis = excluded.basis,
          computed_at = excluded.computed_at;
@@ -6466,8 +6424,7 @@ begin
     update public.deals set was_weekly = true where id = p_deal_id;
   end if;
 
-  update public.app_settings
-     set weekly_deal_id     = p_deal_id,
+  update public.app_settings set weekly_deal_id     = p_deal_id,
          weekly_deal_set_by = auth.uid(),
          weekly_deal_set_at = now(),
          updated_by         = auth.uid()
@@ -6498,8 +6455,7 @@ language sql
 security definer
 set search_path = public
 as $$
-  update public.contributors c
-     set approved   = t.approved,
+  update public.contributors c set approved   = t.approved,
          weekly     = t.weekly,
          score      = t.score,
          updated_at = now()
@@ -6674,8 +6630,7 @@ begin
 
   insert into public.offer_feedback (offer_key, verdict, reported_by, note, seen_price_agorot)
   values (p_offer_key, p_verdict, uid, nullif(trim(p_note), ''), p_seen_price)
-  on conflict (offer_key, reported_by) do update
-     set verdict = excluded.verdict,
+  on conflict (offer_key, reported_by) do update set verdict = excluded.verdict,
          note = excluded.note,
          seen_price_agorot = excluded.seen_price_agorot,
          created_at = now();
@@ -7036,8 +6991,7 @@ begin
       using errcode = '23505';
   end if;
 
-  update public.deals
-     set status      = 'approved',
+  update public.deals set status      = 'approved',
          approved_by = auth.uid(),
          approved_at = now()
    where id = p_deal_id
@@ -7076,8 +7030,7 @@ begin
   -- and that is precisely what nothing used to record anywhere.
   select * into before from public.deals where id = p_deal_id;
 
-  update public.deals
-     set status = p_status,
+  update public.deals set status = p_status,
          -- Leaving approved_by/at set on a deal that is no longer approved
          -- would misreport who stands behind it now.
          approved_by = null,
@@ -7093,8 +7046,7 @@ begin
   end if;
 
   -- A deal that is no longer public cannot remain the Weekly Deal.
-  update public.app_settings
-     set weekly_deal_id = null
+  update public.app_settings set weekly_deal_id = null
    where id and weekly_deal_id = p_deal_id;
 
   perform public.record_admin_action(
@@ -7138,8 +7090,7 @@ begin
 
   select * into before from public.deals where id = p_deal_id;
 
-  update public.deals
-     set beer_id              = p_beer_id,
+  update public.deals set beer_id              = p_beer_id,
          store_id             = p_store_id,
          category             = p_category,
          deal_price_agorot    = p_deal_price_agorot,
@@ -7191,8 +7142,7 @@ begin
     raise exception 'a report is resolved or dismissed, not reopened' using errcode = '22023';
   end if;
 
-  update public.deal_reports
-     set status = p_status, resolved_by = auth.uid(), resolved_at = now()
+  update public.deal_reports set status = p_status, resolved_by = auth.uid(), resolved_at = now()
    where id = p_report_id
   returning * into row;
 
@@ -7238,8 +7188,7 @@ begin
     update public.deals set was_weekly = true where id = p_deal_id;
   end if;
 
-  update public.app_settings
-     set weekly_deal_id     = p_deal_id,
+  update public.app_settings set weekly_deal_id     = p_deal_id,
          weekly_deal_set_by = auth.uid(),
          weekly_deal_set_at = now(),
          updated_by         = auth.uid()
@@ -7444,8 +7393,7 @@ begin
 
   select * into before from public.app_settings where id;
 
-  update public.app_settings
-     set notify_min_discount_percent = p_min_discount_percent,
+  update public.app_settings set notify_min_discount_percent = p_min_discount_percent,
          notify_max_price_agorot     = p_max_price_agorot,
          notify_cooldown_hours       = p_cooldown_hours,
          notify_daily_cap            = p_daily_cap,
@@ -7675,8 +7623,7 @@ begin
 
   insert into public.offer_feedback (offer_key, verdict, reported_by, note, seen_price_agorot)
   values (p_offer_key, p_verdict, uid, nullif(trim(p_note), ''), p_seen_price)
-  on conflict (offer_key, reported_by) do update
-     set verdict = excluded.verdict,
+  on conflict (offer_key, reported_by) do update set verdict = excluded.verdict,
          note = excluded.note,
          seen_price_agorot = excluded.seen_price_agorot,
          created_at = now();
@@ -7952,8 +7899,7 @@ begin
     raise exception 'קטגוריה לא מוכרת.' using errcode = '22023';
   end if;
 
-  update public.beers
-     set name_he    = trim(p_name_he),
+  update public.beers set name_he    = trim(p_name_he),
          name_en    = trim(p_name_en),
          category   = p_category,
          sort_order = p_sort_order
@@ -9021,8 +8967,7 @@ begin
       using errcode = '23505';
   end if;
 
-  update public.deals
-     set status      = 'approved',
+  update public.deals set status      = 'approved',
          approved_by = auth.uid(),
          approved_at = now()
    where id = p_deal_id
@@ -9058,8 +9003,7 @@ begin
 
   select * into before from public.deals where id = p_deal_id;
 
-  update public.deals
-     set status = p_status,
+  update public.deals set status = p_status,
          approved_by = null,
          approved_at = null,
          deactivated_at = now()
@@ -9070,8 +9014,7 @@ begin
     raise exception 'deal not found' using errcode = 'P0002';
   end if;
 
-  update public.app_settings
-     set weekly_deal_id = null
+  update public.app_settings set weekly_deal_id = null
    where id and weekly_deal_id = p_deal_id;
 
   perform public.record_admin_action(
@@ -9109,8 +9052,7 @@ begin
     raise exception 'a report is resolved or dismissed, not reopened' using errcode = '22023';
   end if;
 
-  update public.deal_reports
-     set status = p_status, resolved_by = auth.uid(), resolved_at = now()
+  update public.deal_reports set status = p_status, resolved_by = auth.uid(), resolved_at = now()
    where id = p_report_id
   returning * into row;
 

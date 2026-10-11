@@ -65,7 +65,25 @@ end
 $ledger$;
 `;
 
-  return HEADER + parts.join("") + ledger;
+  return joinSetLines(HEADER + parts.join("") + ledger);
+}
+
+/**
+ * Join a line that begins with `set` onto the line before it.
+ *
+ * The Supabase dashboard's SQL editor cuts a submitted script immediately before
+ * an indented `set` line that sits INSIDE a function body, and sends only the
+ * first half. Postgres then reports "unterminated dollar-quoted string" against
+ * the opening `$$`, thousands of characters earlier, which reads like a malformed
+ * file and is not one. Observed twice, on two files of different sizes, cutting at
+ * the same point in the content both times.
+ *
+ * `update x \n set a = 1` and `update x set a = 1` are the same statement — SQL
+ * does not care — so this changes the text and not the meaning, and only in the
+ * generated paste file. The migrations keep their formatting.
+ */
+export function joinSetLines(sql) {
+  return sql.replace(/\n[ \t]+(set[ \t])/g, " $1");
 }
 
 export const COMBINED_SQL_PATH = OUT;
@@ -170,7 +188,7 @@ $ledger$;
 commit;
 `;
 
-  return header + parts.join("") + ledger;
+  return joinSetLines(header + parts.join("") + ledger);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
