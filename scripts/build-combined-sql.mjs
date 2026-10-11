@@ -186,6 +186,11 @@ end
 $ledger$;
 
 commit;
+
+-- The last statement, deliberately. A paste that arrives short cannot print this,
+-- so seeing it is proof the whole part was submitted — not just that no error was
+-- raised by the half that arrived.
+select '${part ? `PART ${part.index} OF ${part.total}` : `${versions[0]}-${versions[versions.length - 1]}`} APPLIED — migrations ${versions.join(", ")}' as done;
 `;
 
   return joinSetLines(header + parts.join("") + ledger);
