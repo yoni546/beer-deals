@@ -8,6 +8,14 @@
  *
  *   npm run sql:build      # rewrite the file
  *   npm run sql:check      # exit 1 if it is out of date
+ *
+ * There is also a range, for the other situation: a database that already exists
+ * and needs the migrations it has not run yet, in one paste.
+ *
+ *   node scripts/build-combined-sql.mjs --from 0024 --to 0042 --out <path>
+ *
+ * The range file is NOT committed. It is cut for one database at one moment, and a
+ * stale copy of "what you still need" is worse than no copy.
  */
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -40,7 +48,93 @@ export function renderCombinedSql(migrationsDir = join(ROOT, "supabase", "migrat
 
 export const COMBINED_SQL_PATH = OUT;
 
+/**
+ * The migrations from `from` to `to` inclusive, by their numeric prefix, as one
+ * script for a database that already holds everything before `from`.
+ *
+ * It ends by recording itself in supabase_migrations.schema_migrations, the ledger
+ * the Supabase CLI keeps. Without that line the CLI would later offer to apply
+ * these again: two sources of truth about one database, which is how a schema ends
+ * up half-applied.
+ */
+export function renderRangeSql(from, to, migrationsDir = join(ROOT, "supabase", "migrations")) {
+  const all = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort();
+  const inRange = all.filter((name) => {
+    const n = name.slice(0, 4);
+    return n >= from && n <= to;
+  });
+  if (inRange.length === 0) throw new Error(`no migrations between ${from} and ${to}`);
+
+  const versions = inRange.map((name) => name.slice(0, 4));
+  const header = `-- ===========================================================================
+-- Beer Deals — migrations ${versions[0]} … ${versions[versions.length - 1]}, in order.
+--     *** GENERATED, for ONE database at ONE moment — do not keep this file ***
+--
+-- Regenerate:  node scripts/build-combined-sql.mjs --from ${from} --to ${to} --out <path>
+--
+-- For a database that ALREADY has everything before ${versions[0]}. Paste the whole
+-- thing into the SQL Editor and press Run, once. It runs in a single transaction:
+-- if any statement fails, nothing is applied and the error names the line.
+--
+-- ${inRange.length} migrations: ${versions.join(", ")}
+-- ===========================================================================
+
+begin;
+`;
+
+  const parts = inRange.map((name) => {
+    const body = readFileSync(join(migrationsDir, name), "utf8").replace(/\r\n/g, "\n").trim();
+    return `\n-- ======================== ${name} ========================\n\n${body}\n`;
+  });
+
+  const ledger = `
+-- ======================== the ledger ========================
+--
+-- Tell the Supabase CLI what was applied here, so a later \`db push\` does not offer
+-- to run these a second time. Harmless on a project the CLI has never touched.
+--
+-- Wrapped in an exception handler on purpose. This is BOOKKEEPING: the CLI owns
+-- that table and its shape has changed between CLI versions, and a surprise there
+-- must not roll back nineteen migrations that applied correctly. If it cannot be
+-- written it says so and the schema still lands.
+
+do $ledger$
+begin
+  create schema if not exists supabase_migrations;
+  create table if not exists supabase_migrations.schema_migrations (version text primary key);
+  insert into supabase_migrations.schema_migrations (version)
+  values ${versions.map((v) => `('${v}')`).join(", ")}
+  on conflict (version) do nothing;
+  raise notice 'ledger: recorded ${versions.length} migrations';
+exception when others then
+  raise notice 'ledger NOT recorded (%): the migrations applied, but tell the owner — a later CLI push may offer to re-run them', sqlerrm;
+end
+$ledger$;
+
+commit;
+`;
+
+  return header + parts.join("") + ledger;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const flag = (name) => {
+    const i = process.argv.indexOf(`--${name}`);
+    return i === -1 ? null : process.argv[i + 1];
+  };
+  const from = flag("from");
+  if (from) {
+    const to = flag("to") ?? "9999";
+    const out = flag("out");
+    if (!out) {
+      console.error("--from needs --out <path>: the range file is not committed, so it needs somewhere to go");
+      process.exit(2);
+    }
+    writeFileSync(out, renderRangeSql(from, to));
+    console.log(`wrote ${out}`);
+    process.exit(0);
+  }
+
   const next = renderCombinedSql();
   if (process.argv.includes("--check")) {
     const current = readFileSync(OUT, "utf8").replace(/\r\n/g, "\n");
