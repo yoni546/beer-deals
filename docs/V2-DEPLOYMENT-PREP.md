@@ -1,6 +1,6 @@
 # V2 — what has to happen before this branch goes live
 
-Branch `feature/beer-deals-v2`, releases 0.10.0 → 0.32.0. Everything that did not need your
+Branch `feature/beer-deals-v2`, releases 0.10.0 → 0.32.1. Everything that did not need your
 accounts is done. This is the part that does.
 
 **Nothing here has been run against production.** No deploy, no production database write, no
@@ -12,9 +12,9 @@ This document only covers what is new.
 
 ---
 
-## 1. Nineteen migrations, in order
+## 1. Twenty migrations, in order
 
-`0024` through `0042`. They are additive: new tables, new columns that are nullable, new functions.
+`0024` through `0043`. They are additive: new tables, new columns that are nullable, new functions.
 None drops a table, rewrites a row, or changes an existing column's type.
 
 Apply them to **staging first**, in numeric order, and run `npm run verify` against the repo
@@ -41,6 +41,16 @@ afterwards. Then production, same order.
 | 0040 | The `moderator` role: a new `admin_level` value, `is_moderator()`, and a **tightened** `is_admin()` | — |
 | 0041 | `admin_people()` and `admin_people_by_city()` | — |
 | 0042 | `admin_highlights()` — the dashboard's "what is big now" | — |
+| 0043 | Takes back the privileges Supabase grants by default, and stops it granting more | **Apply this one even if you apply nothing else** |
+
+**0043 is not optional and is not new work.** Staging, on 2026-10-11, answered the
+verification with `anon` — the role every visitor's browser arrives as — holding SELECT,
+INSERT, DELETE and TRUNCATE on `admin_actions`, the append-only audit log. No migration
+grants that; every Supabase project is created with default privileges that hand each new
+table to the API roles. **Production has the same hole, on every table added since the
+project was created**, and it is older than this branch. RLS kept the contents unreachable
+through the API, but TRUNCATE ignores RLS, and the two layers we describe everywhere were
+one. Verified on staging: 164 anon write privileges before, 0 after.
 
 **0040 narrows `is_admin()`.** Before it, `is_admin()` was true for any row in `admins`; after it,
 only for `level in ('admin','super_admin')`. Nothing loses access, because no moderator exists until
@@ -81,7 +91,7 @@ insert into public.admin_actions (actor, action, subject_kind) values (gen_rando
 
 ## 2. No new secrets
 
-Nothing in 0024–0042 needs an environment variable that is not already in
+Nothing in 0024–0043 needs an environment variable that is not already in
 `docs/PRODUCTION-GO-LIVE-CHECKLIST.md`.
 
 One that is already on the list matters more now: **`CRON_SECRET`**. Since 0.11.2 the ingestion run
@@ -138,8 +148,8 @@ belongs to its own piece of work rather than to the end of a feature branch.
 
 1. Merge `feature/beer-deals-v2` to `main`. **Confirm first whether merging triggers a deploy**: if
    Vercel is connected to `main`, it does, and the migrations must be applied BEFORE the merge.
-2. Staging: migrations 0024–0042, then `npm run verify`, then click through the app.
-3. Production: backup (handoff §C), then 0024–0042 in order, then the verification queries above.
+2. Staging: migrations 0024–0043, then `npm run verify`, then click through the app.
+3. Production: backup (handoff §C), then 0024–0043 in order, then the verification queries above.
 4. `select public.refresh_offer_scores();` once, so the Deal Score has something to show.
 5. Deploy, then `node scripts/smoke-production.mjs`.
 6. Optional, later and independently: geocoding, the bottle photos, the Next 16 upgrade.
