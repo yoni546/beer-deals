@@ -6,6 +6,22 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.37.0 — 2026-10-12
+
+**יוחננוף חזרה למפה** · Fix
+
+- יש רשתות שכותבות את היישוב בשם הסניף ולא בשדה היישוב. עכשיו גם אלה מזוהים.
+- יוחננוף לבדה — 51 סניפים ו‑25 מבצעי בירה שלא יכלו להופיע ב״הכי קרוב אליי״.
+- סניף ששמו הוא קניון או רחוב עדיין לא מקבל מיקום. שם של מקום בתוך שם סניף זה לא יישוב.
+
+Internal:
+
+- יוחננוף had 25 beer offers in the feed and 0 of 52 branches placed — every one of those offers invisible in "closest to me". Its Stores file writes city = '0' on 51 of them (address 'unknown') and puts the settlement in the branch's NAME instead: "אור יהודה". Nothing in 0045–0049 could see it, because they all read `city`, and '0' is not a place.
+- Migration 0050 adds a fourth pass over the branch name — and the restraint is the entire design. A branch name is usually NOT a town: it is קניון איילון, a road, a neighbourhood. Matching a settlement INSIDE a branch name would place a Haifa branch called נווה שאנן at a moshav of the same name somewhere else — confident, undetectable and wrong, which is the one failure this product cannot absorb.
+- So the whole name, normalised, must BE a settlement we know, or the whole name minus the chain's own name must be ("רמי לוי נהריה"). No substring matching, no longest-prefix, no guessing. Asserted both ways: אור יהודה places, קניון איילון and 'הסניף שליד חולון מערב' place nothing.
+- The city passes still run first and win, so a branch the city already placed is never moved. Recorded as geocode_source 'israel-cities (town centre, from branch name)', separately from the city-based rows, so that if this ever turns out to be the wrong call every row it wrote can be found and undone.
+- The sequence that got here is worth recording: the screen said it could not measure (no branch had a position) → it said 91 offers were not shown (a sixth of branches carry a number where a name belongs) → it still said some were not shown (four settlements had lost their number to a gate of mine) → and now this. Four real data problems, every one found by somebody using the app and asking what the honest refusal was refusing. The test suite asserted the refusal was correct, and it was correct every time.
+
 ## 0.36.1 — 2026-10-12
 
 **עוד ארבעה יישובים חזרו למפה** · Fix

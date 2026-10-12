@@ -206,6 +206,49 @@ describe("placing the branches", () => {
     expect((await geoOf(w, internal.id)).latitude).toBeNull();
   });
 
+  it("reads the branch's NAME when the chain writes 0 where the town goes", async () => {
+    // יוחננוף: `city` is '0' on 51 of its 52 branches and the settlement is in the
+    // branch's name instead ("אור יהודה"). 25 beer offers were invisible because of it.
+    const w = await world();
+    const named = await branch(w, "0");
+    await w.db.query("update public.branches set name_he = 'אור יהודה' where id = $1", [named.id]);
+    const withChain = await branch(w, "0");
+    await w.db.query("update public.branches set name_he = 'רמי לוי נהריה' where id = $1", [withChain.id]);
+    await place(w);
+
+    expect((await geoOf(w, named.id)).latitude).toBeCloseTo(centre("אור יהודה").lat, 4);
+    expect((await geoOf(w, withChain.id)).latitude).toBeCloseTo(centre("נהריה").lat, 4);
+    expect((await geoOf(w, named.id)).geocode_source).toContain("from branch name");
+  });
+
+  it("will not find a town INSIDE a branch name, which is how you place a shop in the wrong city", () => {
+    // The restraint is the whole design. A branch name is usually not a town — it is
+    // a shopping centre, a road, a neighbourhood — and matching a settlement inside
+    // one would put a Haifa branch called נווה שאנן at a moshav of that name
+    // somewhere else: confident, undetectable and wrong.
+    return world().then(async (w) => {
+      const mall = await branch(w, "0");
+      await w.db.query("update public.branches set name_he = 'קניון איילון' where id = $1", [mall.id]);
+      const inside = await branch(w, "0");
+      await w.db.query("update public.branches set name_he = 'הסניף שליד חולון מערב' where id = $1", [inside.id]);
+      await place(w);
+
+      expect((await geoOf(w, mall.id)).latitude).toBeNull();
+      expect((await geoOf(w, inside.id)).latitude).toBeNull();
+    });
+  });
+
+  it("does not move a branch the city already placed", async () => {
+    const w = await world();
+    const both = await branch(w, "חולון");
+    await w.db.query("update public.branches set name_he = 'נהריה' where id = $1", [both.id]);
+    await place(w);
+
+    const geo = await geoOf(w, both.id);
+    expect(geo.latitude).toBeCloseTo(centre("חולון").lat, 4);
+    expect(geo.geocode_source).not.toContain("from branch name");
+  });
+
   it("is not something a visitor may run", async () => {
     const w = await world();
     const visitor = await createUser(w.db);
