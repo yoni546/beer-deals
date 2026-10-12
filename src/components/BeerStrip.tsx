@@ -4,6 +4,7 @@ import { BeerMark } from "@/components/ui/Bottle";
 import { ChevronLeftIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import type { Offer } from "@/lib/db/types";
+import type { NearbyBranch } from "@/lib/distance";
 
 /**
  * A strip of paper for one heading (a beer, a pack, a chain) and its lines, ruled
@@ -24,6 +25,7 @@ export function Strip({
   beerSlug,
   perLiter = false,
   distances,
+  branches,
 }: {
   title: string;
   href?: string;
@@ -41,6 +43,8 @@ export function Strip({
   perLiter?: boolean;
   /** How far each offer is, by offer_key. Only the ones we could place are in it. */
   distances?: Record<string, number>;
+  /** Which branch that distance is to, by offer_key — named on the line, with a tap to Waze. */
+  branches?: Record<string, NearbyBranch>;
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
@@ -71,6 +75,7 @@ export function Strip({
             showStore={showStore}
             perLiter={perLiter}
             distanceKm={distances?.[offer.offer_key]}
+            nearestBranch={branches?.[offer.offer_key]}
           />
         ))}
       </div>

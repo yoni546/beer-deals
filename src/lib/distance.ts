@@ -29,16 +29,47 @@ import type { Viewer } from "@/lib/session";
  * those columns are filled — nothing here invents a coordinate in the meantime.
  */
 
-export type NearbyChain = { storeId: string; km: number; branchName: string | null; city: string | null };
+/**
+ * A branch we could place, and everything the screen needs to say where it is.
+ *
+ * `address` is the text the publisher's Stores file gave us. It is here rather than
+ * a coordinate on purpose: the coordinate is the TOWN CENTRE (0045), so handing a
+ * navigation app a point we know is not the shop would be the one lie this feature
+ * exists to refuse. The address is text somebody else is responsible for, and Waze
+ * resolves it better than our centroid ever could.
+ */
+export type NearbyBranch = {
+  storeId: string;
+  km: number;
+  branchName: string | null;
+  city: string | null;
+  address: string | null;
+};
+
+/** @deprecated the old name, kept so a caller that imports it still compiles. */
+export type NearbyChain = NearbyBranch;
 
 export type Distances =
-  | { available: true; byOffer: Record<string, number>; nearestChain: Record<string, NearbyChain> }
+  | {
+      available: true;
+      byOffer: Record<string, number>;
+      nearestChain: Record<string, NearbyBranch>;
+      /** For each offer that HAS a distance, the branch that distance is to. */
+      branchByOffer: Record<string, NearbyBranch>;
+    }
   /** We cannot measure anything, and the screen must say which of these is why. */
   | { available: false; reason: "no_home" | "no_home_position" | "no_located_branches" };
 
 export const NO_DISTANCES: Distances = { available: false, reason: "no_home" };
 
-type BranchRow = { branch_id: string; store_id: string; name_he: string | null; city: string | null; km: number };
+type BranchRow = {
+  branch_id: string;
+  store_id: string;
+  name_he: string | null;
+  city: string | null;
+  address: string | null;
+  km: number;
+};
 
 /**
  * Every branch within the person's radius, nearest first.
@@ -77,27 +108,33 @@ export async function distancesFor(viewer: Viewer, offers: Offer[]): Promise<Dis
   if (branches.length === 0) return { available: false, reason: "no_located_branches" };
 
   // Nearest branch per chain, and every branch we could place.
-  const nearestChain: Record<string, NearbyChain> = {};
-  const byBranch: Record<string, number> = {};
+  const nearestChain: Record<string, NearbyBranch> = {};
+  const byBranch: Record<string, NearbyBranch> = {};
   for (const row of branches) {
-    byBranch[row.branch_id] = row.km;
+    const place: NearbyBranch = {
+      storeId: row.store_id,
+      km: row.km,
+      branchName: row.name_he,
+      city: row.city,
+      address: row.address ?? null,
+    };
+    byBranch[row.branch_id] = place;
     const held = nearestChain[row.store_id];
-    if (!held || row.km < held.km) {
-      nearestChain[row.store_id] = { storeId: row.store_id, km: row.km, branchName: row.name_he, city: row.city };
-    }
+    if (!held || row.km < held.km) nearestChain[row.store_id] = place;
   }
 
   const byOffer: Record<string, number> = {};
+  const branchByOffer: Record<string, NearbyBranch> = {};
   for (const offer of offers) {
     // A deal known to run at one branch is that branch's distance, or nothing.
-    if (offer.branch_id) {
-      const km = byBranch[offer.branch_id];
-      if (km !== undefined) byOffer[offer.offer_key] = km;
-      continue;
-    }
-    const chain = nearestChain[offer.store_id];
-    if (chain) byOffer[offer.offer_key] = chain.km;
+    // Otherwise it is the nearest branch of its chain — which is also the branch the
+    // screen names, because "12 km away" with no shop attached is not an answer to
+    // "where", and the person still has to go and find it.
+    const place = offer.branch_id ? byBranch[offer.branch_id] : nearestChain[offer.store_id];
+    if (!place) continue;
+    byOffer[offer.offer_key] = place.km;
+    branchByOffer[offer.offer_key] = place;
   }
 
-  return { available: true, byOffer, nearestChain };
+  return { available: true, byOffer, nearestChain, branchByOffer };
 }

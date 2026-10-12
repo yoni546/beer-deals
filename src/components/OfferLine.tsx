@@ -3,8 +3,10 @@ import { ChevronDownIcon } from "@/components/ui/icons";
 import { DealScoreChip } from "@/components/ui/DealScore";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { OfferFeedback } from "@/components/OfferFeedback";
+import { NearestBranch } from "@/components/NearestBranch";
 import { ScopeLine } from "@/components/ScopeLine";
 import type { Offer } from "@/lib/db/types";
+import type { NearbyBranch } from "@/lib/distance";
 import { conditionChips, depositHe, kmHe, packText, scopeHe, validUntilHe, whereSeenHe } from "@/lib/format";
 import { formatPrice } from "@/lib/money";
 
@@ -48,6 +50,7 @@ export function OfferLine({
   showStore = lead !== "chain",
   perLiter = false,
   distanceKm,
+  nearestBranch,
   now = Date.now(),
 }: {
   offer: Offer;
@@ -58,6 +61,8 @@ export function OfferLine({
   perLiter?: boolean;
   /** How far the nearest branch of this chain is. Omitted when we cannot place it. */
   distanceKm?: number;
+  /** The branch that distance is to — named, with its address, and a tap to Waze. */
+  nearestBranch?: NearbyBranch;
   now?: number;
 }) {
   const pack = packText(offer);
@@ -115,6 +120,9 @@ export function OfferLine({
         <span className="num">{kmHe(distanceKm)}</span> ממך
       </span>,
     );
+    // And WHICH shop that is. A distance on its own left the person to work out the
+    // branch and type it into Waze themselves, which is most of the work.
+    if (nearestBranch) facts.push(<NearestBranch key="branch" place={nearestBranch} storeName={offer.store_name} />);
   }
   // Somebody went and looked. Only shown for a person who chose to be named (0030):
   // the rest say nothing, which is not the same as saying "anonymous".

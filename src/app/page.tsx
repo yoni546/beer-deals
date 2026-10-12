@@ -249,6 +249,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   perLiter={perLiter}
                   limit={12}
                   distances={distances.available ? distances.byOffer : undefined}
+                  branches={distances.available ? distances.branchByOffer : undefined}
                 />
                 <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
               </>
