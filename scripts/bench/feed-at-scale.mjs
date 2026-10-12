@@ -50,7 +50,13 @@ const BRANCHES = arg("branches", 1160);
 const SKUS = arg("skus", 150);
 const PER_BRANCH = arg("per-branch", 46);   // packs priced at each branch → ~53k live rows
 const HISTORY = arg("history", 14);          // observations kept per pack+branch, newest live
-const PROMOTIONS = arg("promotions", 500);
+const PROMOTIONS = arg("promotions", 1008);
+// Production, 2026-10-12: 18,627 LIVE promotion observations behind 526 shown
+// offers. The view does its reference-price work per observation and only then
+// collapses to what a page lists, so this — not the promotion count, and not the
+// row count of the feed — is the number that sets the cost. A benchmark with 500
+// of them was running at 3% of the real load and reported everything was fine.
+const PROMO_OBSERVATIONS = arg("promo-observations", 18627);
 
 const db = new PGlite();
 await db.exec(readFileSync(join(ROOT, "tests/sql/bootstrap.sql"), "utf8"));
@@ -105,15 +111,23 @@ await db.exec(`
     from generate_series(1, ${PROMOTIONS}) g
     join lateral (select store_id from public.branches order by md5(g::text || store_id::text) limit 1) br on true;
 
+  -- The live promotion rows themselves: one per (promotion, branch) the promotion
+  -- runs at, which is where the real volume is.
   insert into public.price_observations
     (sku_id, store_id, branch_id, kind, promo_type, price_agorot, observed_at, valid_from, valid_to,
      identity_key, source_id, status)
-  select k.id, p.store_id, br.id, 'promotion', 'price_cut',
-         900 + (p.id % 1500), now() - interval '1 day', p.valid_from, p.valid_to,
-         'promo-' || p.id, (select id from public.sources where kind = 'chain_feed' limit 1), 'live'
+  select k.id, p.store_id, b.id, 'promotion', 'price_cut',
+         900 + ((p.id * 13 + b.seq) % 1500), now() - interval '1 day', p.valid_from, p.valid_to,
+         'promo-' || p.id || '-' || b.seq,
+         (select id from public.sources where kind = 'chain_feed' limit 1), 'live'
     from public.promotions p
-    join lateral (select id from public.branches b where b.store_id = p.store_id limit 1) br on true
-    join lateral (select id from public.skus order by md5(p.id::text) limit 1) k on true;
+    cross join lateral (
+      select id, row_number() over () as seq from public.branches br
+       where br.store_id = p.store_id
+       order by md5(p.id::text || br.id::text)
+       limit ${Math.max(1, Math.ceil(PROMO_OBSERVATIONS / PROMOTIONS))}
+    ) b
+    cross join lateral (select id from public.skus order by md5(p.id::text || b.id::text) limit 1) k;
 `);
 
 for (const [what, sql] of [
@@ -121,6 +135,7 @@ for (const [what, sql] of [
   ["price_observations", "select count(*)::int n from public.price_observations"],
   ["…of them live", "select count(*)::int n from public.price_observations where status = 'live'"],
   ["promotions", "select count(*)::int n from public.promotions"],
+  ["live promotion rows", "select count(*)::int n from public.price_observations where kind='promotion' and status='live'"],
   ["offers_feed rows", "select count(*)::int n from public.offers_feed"],
 ]) {
   console.log(`  ${what.padEnd(20)}`, (await db.query(sql)).rows[0].n);
