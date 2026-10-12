@@ -69,6 +69,27 @@ describe("closest to me, by the beers you like", () => {
     expect(groups[0].offers.map((o) => o.offer_key)).toEqual(["near-gold", "far-gold"]);
   });
 
+  it("still leads with what is actually nearest, whatever beer it is", () => {
+    // The consequence nobody asked for when the screen was grouped by favourite: the
+    // first thing on it stopped being the nearest offer and became favourite #1's
+    // nearest offer — which can be an hour away while a different beer is on offer
+    // down the road. Somebody standing in מנחמיה was shown עפולה and קריית טבעון
+    // while בית שאן was nearer and further down the page.
+    const { offers: sorted } = near(offers, km);
+    const NEAREST_FIRST = 4;
+    const closest = sorted.slice(0, NEAREST_FIRST);
+    expect(closest[0].offer_key).toBe("nearest-stranger");
+
+    // And nothing is shown twice: an offer in the lead strip is not repeated below.
+    const leadKeys = new Set(closest.map((o) => o.offer_key));
+    const favourites = new Set([goldstar, maccabee]);
+    const mine = sorted.filter((o) => favourites.has(o.beer_id) && !leadKeys.has(o.offer_key));
+    const rest = sorted.filter((o) => !favourites.has(o.beer_id) && !leadKeys.has(o.offer_key));
+    const shown = [...closest, ...mine, ...rest].map((o) => o.offer_key);
+    expect(new Set(shown).size).toBe(shown.length);
+    expect(new Set(shown)).toEqual(new Set(sorted.map((o) => o.offer_key)));
+  });
+
   it("does not drop a beer nobody follows", () => {
     const { offers: sorted } = near(offers, km);
     const favourites = new Set([goldstar, maccabee]);

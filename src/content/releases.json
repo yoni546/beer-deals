@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.38.0",
+    "date": "2026-10-12",
+    "title_he": "הכי קרוב — באמת הכי קרוב",
+    "highlights_he": [
+      "המסך פותח עכשיו בארבעת המבצעים הכי קרובים אליכם, מכל בירה שהיא.",
+      "אחריהם הבירות שלכם, לפי הסדר שבחרתם — וליד כל אחת כתוב מאיזה מרחק היא מתחילה.",
+      "ככה גם רואים מיד מה קרוב, וגם לא צריך לחפש את הבירה שאוהבים."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Grouping \"closest to me\" by favourite beer (0.36.0) was asked for and is right, but it had a consequence nobody asked for: the first thing on the screen stopped being the nearest offer and became favourite #1's nearest offer. Somebody standing in מנחמיה was shown עפולה (25 km) and קריית טבעון (39 km) while בית שאן was nearer and further down the page. He reported it as \"it is not bringing me nearby branches\", which is exactly what it looked like.",
+      "The four genuinely nearest offers now lead, whatever beer they are, and the favourites follow in the person's own order. Both questions get answered where they are asked, and neither ordering is a guess about which one he meant.",
+      "Nothing is shown twice: an offer in the lead strip is removed from the strips below, and the test asserts the union is exactly the full set.",
+      "Each strip's heading now carries the distance its nearest offer is at (\"מ־12 ק״מ\"), so the page can be scanned without opening anything — which is also what makes it obvious at a glance when a favourite's nearest offer really is far away."
+    ]
+  },
+  {
     "version": "0.37.1",
     "date": "2026-10-12",
     "title_he": "אפרת, כפר עציון, טירת הכרמל וטבעון",

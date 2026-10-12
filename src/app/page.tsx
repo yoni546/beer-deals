@@ -37,6 +37,7 @@ import {
 } from "@/lib/offer-logic";
 import { topContributors } from "@/lib/contributors";
 import { distancesFor } from "@/lib/distance";
+import { kmHe } from "@/lib/format";
 import { getBeers, getMyWatchlist, getSettings, getStores } from "@/lib/queries";
 import { WatchHits } from "@/components/WatchHits";
 import { attempt, failed, or } from "@/lib/attempt";
@@ -152,13 +153,30 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const summaries: Record<string, BeerSummary> = {};
   for (const beer of viewer.favorites) summaries[beer.id] = summarize(mine.filter((offer) => offer.beer_id === beer.id));
 
-  // "Closest to me", in the person's own order of beers. Each strip keeps the distance
-  // ordering inside it — nearby.offers is already nearest-first — so "closest" still
-  // means closest; what changes is which beer you are asked to look at first.
+  // "Closest to me", in the person's own order of beers — with the nearest shops kept
+  // at the top where the screen's name promises they are.
+  //
+  // Grouping by favourite was asked for and is right, but it had a consequence nobody
+  // asked for: the first thing on the screen stopped being the nearest offer and became
+  // favourite #1's nearest offer, which can be an hour's drive while a different beer
+  // is on offer down the road. Somebody standing in מנחמיה was shown עפולה and
+  // קריית טבעון while בית שאן was nearer and further down the page.
+  //
+  // So the few genuinely nearest offers lead, whatever beer they are, and the beers
+  // follow in the person's own order. Both questions get answered where they are asked.
   const favouriteSet = new Set(favouriteIds);
-  const nearbyMine = nearby.offers.filter((offer) => favouriteSet.has(offer.beer_id));
+  const NEAREST_FIRST = 4;
+  const closest = nearby.offers.slice(0, NEAREST_FIRST);
+  const closestKeys = new Set(closest.map((offer) => offer.offer_key));
+  const nearbyMine = nearby.offers.filter((offer) => favouriteSet.has(offer.beer_id) && !closestKeys.has(offer.offer_key));
   const nearbyStrips = groupByBeer(nearbyMine, favouriteIds);
-  const nearbyRest = nearby.offers.filter((offer) => !favouriteSet.has(offer.beer_id));
+  const nearbyRest = nearby.offers.filter((offer) => !favouriteSet.has(offer.beer_id) && !closestKeys.has(offer.offer_key));
+
+  /** How far the nearest offer in a group is — said on the heading, so the page can be scanned. */
+  const kmOf = (offers: typeof nearby.offers) => {
+    const all = offers.map((offer) => (distances.available ? distances.byOffer[offer.offer_key] : undefined)).filter((km): km is number => km !== undefined);
+    return all.length ? Math.min(...all) : undefined;
+  };
 
   const availablePacks = [...new Set(everything.map(packClass))] as PackFilter[];
   const strips = groupByBeer(filterByPack(mine, pack), favouriteIds).map((group) => ({
@@ -256,11 +274,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             ) : (
               <>
                 <div className="space-y-7">
+                  {closest.length > 0 && (
+                    <Strip
+                      title="הכי קרוב אליך"
+                      offers={closest}
+                      lead="beer"
+                      perLiter={perLiter}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  )}
                   {nearbyStrips.map((group) => (
                     <Strip
                       key={group.beerId}
                       title={group.name}
                       beerSlug={group.slug}
+                      aside={kmOf(group.offers) !== undefined ? `מ־${kmHe(kmOf(group.offers)!)}` : undefined}
                       offers={group.offers}
                       lead="chain"
                       perLiter={perLiter}
@@ -272,6 +301,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   {nearbyRest.length > 0 && (
                     <Strip
                       title="עוד בסביבה"
+                      aside={kmOf(nearbyRest) !== undefined ? `מ־${kmHe(kmOf(nearbyRest)!)}` : undefined}
                       offers={nearbyRest}
                       lead="beer"
                       perLiter={perLiter}
