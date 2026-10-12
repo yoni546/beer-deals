@@ -103,17 +103,27 @@ for (const [what, sql] of [
 
 await db.exec("analyze;");
 
-// The query the chain listing runs, as the app runs it.
-const QUERY = "select store_slug, value_pct from public.offers_feed";
-const runs = [];
-for (let i = 0; i < 3; i++) {
-  const started = performance.now();
-  await db.query(QUERY);
-  runs.push(Math.round(performance.now() - started));
-}
-console.log(`\n${QUERY}`);
-console.log(`  runs: ${runs.join(" ms, ")} ms`);
-console.log(`  best: ${Math.min(...runs)} ms`);
+// The query the chain listing runs, as the app runs it — and the layers under
+// it, so the cost can be attributed instead of guessed at.
+const time = async (label, sql) => {
+  const runs = [];
+  for (let i = 0; i < 3; i++) {
+    const started = performance.now();
+    await db.query(sql);
+    runs.push(Math.round(performance.now() - started));
+  }
+  console.log(`  ${label.padEnd(34)} ${String(Math.min(...runs)).padStart(6)} ms   (${runs.join(", ")})`);
+  return Math.min(...runs);
+};
+
+console.log("\nwhere the time goes:");
+await time("price_observations, whole table", "select count(*) from public.price_observations");
+await time("regular_prices_current", "select count(*) from public.regular_prices_current");
+await time("promotions_current", "select count(*) from public.promotions_current");
+await time("offers_ranked", "select count(*) from public.offers_ranked");
+const feed = await time("offers_feed (what the app reads)", "select store_slug, value_pct from public.offers_feed");
+
+console.log(`\nthe chain listing waits ${feed} ms for a page that shows ${(await db.query("select count(*)::int n from public.stores")).rows[0].n} rows.`);
 
 if (process.argv.includes("--plan")) {
   const { rows } = await db.query(`explain (analyze, buffers) ${QUERY}`);
