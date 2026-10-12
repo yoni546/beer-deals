@@ -60,7 +60,10 @@ export const exec = (query: string) => post("/__test/exec", { sql: query });
  * reads as "the feature is broken": 41 specs failed exactly that way once.
  */
 export async function rebuildFeed() {
-  await exec("select public.refresh_offers_catalog();");
+  // As the service role, the way an import calls it: refresh_offers_catalog() guards
+  // on require_price_writer() (0008), and /__test/exec arrives with no role and no
+  // session. `set local role` is scoped to the transaction, like branch-scope.spec's.
+  await exec("begin; set local role service_role; select public.refresh_offers_catalog(); commit;");
   await revalidateAppCaches();
 }
 
