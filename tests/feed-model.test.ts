@@ -7,8 +7,13 @@ import { inDays, world } from "./helpers/catalog";
  * mismatch the dry run found, proved closed.
  */
 
-const feedRows = (w: Awaited<ReturnType<typeof world>>, view: string, where = "true") =>
-  w.asPublic(async () => (await w.db.query<Record<string, unknown>>(`select * from public.${view} where ${where}`)).rows);
+const feedRows = async (w: Awaited<ReturnType<typeof world>>, view: string, where = "true") => {
+  // offers_feed's chain half is a table the import fills (0044). Reading it
+  // without a rebuild is reading the moment between an import's write and its
+  // rebuild, which no page is ever served.
+  if (view === "offers_feed") await w.rebuildFeed();
+  return w.asPublic(async () => (await w.db.query<Record<string, unknown>>(`select * from public.${view} where ${where}`)).rows);
+};
 
 describe("categories", () => {
   it("shows beer, non-alcoholic beer and radler; keeps malt drinks and cider out", async () => {

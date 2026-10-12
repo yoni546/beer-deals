@@ -6,6 +6,27 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.33.0 — 2026-10-12
+
+**המסכים נפתחים מהר** · Fix
+
+- מבצעי הרשתות מחושבים פעם אחת בייבוא במקום מחדש בכל כניסה לדף.
+- מסך הסופרים חזר לעבוד — הוא היה נכשל כי החישוב לא הספיק להסתיים.
+- מבצע שמנהל מאשר ממשיך להופיע מיד, כמו קודם.
+
+Internal:
+
+- Measured on production, 2026-10-12: `explain analyze select store_slug, value_pct from offers_feed` → Execution Time 15,306.545 ms, past the 8-second cancellation Supabase applies to anon and authenticated. The chain listing threw; every page touching the feed waited. Older than this branch — the read model is 0009's — and found only by walking the app against real volume.
+- Why: offers_ranked (0022) finds each offer's reference price with two one-row index probes. Production holds 18,627 live promotion rows and shows 526 offers, so that is 18,627 random probes per request — microseconds each on a warm instance, a disk seek each on a cold free-tier one. 18,627 × 0.8 ms is the 15 seconds observed.
+- Migration 0044 stores the chain half as `offers_catalog`, filled by refresh_offers_catalog() at the end of an ingestion run beside refresh_offer_scores, which has had this shape since 0027. The manual half stays live in the view, so an approved deal still appears at once.
+- A table, not a materialized view: REFRESH … CONCURRENTLY cannot run in a transaction and so cannot be called from a function, and the non-concurrent form holds an ACCESS EXCLUSIVE lock for the length of the rebuild. Delete-and-insert in one transaction takes ordinary row locks, readers see the previous rows until commit, and a failed refresh leaves yesterday's offers rather than none.
+- The migration fills the table itself — without it, applying it empties every chain offer from every screen until the next import.
+- scripts/bench/feed-at-scale.mjs reproduces the shape and measures it: 575 ms per request → 49 ms from the table, at production's promotion volume. Two earlier versions of that benchmark were wrong (all rows live; 500 promotion rows instead of 18,627) and each told me nothing was wrong.
+- Accepted regression, written into the migration: a beer renamed in the admin panel reaches the chain offers at the next import rather than at once. Prices were already only as fresh as the last import. The cleaner fix is to store ids and join names live, which deserves its own change and its own measurement.
+- tests/security-sweep.test.ts caught a real bug in the first draft: RLS enabled on the new table with no read policy, which would have returned no chain offers to anybody. The sweep is a day old.
+- 21 other tests failed because they seed prices and read the feed. They now do what the import does — write, then rebuild — rather than the table filling itself on every price write, which would have returned the entire cost the change removes.
+- npm test: 1004 passed, 74 files.
+
 ## 0.32.4 — 2026-10-12
 
 **מי שאמר לנו איפה הוא גר — לא נשאל שוב** · Fix
