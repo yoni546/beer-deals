@@ -92,6 +92,8 @@ export function build(rows = JSON.parse(readFileSync(SOURCE, "utf8")), curated =
   }
 
   const kept = [];
+  /** The CBS symbol of a settlement whose coordinate we refused, by spelling key. */
+  const refusedCode = new Map();
   for (const row of rows) {
     const name = String(row.name ?? "").trim();
     const lat = Number(row.lat);
@@ -102,10 +104,18 @@ export function build(rows = JSON.parse(readFileSync(SOURCE, "utf8")), curated =
     }
     if (!inIsrael(lat, lon)) {
       refused.outside.push(`${name} (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+      refusedCode.set(normPlace(name), String(row.id ?? ""));
       continue;
     }
     if (atPoint.get(`${lat.toFixed(4)},${lon.toFixed(4)}`) >= 2) {
       refused.shared.push(name);
+      // Its COORDINATE is refused; its identity is not. The CBS symbol is the
+      // government's own key for the settlement and is right whatever the geocoder
+      // did with it — and some publishers' Stores files carry that number where the
+      // town's name goes (0047), so throwing it away costs real branches their
+      // position. טירה 2720, טייבה 2730, מעלה אדומים 3616 and ביתר עילית 3780 were
+      // all refused here, re-added by hand below, and arrived with no code at all.
+      refusedCode.set(normPlace(name), String(row.id ?? ""));
       continue;
     }
     kept.push({ name, lat, lon, code: String(row.id ?? ""), source: "data.gov.il+osm" });
@@ -120,7 +130,17 @@ export function build(rows = JSON.parse(readFileSync(SOURCE, "utf8")), curated =
   for (const town of curated) {
     const held = byKey.get(normPlace(town.name));
     if (!held) {
-      const place = { name: town.name, lat: town.lat, lon: town.lon, source: "compiled", ...(town.aka ? { aka: town.aka } : {}) };
+      // If the dataset knew this settlement and we refused only its coordinate, keep
+      // the symbol it was keyed by.
+      const code = refusedCode.get(normPlace(town.name));
+      const place = {
+        name: town.name,
+        lat: town.lat,
+        lon: town.lon,
+        source: "compiled",
+        ...(code ? { code } : {}),
+        ...(town.aka ? { aka: town.aka } : {}),
+      };
       kept.push(place);
       byKey.set(normPlace(town.name), place);
       added.push(town.name);
@@ -180,7 +200,8 @@ export function renderTypeScript(kept) {
   const lines = kept.map((p) => {
     const args = [quote(p.name), p.lat, p.lon];
     if (p.source === "compiled") {
-      return `  c(${args.join(", ")}${p.aka ? `, ${JSON.stringify(p.aka)}` : ""}),`;
+      const code = p.code ? quote(p.code) : "null";
+      return `  c(${args.join(", ")}, ${code}${p.aka ? `, ${JSON.stringify(p.aka)}` : ""}),`;
     }
     return `  s(${args.join(", ")}, ${quote(p.code)}${p.aka ? `, ${JSON.stringify(p.aka)}` : ""}),`;
   });
@@ -250,12 +271,20 @@ const s = (name: string, lat: number, lon: number, code: string, aka?: string[])
   ...(aka ? { aka } : {}),
 });
 
-/** A row compiled by hand for this project. */
-const c = (name: string, lat: number, lon: number, aka?: string[]): City => ({
+/**
+ * A row compiled by hand for this project.
+ *
+ * It can still carry the government's symbol: where the dataset knew the settlement
+ * and only its COORDINATE was refused, the key it was filed under is right whatever
+ * the geocoder did with it — and some publishers write that number where the town's
+ * name goes, so throwing it away costs real branches their position.
+ */
+const c = (name: string, lat: number, lon: number, code: string | null = null, aka?: string[]): City => ({
   name,
   lat,
   lon,
   source: "compiled",
+  ...(code ? { code } : {}),
   ...(aka ? { aka } : {}),
 });
 

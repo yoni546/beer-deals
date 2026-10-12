@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.36.1 — 2026-10-12
+
+**עוד ארבעה יישובים חזרו למפה** · Fix
+
+- סניפים בטירה, טייבה, מעלה אדומים וביתר עילית מופיעים שוב ב״הכי קרוב אליי״.
+- סניף שהרשת מסמנת ב‑0 או במספר פנימי משלה עדיין לא מקבל מיקום. לא מנחשים.
+
+Internal:
+
+- Asking what was STILL unplaced after 0047 turned up six numbers the matcher did not know. Four of them are settlements the app has had all along: 2720 טירה, 2730 טייבה, 3616 מעלה אדומים, 3780 ביתר עילית.
+- My bug, from 0046. Those four were refused by the import's gate (the dataset had put them on a geocoder's fallback point) and then re-added by hand from the curated list — which carries a name and a coordinate and NO symbol. Their coordinate was the thing that was wrong; the government's key for them never was. A refused coordinate is not a refused identity, and dropping the key cost those branches their position just as surely as a wrong pin would have.
+- scripts/build-settlements.mjs now carries the symbol across when it re-adds a settlement by hand (the `c()` helper takes one), and tests/town-centres.test.ts asserts that a hand-placed settlement still answers to its number. Migration 0049 sets what that recovered and re-runs the placement.
+- The remaining unmatched values are not settlements and are not pretended to be: "0" — a placeholder several chains use — an empty field, and 10018 / 10044 / 10098, which look like a chain's own internal numbering. Asserted: all three place nothing. Those branches stay unplaced, out of the screen, and counted in the line that says how many offers are not shown.
+- Still open and bigger: יוחננוף has 25 beer offers in the feed and 0 of its 52 branches placed. Its city values have not been seen yet.
+
 ## 0.36.0 — 2026-10-12
 
 **הכי קרוב אליי — לפי הבירות שלכם** · Feature

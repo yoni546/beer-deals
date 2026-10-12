@@ -177,11 +177,33 @@ describe("placing the branches", () => {
     expect((await geoOf(w, withZeros.id)).latitude).toBeCloseTo(centre("עכו").lat, 4);
   });
 
+  it("still answers to its number when we placed the settlement by hand", async () => {
+    // 2720 טירה, 2730 טייבה, 3616 מעלה אדומים and 3780 ביתר עילית were refused by the
+    // import's gate (the dataset had put them on a geocoder's fallback point) and
+    // re-added from the curated list — which arrived with no symbol, so every branch
+    // naming them by number stayed unplaced. A refused COORDINATE is not a refused
+    // identity: the government's key for a settlement is right whatever the geocoder
+    // did with it.
+    const w = await world();
+    const tira = await branch(w, "2720");
+    const maale = await branch(w, "3616");
+    await place(w);
+
+    expect((await geoOf(w, tira.id)).latitude).toBeCloseTo(centre("טירה").lat, 4);
+    expect((await geoOf(w, maale.id)).latitude).toBeCloseTo(centre("מעלה אדומים").lat, 4);
+  });
+
   it("still refuses a number that is not a settlement symbol", async () => {
     const w = await world();
+    // "0" is the placeholder several chains use where a town should be, and 10018 is
+    // a chain's own internal numbering. Neither is a place.
     const nonsense = await branch(w, "999999");
+    const zero = await branch(w, "0");
+    const internal = await branch(w, "10018");
     expect((await place(w)).rows[0].place_branches_by_town).toBe(0);
     expect((await geoOf(w, nonsense.id)).latitude).toBeNull();
+    expect((await geoOf(w, zero.id)).latitude).toBeNull();
+    expect((await geoOf(w, internal.id)).latitude).toBeNull();
   });
 
   it("is not something a visitor may run", async () => {
