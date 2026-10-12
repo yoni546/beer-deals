@@ -164,6 +164,26 @@ describe("placing the branches", () => {
     expect(geo.latitude).toBeCloseTo(32.0, 6);
   });
 
+  it("recognises a settlement written as its official number, which some chains do", async () => {
+    // Found on staging: the towns we had failed to match were not towns. 4000 (50
+    // branches), 7600, 2660, 9400, 9500, 7800 — CBS settlement symbols, written where
+    // the name goes. Perfectly valid data that name matching could never see.
+    const w = await world();
+    const haifa = await branch(w, "4000");
+    const withZeros = await branch(w, "0007600");
+    await place(w);
+
+    expect((await geoOf(w, haifa.id)).latitude).toBeCloseTo(centre("חיפה").lat, 4);
+    expect((await geoOf(w, withZeros.id)).latitude).toBeCloseTo(centre("עכו").lat, 4);
+  });
+
+  it("still refuses a number that is not a settlement symbol", async () => {
+    const w = await world();
+    const nonsense = await branch(w, "999999");
+    expect((await place(w)).rows[0].place_branches_by_town).toBe(0);
+    expect((await geoOf(w, nonsense.id)).latitude).toBeNull();
+  });
+
   it("is not something a visitor may run", async () => {
     const w = await world();
     const visitor = await createUser(w.db);

@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.35.1",
+    "date": "2026-10-12",
+    "title_he": "עוד סניפים על המפה",
+    "highlights_he": [
+      "חלק מהרשתות כותבות בקובץ שלהן את המספר הרשמי של היישוב במקום את השם. עכשיו גם אלה מזוהים.",
+      "חיפה לבדה — 50 סניפים שלא היה להם מרחק.",
+      "סניף שעדיין לא מזוהה לא מקבל מרחק מומצא, והמסך ממשיך לומר כמה מבצעים לא מוצגים בגללו."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging by asking which towns we had failed to match. The answer was not towns: 4000 (50 branches), 7600, 2660, 9400, 9500, 7800 — CBS settlement symbols written where the name goes. 4000 is חיפה, 7600 עכו, 2660 יבנה, 9400 יהוד־מונוסון, 9500 קריית ביאליק, 7800 פרדס חנה־כרכור. Perfectly valid data that 0045's name matching could never recognise. 91 offers were being held out of \"הכי קרוב אליי\" on staging because of it.",
+      "The settlement list already carried the same symbol on every row — it is how the government's list is keyed — so this was a lookup we had and were not using. Migration 0047 puts `code` on town_centres, fills it for 1,162 spellings, and adds a third matching pass: a city that is all digits is matched on the symbol, leading zeros ignored on both sides.",
+      "Ordered last on purpose, and the ORDER BY says so: a name we recognise is better evidence than a code, and no settlement's name is a number.",
+      "Still only ever fills a branch with NO position, and still refuses to guess: 999999 places nothing. A branch that is neither a name nor a symbol we know stays unplaced, out of the screen, and counted in the line that says how many offers are not shown.",
+      "This is the second time the screen's honest refusal was the only thing that revealed a data problem — first that no branch had a position at all, now that a sixth of them had a number where a name belongs. Both were invisible to the tests, which assert the refusal."
+    ]
+  },
+  {
     "version": "0.35.0",
     "date": "2026-10-12",
     "title_he": "כל יישוב בארץ, לא רק הערים",

@@ -43,7 +43,7 @@ export function rowsFor(places) {
         continue;
       }
       seen.set(key, place.name);
-      rows.push({ norm: key, name: place.name, lat: place.lat, lon: place.lon, source: place.source });
+      rows.push({ norm: key, name: place.name, lat: place.lat, lon: place.lon, source: place.source, code: place.code ?? null });
     }
   }
   return rows;
@@ -53,6 +53,21 @@ export function rowsFor(places) {
 export const allRows = () => rowsFor(build().kept);
 
 const quote = (s) => `'${s.replace(/'/g, "''")}'`;
+
+/**
+ * `update ... from (values ...)` setting each settlement's CBS symbol.
+ *
+ * Separate from the insert because migration 0046 is applied and is not edited: 0047
+ * adds the column and fills it, and it only needs the key and the number rather than
+ * the whole row again.
+ */
+export function codeUpdateSql(rows) {
+  const withCode = rows.filter((r) => r.code);
+  const values = withCode.map((r) => `  (${quote(r.norm)}, ${quote(r.code)})`).join(",\n");
+  return (
+    `update public.town_centres tc\n   set code = v.code\n  from (values\n${values}\n) as v(norm_name, code)\n where tc.norm_name = v.norm_name;\n`
+  );
+}
 
 export function sqlFor(rows) {
   const values = rows.map((r) => `  (${quote(r.norm)}, ${quote(r.name)}, ${r.lat}, ${r.lon}, ${quote(r.source)})`).join(",\n");
