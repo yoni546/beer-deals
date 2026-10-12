@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { asUser, createUser } from "./helpers/db";
 import { world, type World } from "./helpers/catalog";
-import { ISRAEL_CITIES, namesOf } from "@/data/israel-cities";
-import { normPlace, rowsFor, townsFromSource } from "../scripts/build-town-centres-sql.mjs";
+import { cityByName, ISRAEL_CITIES, namesOf } from "@/data/israel-cities";
+import { allRows, normPlace, rowsFor } from "../scripts/build-town-centres-sql.mjs";
 
 /**
  * Migration 0045: "הכי קרוב אליי" measures from somewhere.
@@ -25,6 +25,17 @@ const branch = (w: World, city: string | null, store = w.ids.rami) =>
 
 const place = (w: World) => asUser(w.db, w.admin, () => w.db.query<{ place_branches_by_town: number }>("select public.place_branches_by_town()"));
 
+/**
+ * Where the app says a settlement is. Tests compare against this rather than a number
+ * typed into the test, so a re-import that moves a town centre by a kilometre does not
+ * fail a test that was only ever checking that the right town was found.
+ */
+const centre = (name: string) => {
+  const place = cityByName(name);
+  if (!place) throw new Error(`${name} is not in ISRAEL_CITIES`);
+  return place;
+};
+
 const geoOf = (w: World, id: string) =>
   w.one<{ latitude: number | null; longitude: number | null; geocode_precision: string | null; geocode_source: string | null }>(
     "select latitude, longitude, geocode_precision, geocode_source from public.branches where id = $1",
@@ -32,9 +43,9 @@ const geoOf = (w: World, id: string) =>
   );
 
 describe("the town table matches the one the app ships", () => {
-  it("has a row for every spelling of every town, with the same point", async () => {
+  it("has a row for every spelling of every settlement, with the same point", async () => {
     const w = await world();
-    const expected = rowsFor(townsFromSource());
+    const expected = allRows();
 
     const { rows } = await w.db.query<{ norm_name: string; name: string; lat: number; lon: number }>(
       "select norm_name, name, lat, lon from public.town_centres",
@@ -51,19 +62,41 @@ describe("the town table matches the one the app ships", () => {
     }
   });
 
-  it("parses the TypeScript file the way the TypeScript file reads", async () => {
-    const parsed = townsFromSource();
-    expect(parsed).toHaveLength(ISRAEL_CITIES.length);
-    for (const [i, town] of parsed.entries()) {
-      expect(town.name).toBe(ISRAEL_CITIES[i].name);
-      expect(town.lat).toBeCloseTo(ISRAEL_CITIES[i].lat, 6);
-      expect([town.name, ...town.aka]).toEqual(namesOf(ISRAEL_CITIES[i]));
+  it("covers every settlement the app ships, and invents none", async () => {
+    // The SQL and the TypeScript are generated from one validated list
+    // (scripts/build-settlements.mjs); this is the assertion that they really are.
+    const rows = allRows();
+    const spellings = new Set(rows.map((r) => r.norm));
+    expect(ISRAEL_CITIES.length).toBeGreaterThan(1000);
+    for (const place of ISRAEL_CITIES) {
+      for (const name of namesOf(place)) {
+        expect(spellings.has(normPlace(name)), name).toBe(true);
+      }
     }
+    const names = new Set(ISRAEL_CITIES.map((p) => p.name));
+    for (const row of rows) expect(names.has(row.name), row.name).toBe(true);
+  });
+
+  it("holds no settlement outside Israel, and no point shared by three of them", async () => {
+    // The dataset this is built from had both: 85 settlements on one fallback point
+    // in the Negev, and עטרת in Los Angeles. The import refuses them; this is the
+    // assertion that it still does.
+    const byPoint = new Map<string, string[]>();
+    for (const place of ISRAEL_CITIES) {
+      expect(place.lat, place.name).toBeGreaterThanOrEqual(29.3);
+      expect(place.lat, place.name).toBeLessThanOrEqual(33.5);
+      expect(place.lon, place.name).toBeGreaterThanOrEqual(34.0);
+      expect(place.lon, place.name).toBeLessThanOrEqual(36.0);
+      const key = `${place.lat.toFixed(4)},${place.lon.toFixed(4)}`;
+      byPoint.set(key, [...(byPoint.get(key) ?? []), place.name]);
+    }
+    const crowded = [...byPoint.entries()].filter(([, names]) => names.length >= 3);
+    expect(crowded.map(([point, names]) => `${point}: ${names.join(", ")}`)).toEqual([]);
   });
 
   it("normalises a place name in Postgres the way the generator does", async () => {
     const w = await world();
-    const samples = ["תל אביב-יפו", "תל אביב יפו", " קרית אונו ", "מודיעין־מכבים־רעות", "ת״א", "פרדס חנה־כרכור"];
+    const samples = ["תל אביב-יפו", "תל אביב יפו", " קרית אונו ", "מודיעין־מכבים־רעות", "ת״א", "פרדס חנה־כרכור", "טמרה (יזרעאל)", "בן שמן (מושב)"];
     for (const sample of samples) {
       const { norm_place: fromSql } = await w.one<{ norm_place: string }>("select public.norm_place($1)", [sample]);
       expect(fromSql, sample).toBe(normPlace(sample));
@@ -89,8 +122,8 @@ describe("placing the branches", () => {
     expect((await place(w)).rows[0].place_branches_by_town).toBe(1);
 
     const geo = await geoOf(w, holon.id);
-    expect(geo.latitude).toBeCloseTo(32.015, 3);
-    expect(geo.longitude).toBeCloseTo(34.774, 3);
+    expect(geo.latitude).toBeCloseTo(centre("חולון").lat, 4);
+    expect(geo.longitude).toBeCloseTo(centre("חולון").lon, 4);
     expect(geo.geocode_precision).toBe("locality");
     expect(geo.geocode_source).toContain("town centre");
   });
@@ -102,9 +135,9 @@ describe("placing the branches", () => {
     const aka = await branch(w, "נצרת עילית");
     await place(w);
 
-    expect((await geoOf(w, typo.id)).latitude).toBeCloseTo(32.056, 3);
-    expect((await geoOf(w, quarter.id)).latitude).toBeCloseTo(31.769, 3);
-    expect((await geoOf(w, aka.id)).latitude).toBeCloseTo(32.713, 3);
+    expect((await geoOf(w, typo.id)).latitude).toBeCloseTo(centre("קריית אונו").lat, 4);
+    expect((await geoOf(w, quarter.id)).latitude).toBeCloseTo(centre("ירושלים").lat, 4);
+    expect((await geoOf(w, aka.id)).latitude).toBeCloseTo(centre("נוף הגליל").lat, 4);
   });
 
   it("leaves a town it does not know, and a branch with no town, unplaced", async () => {
@@ -163,8 +196,8 @@ describe("the person's own town", () => {
       [visitor],
     );
     expect(profile.home_city).toBe("רמת גן");
-    expect(profile.home_lat).toBeCloseTo(32.082, 3);
-    expect(profile.home_lon).toBeCloseTo(34.814, 3);
+    expect(profile.home_lat).toBeCloseTo(centre("רמת גן").lat, 4);
+    expect(profile.home_lon).toBeCloseTo(centre("רמת גן").lon, 4);
   });
 
   it("prefers a point the person actually shared over their town's centre", async () => {

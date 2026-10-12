@@ -1,95 +1,74 @@
 /**
- * The town table, as SQL rows.
+ * The settlement table, as SQL rows.
  *
- * `src/data/israel-cities.ts` is the app's copy of "where each town is" — one
- * approximate centre per settlement, hand-compiled, every row marked as such. The
- * database needs the same list, because the thing that places 1,160 branches on the
- * map runs in Postgres (migration 0045) and because `save_location` fills a missing
- * point from it.
+ * `src/data/israel-cities.ts` is the app's copy of "where each settlement is" — the
+ * browser needs it to turn what somebody types into a point. The database needs the
+ * same list, because the thing that places 1,160 branches on the map runs in Postgres
+ * (migrations 0045 and 0046) and because `save_location` fills a missing point from it.
  *
- * Two copies of a list is how a list goes wrong, so this is the only way the SQL one
- * is written, and `tests/town-centres.test.ts` fails if they drift apart.
+ * Two copies of a list is how a list goes wrong, so both are produced from ONE place —
+ * scripts/build-settlements.mjs, which validates the vendored dataset — and
+ * `tests/town-centres.test.ts` fails if the database and the module drift apart.
  *
  *   node scripts/build-town-centres-sql.mjs            # print the rows
  *   node scripts/build-town-centres-sql.mjs --out f    # write them to a file
  *
- * ADDING A TOWN LATER. Add it to the TypeScript file and add a NEW migration with
- * its row (this prints one). Migration 0045 has been applied; it is not edited.
+ * ADDING OR CORRECTING A SETTLEMENT LATER. Edit scripts/data/curated-towns.json, run
+ * `npm run settlements` to rebuild the TypeScript, then add a NEW migration with the
+ * rows this prints. Applied migrations are not edited.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build, normPlace } from "./build-settlements.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "src", "data", "israel-cities.ts");
+
+export { normPlace };
 
 /**
- * The same normalisation migration 0045's `norm_place()` performs, so a row's key
- * here is the key a lookup there computes. Kept in both places on purpose: the
- * test compares what they produce rather than trusting either comment.
+ * One row per SPELLING a person or a Stores file might use, each carrying the
+ * settlement's display name and its point, so a lookup is a primary-key hit.
  */
-export function normPlace(raw) {
-  return String(raw ?? "")
-    .replace(/[־‐-―-]/g, " ")
-    .replace(/[׳״'’"״׳.,]/g, "")
-    .replace(/קרית/g, "קריית")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-/**
- * Every `city(...)` call in the TypeScript file, read as text.
- *
- * Parsing rather than importing keeps this a plain script with no build step; the
- * test imports the module itself and compares, which is what makes the parse safe.
- */
-export function townsFromSource(text = readFileSync(SOURCE, "utf8")) {
-  const call = /city\(\s*"([^"]+)"\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*\[([^\]]*)\])?\s*\)/g;
-  const towns = [];
-  for (const match of text.matchAll(call)) {
-    const [, name, lat, lon, akaBlock] = match;
-    const aka = akaBlock ? [...akaBlock.matchAll(/"([^"]+)"/g)].map((m) => m[1]) : [];
-    towns.push({ name, lat: Number(lat), lon: Number(lon), aka });
-  }
-  if (towns.length === 0) throw new Error(`found no city() rows in ${SOURCE}`);
-  return towns;
-}
-
-/** One row per spelling a person or a Stores file might use. The point travels with each. */
-export function rowsFor(towns) {
+export function rowsFor(places) {
   const rows = [];
   const seen = new Map();
-  for (const town of towns) {
-    for (const spelling of [town.name, ...town.aka]) {
+  for (const place of places) {
+    for (const spelling of [place.name, ...(place.aka ?? [])]) {
       const key = normPlace(spelling);
       const held = seen.get(key);
       if (held) {
-        // Two towns answering to one spelling would make the lookup a coin toss.
-        if (held !== town.name) throw new Error(`"${spelling}" is claimed by both ${held} and ${town.name}`);
+        // Two settlements answering to one spelling would make the lookup a coin toss.
+        if (held !== place.name) throw new Error(`"${spelling}" is claimed by both ${held} and ${place.name}`);
         continue;
       }
-      seen.set(key, town.name);
-      rows.push({ norm: key, name: town.name, lat: town.lat, lon: town.lon });
+      seen.set(key, place.name);
+      rows.push({ norm: key, name: place.name, lat: place.lat, lon: place.lon, source: place.source });
     }
   }
   return rows;
 }
 
+/** Every spelling in the app's list, ready for `insert into public.town_centres`. */
+export const allRows = () => rowsFor(build().kept);
+
 const quote = (s) => `'${s.replace(/'/g, "''")}'`;
 
 export function sqlFor(rows) {
-  const values = rows.map((r) => `  (${quote(r.norm)}, ${quote(r.name)}, ${r.lat}, ${r.lon}, 'compiled')`).join(",\n");
-  return `insert into public.town_centres (norm_name, name, lat, lon, source) values\n${values}\non conflict (norm_name) do update\n  set name = excluded.name, lat = excluded.lat, lon = excluded.lon, source = excluded.source;\n`;
+  const values = rows.map((r) => `  (${quote(r.norm)}, ${quote(r.name)}, ${r.lat}, ${r.lon}, ${quote(r.source)})`).join(",\n");
+  return (
+    `insert into public.town_centres (norm_name, name, lat, lon, source) values\n${values}\n` +
+    `on conflict (norm_name) do update\n  set name = excluded.name, lat = excluded.lat, lon = excluded.lon, source = excluded.source;\n`
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const towns = townsFromSource();
-  const sql = sqlFor(rowsFor(towns));
+  const rows = allRows();
+  const sql = sqlFor(rows);
   const i = process.argv.indexOf("--out");
   if (i !== -1 && process.argv[i + 1]) {
     writeFileSync(join(ROOT, process.argv[i + 1]), sql);
-    console.error(`${towns.length} towns, ${sql.split("\n").length - 4} spellings → ${process.argv[i + 1]}`);
+    console.error(`${rows.length} spellings → ${process.argv[i + 1]}`);
   } else {
     process.stdout.write(sql);
   }

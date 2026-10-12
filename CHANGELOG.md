@@ -6,6 +6,30 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.35.0 — 2026-10-12
+
+**כל יישוב בארץ, לא רק הערים** · Feature, Data
+
+- אפשר לבחור כל יישוב בארץ — עיר, מושב, קיבוץ או כפר. 1,155 במקום 90.
+- מי שהיישוב שלו לא היה ברשימה ולכן לא ראה מרחקים — רואה אותם עכשיו.
+- סניף שלא הצלחנו למקם עדיין לא מקבל מרחק מומצא. הוא פשוט לא מופיע ב״הכי קרוב אליי״.
+
+Internal:
+
+- 0045 shipped town_centres with the 90 towns this project had compiled by hand. That covers cities and misses the kibbutz, the moshav and the village — so the people who most need "where is the nearest branch" were exactly the ones told, correctly and uselessly, that we could not measure. The owner hit it on his own settlement the first time he tried it.
+- Source: data-sources/israel-geolocation-1.0.1/, vendored with its licence and a PROVENANCE.md — the official data.gov.il settlement list keyed by CBS settlement symbol (verified: 3000 Jerusalem, 5000 Tel Aviv-Yafo, 4000 Haifa, 9000 Be'er Sheva, 8300 Rishon), with coordinates from OpenStreetMap (ODbL, credited in the generated file) and Google's geocoder. No network and no runtime dependency: the file is in the repo and scripts/build-settlements.mjs reads it.
+- THE DATASET IS NOT CLEAN, AND WAS NOT TAKEN ON TRUST. 115 of its 1,264 rows are demonstrably not places: 85 settlements share ONE point in the Negev (31.0461, 34.8516) — a geocoder's fallback, which is how מעלה אדומים, ביתר עילית, טירה and מעלה אפרים appeared 76–132 km from where they are; four military camps sit on Jerusalem's exact point; and עטרת is in Los Angeles (34.0551, −118.3892). The import refuses every one and prints what it refused.
+- The gate started at 'three or more settlements on one point', to spare the genuine pairs. Checking the pairs that survived is what settled it: קרית ארבע came back at KIRYAT SHMONA's coordinates, 190 km away, sharing them with קרית שלמה; עופרה sat on עופר near Haifa; קרני שומרון sat near Jenin; טייבה (בעמק) took the Triangle Taybe's point. A shared point is not evidence of neighbours, it is evidence that something was not looked up — so the line is two, and it costs about two dozen real neighbours (עין חרוד איחוד/מאוחד) their position. Each is still a place you can type, with no distance, which the app already says out loud.
+- What this does NOT claim: that every remaining row is right. It claims that every row the data itself could convict was removed, and that the rest agrees with 90 independently compiled values to a median of 350 m. A row that is simply wrong, alone, on its own point, is not detectable from here and is not pretended to be.
+- Cross-checked against the 90 hand-compiled towns: median disagreement 350 m. Over 5 km the dataset has a different place (תמרה came back at the other Tamra, 31 km away) and the hand-compiled value wins; under it the two are the same settlement with different ideas of its centre and the dataset's systematic choice stands (Haifa 2.9 km, Ramat Gan 1.8 km, Jerusalem 1.4 km — all reported, none overridden).
+- The 90 live on in scripts/data/curated-towns.json, which wins over the dataset and carries the alternative spellings the dataset has no column for (נצרת עילית, ת״א, מודיעין). A correction goes there and the file is rebuilt (npm run settlements), so a re-import cannot quietly undo it.
+- src/data/israel-cities.ts is now GENERATED (66 KB, alphabetical by Hebrew name so a re-import diffs readably) and so are the SQL rows, from the same validated list — tests/town-centres.test.ts fails if the database and the module drift, and now also asserts that nothing sits outside Israel and no point is shared by three settlements.
+- Migration 0046 upserts all 1,189 spellings, teaches norm_place() that brackets are separators (טמרה (יזרעאל), בן שמן (מושב) — people do not type them), and re-runs 0045's two backfills, which now match a village as well as a city. Both still only ever fill a row with NO position.
+- Tests that asserted a hardcoded latitude now compare against the module's own value, so a re-import that moves a centre by a kilometre does not fail a test that was only checking the right town was found.
+- Bundle cost, measured: /welcome 127 kB → 147 kB and /settings 128 kB → 148 kB first-load JS. The shared bundle is unchanged at 103 kB, so it lands only on the two screens that need the list. Paid knowingly: lazy-loading it would put a round trip between a keystroke and the suggestions on exactly the screen where somebody is deciding whether this app is worth their time.
+- One real search regression found and fixed on the way: with 1,155 names, typing נתנייה returned יונתן, a village in the Golan. Hebrew's skeleton folding drops א ו י ה ע, so both reduce to נתנ, the two tied at rank 50 and the alphabet decided. src/lib/search.ts now ranks 'one typo in the whole name' (65) above a skeleton coincidence (50).
+- The display name is the hand-compiled spelling where there is one: the dataset writes "תל אביב - יפו" with spaces around the dash, which is not how anyone writes it or looks it up. Its spelling is kept as an alternative so a Stores file using it still finds the town.
+
 ## 0.34.0 — 2026-10-12
 
 **הכי קרוב אליי עובד, והמסכים זזים** · Feature, Design

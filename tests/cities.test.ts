@@ -30,19 +30,25 @@ describe("the settlement list", () => {
     for (const place of ISRAEL_CITIES) {
       expect(place.name.trim(), place.name).toBe(place.name);
       expect(place.name.length, place.name).toBeLessThanOrEqual(60); // profiles_home_city_length
-      expect(["compiled", "data.gov.il"]).toContain(place.source);
+      expect(["compiled", "data.gov.il+osm"]).toContain(place.source);
     }
   });
 
-  it("does not put two different places at the same point", () => {
-    const seen = new Map<string, string>();
+  it("never puts two settlements on one point, which is what a failed geocode looks like", () => {
+    // A shared point is not evidence of neighbours, it is evidence that something was
+    // not looked up. The dataset this list is built from had 85 settlements on a single
+    // point in the Negev — and among the innocent-looking PAIRS, קרית ארבע sat on
+    // Kiryat Shmona's coordinates 190 km away, עופרה sat on עופר near Haifa, and
+    // קרני שומרון sat near Jenin. The import refuses every one of them, and a
+    // settlement with no position is a place you can still type, with no distances.
+    const seen = new Map<string, string[]>();
     for (const place of ISRAEL_CITIES) {
-      const key = `${place.lat.toFixed(3)},${place.lon.toFixed(3)}`;
-      expect(seen.get(key), `${place.name} sits on ${seen.get(key)}`).toBeUndefined();
-      seen.set(key, place.name);
+      const key = `${place.lat.toFixed(4)},${place.lon.toFixed(4)}`;
+      seen.set(key, [...(seen.get(key) ?? []), place.name]);
     }
+    const stacked = [...seen.entries()].filter(([, names]) => names.length > 1);
+    expect(stacked.map(([point, names]) => `${point}: ${names.join(", ")}`)).toEqual([]);
   });
-
   it("puts the big cities where they actually are", () => {
     // Distances anyone can check: these are the rows the rest of the list is scaled against.
     const tlv = cityByName("תל אביב-יפו")!;

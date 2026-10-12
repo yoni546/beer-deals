@@ -59,6 +59,13 @@ export function score(query: string, candidates: string[]): number {
     if (c === q) best = Math.max(best, 100);
     else if (c.startsWith(q)) best = Math.max(best, 85);
     else if (words.some((word) => word.startsWith(q))) best = Math.max(best, 75);
+    // One typo in the whole name, ranked ABOVE a skeleton coincidence. Hebrew's
+    // skeleton folding is deliberately loose — it drops א ו י ה ע — so "נתנייה" and
+    // "יונתן" reduce to the same three letters, and without this the two tied at 50
+    // and the alphabet decided, which handed somebody looking for נתניה a village in
+    // the Golan. A name one letter away from what was typed is a better guess than
+    // a name that merely shares its consonants.
+    else if (q.length >= 4 && withinOneEdit(c, q)) best = Math.max(best, 65);
     else if (c.includes(q)) best = Math.max(best, 55);
     // "ampm" for "AM:PM", "שופרסל" for "שופר-סל": punctuation should not decide a match.
     else if (q.replace(/ /g, "").length >= 3 && c.replace(/ /g, "").includes(q.replace(/ /g, ""))) best = Math.max(best, 45);
