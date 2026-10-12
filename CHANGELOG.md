@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.37.1 — 2026-10-12
+
+**אפרת, כפר עציון, טירת הכרמל וטבעון** · Data
+
+- ארבעה יישובים שסניפים אמיתיים חיכו להם נוספו לרשימה.
+- 1,021 מתוך 1,160 הסניפים כבר על המפה.
+- מה שנשאר הוא סניפים שהרשת מסמנת ב‑0, בלי יישוב בכלל, או במספור פנימי משלה — ואלה יישארו בלי מרחק.
+
+Internal:
+
+- After 0050 the count stood at 1,021 of 1,160 placed. Asking what was still unmatched turned up four names that are not noise: אפרת (its dataset row 3650 sits on the Negev fallback point, refused correctly and never put back), כפר עציון (row 3488 is at 32.178/34.907, near Ra'anana — Kfar Etzion is in Gush Etzion; refused with the two others sharing that point), טירת הכרמל (the dataset does not carry it at all) and טבעון (how people and Stores files write קריית טבעון).
+- The first three go into scripts/data/curated-towns.json on the same disclosed standard as the other ninety: an approximate centre from well-established public geographic knowledge, marked source='compiled'. Two get their CBS symbol back from the refused dataset row, because a refused coordinate is not a refused identity (0049).
+- WHAT IS DELIBERATELY NOT MATCHED, written into migration 0051 so the next person does not go looking: '0' (78 branches — a placeholder several chains write where a town goes, and no amount of data makes it a place), an empty city (47 branches), 'מ.א. עמק חפר' (a regional council, not a settlement — placing it at the council's centre would be a different claim than this column makes), 'תל אבית יפה' (one branch, a typo in the publisher's own file; encoding somebody's typo as a legitimate spelling of a city is not a fix), and 10018 / 10044 / 10098 / 1306 / 50 (a chain's internal numbering, or symbols the government list we have does not carry).
+- Each of those branches keeps no position, stays out of the screen, and stays counted in the line that says how many offers are not shown. That is the end state, not a gap waiting to be filled with a guess.
+
 ## 0.37.0 — 2026-10-12
 
 **יוחננוף חזרה למפה** · Fix

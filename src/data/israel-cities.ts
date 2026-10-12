@@ -7,7 +7,7 @@
  *
  * WHAT THIS IS, EXACTLY
  * ---------------------
- * 1155 settlements — every city, town, kibbutz, moshav and village the
+ * 1158 settlements — every city, town, kibbutz, moshav and village the
  * government's list holds and that could be placed. Each entry is a settlement's
  * APPROXIMATE CENTRE: not a boundary centroid, not an address, and not where the
  * person lives. That is the right precision for its only job, a radius the person
@@ -23,7 +23,7 @@
  * the import refuses 93 rows that are demonstrably not places — 85 of them sharing
  * one fallback point, and one settlement placed in Los Angeles.
  *
- * 7 rows (source "compiled") were compiled by hand for this project before
+ * 10 rows (source "compiled") were compiled by hand for this project before
  * that dataset was used, and stand where the dataset put the settlement somewhere
  * else entirely (more than 5 km) or could not place it at all. The hand-compiled list
  * also carries the alternative spellings people actually type — "נצרת עילית", "ת״א",
@@ -179,6 +179,7 @@ export const ISRAEL_CITIES: City[] = [
   s("אפיק", 32.7788419, 35.7013296, "4301"),
   s("אפיקים", 32.681369, 35.5783318, "176"),
   s("אפק", 32.8401655, 35.1278912, "313"),
+  c("אפרת", 31.655, 35.167, "3650"),
   s("ארבל", 32.8120793, 35.4839284, "701"),
   s("ארגמן", 32.681884, 34.93943, "3598"),
   s("ארז", 31.5605003, 34.5666313, "714"),
@@ -499,6 +500,7 @@ export const ISRAEL_CITIES: City[] = [
   s("טורעאן", 32.7772712, 35.3725219, "498"),
   c("טייבה", 32.267, 35.01, "2730"),
   c("טירה", 32.234, 34.951, "2720"),
+  c("טירת הכרמל", 32.761, 34.972, null),
   s("טירת יהודה", 32.0140654, 34.9333804, "663"),
   s("טירת כרמל", 32.7613834, 34.9715506, "2100"),
   s("טירת צבי", 32.4218582, 35.5279708, "268"),
@@ -646,6 +648,7 @@ export const ISRAEL_CITIES: City[] = [
   s("כפר סירקין", 32.0777377, 34.9235073, "249"),
   s("כפר עבודה", 32.2569466, 34.9420929, "875"),
   s("כפר עזה", 31.4833351, 34.5333225, "845"),
+  c("כפר עציון", 31.65, 35.114, "3488"),
   s("כפר פינס", 32.4838889, 35.0034441, "189"),
   s("כפר קאסם", 32.1173916, 34.968918, "634"),
   s("כפר קיש", 32.6663613, 35.4487944, "388"),
@@ -1067,7 +1070,7 @@ export const ISRAEL_CITIES: City[] = [
   s("קריית אתא", 32.8115853, 35.1163747, "6800", ["קרית אתא"]),
   s("קריית ביאליק", 32.8285812, 35.0844915, "9500", ["קרית ביאליק"]),
   s("קריית גת", 31.6104718, 34.7722948, "2630", ["קרית גת"]),
-  s("קריית טבעון", 32.7332039, 35.1453385, "2300", ["קרית טבעון"]),
+  s("קריית טבעון", 32.7332039, 35.1453385, "2300", ["טבעון","קרית טבעון"]),
   s("קריית ים", 32.851004, 35.070244, "9600", ["קרית ים"]),
   s("קריית מוצקין", 32.8390366, 35.0821062, "8200", ["קרית מוצקין"]),
   s("קריית מלאכי", 31.7316015, 34.7446145, "1034", ["קרית מלאכי"]),

@@ -1,5 +1,5 @@
 {
-  "_": "The 90 towns compiled by hand for this project, before the government dataset was used. scripts/build-settlements.mjs lays these over the dataset: their alternative spellings are kept, and where a coordinate here disagrees with the dataset by more than 2 km this one wins. A correction to any town centre belongs here, not in the generated src/data/israel-cities.ts.",
+  "_": "The 90 towns compiled by hand for this project, before the government dataset was used. scripts/build-settlements.mjs lays these over the dataset: their alternative spellings are kept, and where a coordinate here disagrees with the dataset by more than 2 km this one wins. A correction to any town centre belongs here, not in the generated src/data/israel-cities.ts. Four settlements were added on 2026-10-12 after real branches failed to match: אפרת and כפר עציון, whose dataset rows were refused for sitting on a geocoder's fallback point; טירת הכרמל, which the dataset does not carry at all; and טבעון as a spelling of קריית טבעון.",
   "towns": [
     {
       "name": "קריית שמונה",
@@ -117,7 +117,10 @@
     {
       "name": "קריית טבעון",
       "lat": 32.721,
-      "lon": 35.127
+      "lon": 35.127,
+      "aka": [
+        "טבעון"
+      ]
     },
     {
       "name": "חיפה",
@@ -482,6 +485,21 @@
       "name": "מעלה אפרים",
       "lat": 32.07,
       "lon": 35.333
+    },
+    {
+      "name": "אפרת",
+      "lat": 31.655,
+      "lon": 35.167
+    },
+    {
+      "name": "כפר עציון",
+      "lat": 31.65,
+      "lon": 35.114
+    },
+    {
+      "name": "טירת הכרמל",
+      "lat": 32.761,
+      "lon": 34.972
     }
   ]
 }
