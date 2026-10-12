@@ -165,6 +165,20 @@ const feed = await time("offers_feed (what the app reads)", "select store_slug, 
 
 console.log(`\nthe chain listing waits ${feed} ms for a page that shows ${(await db.query("select count(*)::int n from public.stores")).rows[0].n} rows.`);
 
+// What the same answer costs when it is computed once instead of per request.
+// The import is the only thing that changes it, so this is the shape the Deal
+// Score already uses (offer_scores + refresh_offer_scores).
+console.log("\nif it were computed once and read from a table:");
+const built = performance.now();
+await db.exec(`
+  create materialized view bench_offers as select * from public.offers_feed;
+  create index on bench_offers (store_slug);
+  analyze bench_offers;
+`);
+console.log(`  building it                        ${String(Math.round(performance.now() - built)).padStart(6)} ms   (once per import)`);
+const cached = await time("reading it", "select store_slug, value_pct from bench_offers");
+console.log(`\n  per request: ${feed} ms → ${cached} ms   (${(feed / Math.max(cached, 1)).toFixed(0)}× less work on every page)`);
+
 if (process.argv.includes("--plan")) {
   const { rows } = await db.query(`explain (analyze, buffers) ${QUERY}`);
   console.log("\n" + rows.map((r) => r["QUERY PLAN"]).join("\n"));
