@@ -25,11 +25,17 @@ const arg = (name, fallback) => {
   return i === -1 ? fallback : Number(process.argv[i + 1]);
 };
 
-// Staging, measured 2026-10-12: 1,160 branches, 490 live offers, and a reference
-// probe whose inner loop reported 53,402 rows.
+// Staging, measured 2026-10-12: 1,160 branches, 737,404 price observations,
+// 490 live offers, and a reference probe whose inner loop reported 53,402 rows.
+//
+// That last pair is the shape that matters and the one a naive seed gets wrong:
+// the ledger is append-only, so most of it is HISTORY. Each (pack, branch) has
+// one `live` regular price and a tail of `superseded` ones behind it. Seeding
+// 737k rows that are all live measures a database nobody has.
 const BRANCHES = arg("branches", 1160);
 const SKUS = arg("skus", 150);
-const REGULARS = arg("regulars", 53000);
+const PER_BRANCH = arg("per-branch", 46);   // packs priced at each branch → ~53k live rows
+const HISTORY = arg("history", 14);          // observations kept per pack+branch, newest live
 const PROMOTIONS = arg("promotions", 500);
 
 const db = new PGlite();
@@ -38,7 +44,10 @@ for (const file of readdirSync(join(ROOT, "supabase/migrations")).filter((f) => 
   await db.exec(readFileSync(join(ROOT, "supabase/migrations", file), "utf8"));
 }
 
-console.log(`building: ${BRANCHES} branches · ${SKUS} packs · ${REGULARS} regular prices · ${PROMOTIONS} promotions`);
+console.log(
+  `building: ${BRANCHES} branches · ${SKUS} packs · ${PER_BRANCH} packs per branch · ` +
+    `${HISTORY} observations each (1 live + ${HISTORY - 1} superseded) · ${PROMOTIONS} promotions`,
+);
 
 await db.exec(`
   insert into public.brands (slug, name_he, name_en) values ('bench', 'בנצ׳', 'Bench') on conflict do nothing;
@@ -56,22 +65,23 @@ await db.exec(`
     join lateral (select id from public.beers order by md5(slug || g) limit 1) b on true;
 `);
 
-// The price ledger: a live regular price per (pack, branch) for as many as asked.
+// The price ledger, as an append-only ledger actually looks: one live regular
+// price per (pack, branch), and a tail of superseded ones behind each.
 await db.exec(`
   insert into public.price_observations
     (sku_id, store_id, branch_id, kind, price_agorot, observed_at, identity_key, source_id, status)
   select k.id, br.store_id, br.id, 'regular',
-         1200 + (row_number() over () % 3000),
-         now() - ((row_number() over () % 13) || ' days')::interval,
+         1200 + ((h.n * 37 + k.seq) % 3000),
+         now() - (h.n || ' days')::interval,
          'regular',
          (select id from public.sources where kind = 'chain_feed' limit 1),
-         'live'
+         case when h.n = 0 then 'live' else 'superseded' end
     from public.branches br
     cross join lateral (
-      select id from public.skus order by md5(br.id::text || id::text)
-       limit ${Math.max(1, Math.ceil(REGULARS / BRANCHES))}
+      select id, row_number() over () as seq
+        from public.skus order by md5(br.id::text || id::text) limit ${PER_BRANCH}
     ) k
-   limit ${REGULARS};
+    cross join generate_series(0, ${HISTORY - 1}) as h(n);
 `);
 
 await db.exec(`
@@ -95,6 +105,7 @@ await db.exec(`
 for (const [what, sql] of [
   ["branches", "select count(*)::int n from public.branches"],
   ["price_observations", "select count(*)::int n from public.price_observations"],
+  ["…of them live", "select count(*)::int n from public.price_observations where status = 'live'"],
   ["promotions", "select count(*)::int n from public.promotions"],
   ["offers_feed rows", "select count(*)::int n from public.offers_feed"],
 ]) {
