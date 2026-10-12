@@ -9,7 +9,8 @@
  * From a scan it also writes the branch INVENTORY (every branch the Stores files list), each branch's scan
  * outcome (record_branch_scan), closes promotions a branch's newest file no longer lists
  * (close_missing_promotions), recomputes every chain's promotion scope (refresh_promotion_scope, 0017),
- * rescores every deal (refresh_offer_scores, 0027) and rings the app's cache doorbell.
+ * rescores every deal (refresh_offer_scores, 0027), rebuilds the chain half of the feed
+ * (refresh_offers_catalog, 0044) and rings the app's cache doorbell.
  * Incremental: branches whose newest files were already imported are not sent again.
  *
  * Safety:
@@ -363,6 +364,20 @@ for (const r of runs.values()) {
   const { data, error } = await db.rpc("refresh_offer_scores");
   written.scores = error ? { failed: error.message } : data;
   if (error) console.error(`deal scores: ${error.message}`);
+}
+
+// The chain half of the feed, computed once here instead of on every page (0044).
+// Production measured 15,306 ms for one read of offers_feed, past the 8-second
+// cancellation Supabase applies to anon and authenticated: 18,627 live promotion
+// rows, each probing an index for its reference price, to show 526 offers.
+//
+// Also not `must`, and for a sharper reason than the scores: if this fails the
+// table keeps the PREVIOUS run's rows, so the app serves yesterday's chain offers
+// rather than none. Undoing a correct import over it would be the worse outcome.
+{
+  const { data, error } = await db.rpc("refresh_offers_catalog");
+  written.catalog = error ? { failed: error.message } : data;
+  if (error) console.error(`offers catalog: ${error.message}`);
 }
 
 // The app holds the catalogue and the feeds for five minutes under one cache tag, and
