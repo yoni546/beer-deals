@@ -152,6 +152,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const summaries: Record<string, BeerSummary> = {};
   for (const beer of viewer.favorites) summaries[beer.id] = summarize(mine.filter((offer) => offer.beer_id === beer.id));
 
+  // "Closest to me", in the person's own order of beers. Each strip keeps the distance
+  // ordering inside it — nearby.offers is already nearest-first — so "closest" still
+  // means closest; what changes is which beer you are asked to look at first.
+  const favouriteSet = new Set(favouriteIds);
+  const nearbyMine = nearby.offers.filter((offer) => favouriteSet.has(offer.beer_id));
+  const nearbyStrips = groupByBeer(nearbyMine, favouriteIds);
+  const nearbyRest = nearby.offers.filter((offer) => !favouriteSet.has(offer.beer_id));
+
   const availablePacks = [...new Set(everything.map(packClass))] as PackFilter[];
   const strips = groupByBeer(filterByPack(mine, pack), favouriteIds).map((group) => ({
     ...group,
@@ -236,21 +244,43 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
 
           {intent === "near" ? (
-            // One flat list, nearest first. Grouping by beer is the wrong shape for
-            // "I want beer now": the question is where, not whose.
+            // Your beers first, each one nearest-first — the same shape as the rest of
+            // the app, because "favourite #1 is the app" does not stop being true when
+            // the question is where. (It was one flat distance list at first, on the
+            // argument that "I want beer now" is about where and not whose. The owner
+            // used it and said otherwise, which is better evidence than the argument.)
+            // Everything else keeps a strip of its own at the foot rather than
+            // disappearing, so a bargain on a beer nobody follows is still findable.
             nearby.offers.length === 0 ? (
               <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
             ) : (
               <>
-                <Strip
-                  title="הכי קרוב אליך"
-                  offers={nearby.offers}
-                  lead="beer"
-                  perLiter={perLiter}
-                  limit={12}
-                  distances={distances.available ? distances.byOffer : undefined}
-                  branches={distances.available ? distances.branchByOffer : undefined}
-                />
+                <div className="space-y-7">
+                  {nearbyStrips.map((group) => (
+                    <Strip
+                      key={group.beerId}
+                      title={group.name}
+                      beerSlug={group.slug}
+                      offers={group.offers}
+                      lead="chain"
+                      perLiter={perLiter}
+                      limit={6}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  ))}
+                  {nearbyRest.length > 0 && (
+                    <Strip
+                      title="עוד בסביבה"
+                      offers={nearbyRest}
+                      lead="beer"
+                      perLiter={perLiter}
+                      limit={8}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  )}
+                </div>
                 <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
               </>
             )

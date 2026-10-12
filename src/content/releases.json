@@ -2,22 +2,25 @@
   {
     "version": "0.36.0",
     "date": "2026-10-12",
-    "title_he": "לא רק כמה רחוק — גם איפה",
+    "title_he": "הכי קרוב אליי — לפי הבירות שלכם",
     "highlights_he": [
-      "ליד המרחק כתוב עכשיו איזה סניף זה, באיזה יישוב ובאיזו כתובת.",
+      "״הכי קרוב אליי״ מסודר עכשיו לפי הבירות שאתם אוהבים, לפי הסדר שבחרתם — וכל בירה מסודרת מהקרוב לרחוק.",
+      "ליד המרחק כתוב איזה סניף זה, באיזה יישוב ובאיזו כתובת.",
       "לחיצה על השורה פותחת את הסניף בוויז.",
-      "הניווט מחפש את החנות לפי השם והכתובת — לא שולח אתכם לנקודה שאנחנו יודעים שהיא לא החנות."
+      "מבצע על בירה שלא עוקבים אחריה עדיין מופיע, בקבוצה נפרדת בסוף."
     ],
     "kind": [
       "feature"
     ],
     "showInApp": true,
     "internal": [
+      "\"הכי קרוב אליי\" was one flat distance list, on my argument that \"I want beer now\" is a question about where and not whose, with a comment in the code saying grouping by beer was the wrong shape. The owner used it and said otherwise, and the app's own permanent rule agrees with him: favourite #1 is the app, and that does not stop being true when the question is where. Now grouped by beer in the person's own ranking, each strip nearest-first, with 'עוד בסביבה' at the foot so a bargain on a beer nobody follows is still findable rather than dropped.",
       "\"הכי קרוב אליי\" started working in 0045–0047 and the first thing it got wrong was obvious the moment somebody used it: it said \"12 ק״מ ממך\" and nothing else. Not which branch, not which town, nothing to put into Waze. A distance with no place attached is a number, and the person still has to go and find the shop.",
       "Migration 0048 adds `address` to branches_within_km()'s result — branches.address has been carrying it from the Stores file since the beginning and no caller was asking for it. Dropped and recreated rather than replaced: a function's OUT columns are part of its signature.",
       "distancesFor() now returns branchByOffer as well as byOffer, so each line knows WHICH branch its distance is to — the offer's own branch where the deal is known to run at one, otherwise the nearest branch of its chain, which is already the branch the distance was measured to.",
       "The Waze link carries TEXT, never a coordinate, and tests/nearest-branch.test.tsx asserts there is no ll= in it. The coordinate is the town centre (geocode_precision = 'locality'), so handing it to a navigation app would route somebody confidently to a roundabout — the exact lie this feature exists to refuse. The address is the publisher's own text; Waze resolves it and gets the door right far more often than our centroid would.",
-      "With no address at all it still searches by chain, branch and town, which is what a person would have typed anyway. With no name and no town it renders nothing rather than an empty line."
+      "With no address at all it still searches by chain, branch and town, which is what a person would have typed anyway. With no name and no town it renders nothing rather than an empty line.",
+      "tests/nearest-by-favourite.test.ts holds the parts that are easy to lose in that change: that 'closest' still means closest INSIDE each beer, that a beer nobody follows is not dropped, and that an offer we cannot measure is still refused rather than sorted to the bottom."
     ]
   },
   {
