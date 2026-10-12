@@ -11,8 +11,22 @@
  * the real query. It is the measurement 0022 made by hand on a hosted project,
  * except it runs anywhere and needs no credentials.
  *
- *   node scripts/bench/feed-at-scale.mjs                # staging's shape
- *   node scripts/bench/feed-at-scale.mjs --branches 4000 --regulars 200000
+ *   node scripts/bench/feed-at-scale.mjs                 # staging's shape
+ *   node scripts/bench/feed-at-scale.mjs --history 60    # four months of ledger
+ *
+ * MEASURED 2026-10-12 (PGlite, warm, this container):
+ *
+ *   ledger      live rows   regular_prices_current   offers_feed
+ *   747,540        53,860                   82 ms        148 ms
+ * 3,202,100        53,860                  102 ms        145 ms
+ *
+ * The ledger grew 4.3× and the read did not move. `price_obs_live_regular`
+ * (0022) indexes only the live rows, so history is invisible to the feed —
+ * which is the property worth protecting, and the reason the answer to
+ * staging's 10,192 ms is NOT a rewrite of the read model.
+ *
+ * What does scale with the ledger is anything that reads all of it: counting
+ * the table went 166 ms → 766 ms. Nothing on a page does, and nothing should.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
