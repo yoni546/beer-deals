@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { FavouriteKeys } from "@/components/FavouriteKeys";
 import { Freshness } from "@/components/Freshness";
 import { Hero } from "@/components/Hero";
@@ -8,6 +9,8 @@ import { HomeSearch } from "@/components/HomeSearch";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ShareApp } from "@/components/ShareApp";
 import { SortBar } from "@/components/SortBar";
+import { TopHunter } from "@/components/DealHunters";
+import { IntentSwitch, CannotMeasure } from "@/components/IntentSwitch";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
 import { Gap } from "@/components/ui/Tape";
@@ -21,19 +24,28 @@ import {
   newestObservation,
   orderForHome,
   packClass,
+  orderByIntent,
+  parseIntent,
   parsePack,
   parseSort,
   pickHero,
+  type SearchIntent,
   summarize,
+  watchHits,
   type BeerSummary,
   type PackFilter,
 } from "@/lib/offer-logic";
-import { getBeers, getSettings, getStores } from "@/lib/queries";
+import { topContributors } from "@/lib/contributors";
+import { distancesFor } from "@/lib/distance";
+import { kmHe } from "@/lib/format";
+import { getBeers, getMyWatchlist, getSettings, getStores } from "@/lib/queries";
+import { WatchHits } from "@/components/WatchHits";
+import { attempt, failed, or } from "@/lib/attempt";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-type Search = { sort?: string; unit?: string; pack?: string; c?: string };
+type Search = { sort?: string; unit?: string; pack?: string; c?: string; intent?: string };
 
 /**
  * Home: the drinker's four beers first, in their own order, then the one deal worth
@@ -46,6 +58,17 @@ type Search = { sort?: string; unit?: string; pack?: string; c?: string };
  */
 export default async function HomePage({ searchParams }: { searchParams: Promise<Search> }) {
   const viewer = await getViewer();
+  // Never conclude "not onboarded" from a read that failed: that is what used to throw an
+  // onboarded person back into onboarding on a transient database hiccup.
+  if (viewer.degraded && !viewer.isOnboarded) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את הפרופיל שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
   if (!viewer.isOnboarded) redirect("/welcome");
 
   const query = await searchParams;
@@ -54,19 +77,57 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // Home has no singles, so a "singles" link (an old notification) opens everything Home has.
   const requested = parsePack(query.pack, query.c);
   const pack: PackFilter = requested === "single" ? "all" : requested;
+  // What they are after right now. In the URL, never in the profile (src/lib/offer-logic.ts).
+  const intent = parseIntent(query.intent);
+  const hrefForIntent = (next: SearchIntent) => {
+    const params = new URLSearchParams();
+    if (query.sort) params.set("sort", query.sort);
+    if (query.unit) params.set("unit", query.unit);
+    if (query.pack) params.set("pack", query.pack);
+    if (next !== "best") params.set("intent", next);
+    const search = params.toString();
+    return search ? `/?${search}` : "/";
+  };
 
   const favouriteIds = viewer.favorites.map((beer) => beer.id);
-  // One round trip for everything; the editor's pick (rare) is a second one only when there is one.
-  const [allBeers, allStores, mineAll, moreAll, myGroupsAll, settings, updatedAt] = await Promise.all([
-    getBeers(),
-    getStores(),
-    getOffers({ beerIds: favouriteIds, packsOnly: true }),
-    getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true }),
-    getGroupOffers({ beerIds: favouriteIds }),
-    getSettings(),
-    getFreshness(),
+  // Every read in one round trip, and every one of them allowed to fail on its own. A page that
+  // put all seven in a bare Promise.all lost the whole screen whenever any single one timed out —
+  // including the purely decorative "last updated". See src/lib/attempt.ts.
+  const watchlist = or(await attempt("home.watchlist", () => getMyWatchlist()), {});
+  const watchedIds = Object.keys(watchlist);
+
+  const [catalogue, mineRead, moreRead, groupsRead, settingsRead, freshnessRead, watchedRead] = await Promise.all([
+    attempt("catalogue", async () => ({ beers: await getBeers(), stores: await getStores() })),
+    attempt("home.mine", () => getOffers({ beerIds: favouriteIds, packsOnly: true })),
+    attempt("home.more", () => getOffers({ excludeBeerIds: favouriteIds, topByValue: 24, packsOnly: true })),
+    attempt("home.groups", () => getGroupOffers({ beerIds: favouriteIds })),
+    attempt("settings", () => getSettings()),
+    attempt("freshness", () => getFreshness()),
+    // Beers they follow (0037) are in neither of the two reads above: not favourites,
+    // and not necessarily among the best savings anywhere. Skipped entirely when
+    // nobody is followed, which is most people.
+    watchedIds.length > 0
+      ? attempt("home.watched", () => getOffers({ beerIds: watchedIds, packsOnly: true }))
+      : null,
   ]);
-  const pick = settings?.weekly_deal_id ? await getOfferByKey(`deal:${settings.weekly_deal_id}`) : null;
+
+  const { beers: allBeers, stores: allStores } = or(catalogue, { beers: [], stores: [] });
+  const mineAll = or(mineRead, []);
+  const moreAll = or(moreRead, []);
+  const myGroupsAll = or(groupsRead, []);
+  const settings = or(settingsRead, null);
+  const updatedAt = or(freshnessRead, null);
+  const watchedAll = watchedRead ? or(watchedRead, []) : [];
+
+  // Which parts of the screen must say "we could not look" instead of showing nothing.
+  const myDealsFailed = failed(mineRead) || failed(groupsRead);
+  const moreFailed = failed(moreRead);
+
+  // The editor's pick is one more read, and losing it costs a hero, not a page.
+  const pickRead = settings?.weekly_deal_id
+    ? await attempt("home.weekly", () => getOfferByKey(`deal:${settings.weekly_deal_id}`))
+    : null;
+  const pick = pickRead ? or(pickRead, null) : null;
   const featured = pick && packClass(pick) !== "single" ? pick : null;
   // The database leaves out single units by count; a user-submitted deal has no count, only a kind ("בודד").
   const packsOnly = (offer: (typeof mineAll)[number]) => packClass(offer) !== "single";
@@ -74,11 +135,48 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const more = moreAll.filter(packsOnly);
   const myGroups = myGroupsAll.filter((group) => groupPackClass(group) !== "single");
 
-  const everything = [...mine, ...more];
+  // What reached the price they asked for, and what did not. The rest joins the
+  // ordinary lists rather than getting a section of its own: a beer somebody follows
+  // is not news until it does what they asked.
+  const { hits: watchReached, rest: watchedOther } = watchHits(watchedAll.filter(packsOnly), watchlist);
+
+  const everything = [...mine, ...more, ...watchedOther];
   const freshest = updatedAt ?? newestObservation(everything);
+
+  // How far each one is, or the reason we cannot say. Nothing here invents a position:
+  // the branch coordinate columns (0026) are deliberately empty until a geocoding
+  // provider is configured, so today this reports that we do not know.
+  const distances = await distancesFor(viewer, everything);
+  const topHunter = or(await attempt("hunters.top", () => topContributors(1)), [])[0] ?? null;
+  const nearby = orderByIntent(everything, "near", distances.available ? distances.byOffer : {}, sort, perLiter);
 
   const summaries: Record<string, BeerSummary> = {};
   for (const beer of viewer.favorites) summaries[beer.id] = summarize(mine.filter((offer) => offer.beer_id === beer.id));
+
+  // "Closest to me", in the person's own order of beers — with the nearest shops kept
+  // at the top where the screen's name promises they are.
+  //
+  // Grouping by favourite was asked for and is right, but it had a consequence nobody
+  // asked for: the first thing on the screen stopped being the nearest offer and became
+  // favourite #1's nearest offer, which can be an hour's drive while a different beer
+  // is on offer down the road. Somebody standing in מנחמיה was shown עפולה and
+  // קריית טבעון while בית שאן was nearer and further down the page.
+  //
+  // So the few genuinely nearest offers lead, whatever beer they are, and the beers
+  // follow in the person's own order. Both questions get answered where they are asked.
+  const favouriteSet = new Set(favouriteIds);
+  const NEAREST_FIRST = 4;
+  const closest = nearby.offers.slice(0, NEAREST_FIRST);
+  const closestKeys = new Set(closest.map((offer) => offer.offer_key));
+  const nearbyMine = nearby.offers.filter((offer) => favouriteSet.has(offer.beer_id) && !closestKeys.has(offer.offer_key));
+  const nearbyStrips = groupByBeer(nearbyMine, favouriteIds);
+  const nearbyRest = nearby.offers.filter((offer) => !favouriteSet.has(offer.beer_id) && !closestKeys.has(offer.offer_key));
+
+  /** How far the nearest offer in a group is — said on the heading, so the page can be scanned. */
+  const kmOf = (offers: typeof nearby.offers) => {
+    const all = offers.map((offer) => (distances.available ? distances.byOffer[offer.offer_key] : undefined)).filter((km): km is number => km !== undefined);
+    return all.length ? Math.min(...all) : undefined;
+  };
 
   const availablePacks = [...new Set(everything.map(packClass))] as PackFilter[];
   const strips = groupByBeer(filterByPack(mine, pack), favouriteIds).map((group) => ({
@@ -119,11 +217,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       )}
 
       <div className="mb-6">
-        <HomeSearch
-          beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
-          stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
-        />
+        {failed(catalogue) ? (
+          <CouldNotLoad what="את החיפוש" />
+        ) : (
+          <HomeSearch
+            beers={allBeers.map((beer) => ({ slug: beer.slug, label: beer.name_he, alias: beer.name_en }))}
+            stores={allStores.map((store) => ({ slug: store.slug, label: store.name_he }))}
+          />
+        )}
       </div>
+
+      {/* Above everything the app chose, because they chose this. */}
+      <WatchHits hits={watchReached} />
 
       <section aria-labelledby="mine" className="mb-6">
         <h2 id="mine" className="mb-2 text-sm font-semibold text-on-ground-2">
@@ -139,7 +244,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </>
       )}
 
-      {everything.length === 0 && myGroups.length === 0 ? (
+      {everything.length === 0 && myGroups.length === 0 && !myDealsFailed && !moreFailed ? (
         <EmptyState
           title="עוד אין מבצעים מאומתים"
           action={<ButtonLink href="/submit">ראיתם מבצע? שלחו לנו</ButtonLink>}
@@ -152,6 +257,64 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <SortBar path="/" state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
           </div>
 
+          <div className="mb-5">
+            <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
+          </div>
+
+          {intent === "near" ? (
+            // Your beers first, each one nearest-first — the same shape as the rest of
+            // the app, because "favourite #1 is the app" does not stop being true when
+            // the question is where. (It was one flat distance list at first, on the
+            // argument that "I want beer now" is about where and not whose. The owner
+            // used it and said otherwise, which is better evidence than the argument.)
+            // Everything else keeps a strip of its own at the foot rather than
+            // disappearing, so a bargain on a beer nobody follows is still findable.
+            nearby.offers.length === 0 ? (
+              <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
+            ) : (
+              <>
+                <div className="space-y-7">
+                  {closest.length > 0 && (
+                    <Strip
+                      title="הכי קרוב אליך"
+                      offers={closest}
+                      lead="beer"
+                      perLiter={perLiter}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  )}
+                  {nearbyStrips.map((group) => (
+                    <Strip
+                      key={group.beerId}
+                      title={group.name}
+                      beerSlug={group.slug}
+                      aside={kmOf(group.offers) !== undefined ? `מ־${kmHe(kmOf(group.offers)!)}` : undefined}
+                      offers={group.offers}
+                      lead="chain"
+                      perLiter={perLiter}
+                      limit={6}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  ))}
+                  {nearbyRest.length > 0 && (
+                    <Strip
+                      title="עוד בסביבה"
+                      aside={kmOf(nearbyRest) !== undefined ? `מ־${kmHe(kmOf(nearbyRest)!)}` : undefined}
+                      offers={nearbyRest}
+                      lead="beer"
+                      perLiter={perLiter}
+                      limit={8}
+                      distances={distances.available ? distances.byOffer : undefined}
+                      branches={distances.available ? distances.branchByOffer : undefined}
+                    />
+                  )}
+                </div>
+                <CannotMeasure distances={distances} unplaceable={nearby.unplaceable} />
+              </>
+            )
+          ) : (
           <div className="space-y-7">
             {strips.map((group) => (
               <Strip
@@ -170,23 +333,43 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
             <GroupStrip title="קונים כמה, בוחרים מהמבצע · הבירות שלי" offers={myGroups} />
 
-            {mine.length === 0 && myGroups.length === 0 && (
-              <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">
-                כשיופיע מבצע על שישייה או ארגז של אחת מהארבע, הוא יעלה לכאן ראשון.
-              </EmptyState>
+            {myDealsFailed ? (
+              <CouldNotLoad what="את המבצעים לבירות שלך" />
+            ) : (
+              mine.length === 0 &&
+              myGroups.length === 0 && (
+                <EmptyState title="אין כרגע מבצעי שישיות או ארגזים לבירות שלך">
+                  כשיופיע מבצע על שישייה או ארגז של אחת מהבירות שלכם, הוא יעלה לכאן ראשון.
+                </EmptyState>
+              )
             )}
 
-            {others.length > 0 && (
-              <Strip
-                title="עוד מבצעים"
-                offers={others}
-                lead="beer"
-                perLiter={perLiter}
-                limit={6}
-                moreHref="/beer"
-              />
+            {moreFailed ? (
+              <CouldNotLoad what="את שאר המבצעים" />
+            ) : (
+              others.length > 0 && (
+                <Strip
+                  title="עוד מבצעים"
+                  offers={others}
+                  lead="beer"
+                  perLiter={perLiter}
+                  limit={6}
+                  moreHref="/beer"
+                />
+              )
             )}
           </div>
+          )}
+        </>
+      )}
+
+      {/* Who found them. One line on Home; the table is a route of its own, because
+          a leaderboard is something you go and look at, not something that should sit
+          between a person and tonight's beer. */}
+      {topHunter && (
+        <>
+          <Gap />
+          <TopHunter standing={topHunter} />
         </>
       )}
 

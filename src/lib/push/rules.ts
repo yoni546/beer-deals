@@ -4,19 +4,35 @@
  *
  * The rules, in the order they are applied:
  *
- *  Event level (the same for everyone):
+ *  Event level — the ONE thing that is the same for everyone:
  *    1. The deal must still be on (not expired).
- *    2. It must carry a VERIFIED saving. No trusted reference price ⇒ no push: "cheap" is a
- *       claim, and a phone that buzzes on an unverified claim teaches people to ignore it.
- *    3. The saving must reach the admin's minimum, and the price must be under the admin's cap.
  *
  *  Person level:
- *    4. Only the PRIMARY beer (favourite #1) may interrupt. #2–#4 shape the app, not the phone.
- *    5. Notifications must be on, and there must be a device to send to.
- *    6. Cooldown: not again about the same beer within N hours.
- *    7. Daily cap: at most N pushes per person per Israeli calendar day.
- *    8. Quiet hours: not at night. This one DEFERS instead of skipping — a promotion that is
+ *    2. There must be a reason to tell THEM: it is their favourite #1, or they are watching
+ *       this beer (0037). #2–#4 shape the app, not the phone.
+ *    3. The price has to be worth it, and what "worth it" means depends on why they are here:
+ *         · favourite #1, or a watch with no price → the ADMIN's rules: a VERIFIED saving, at or
+ *           above the minimum percentage, at or under the price cap. No trusted reference ⇒ no
+ *           push: "cheap" is a claim, and a phone that buzzes on an unverified claim teaches
+ *           people to ignore it.
+ *         · a watch WITH a price → their own ceiling, and nothing else. A trusted saving and a
+ *           trusted price are different things; the message for a watch hit states the price and
+ *           claims no percentage, so it needs no reference to vouch for.
+ *    4. Notifications must be on, and there must be a device to send to.
+ *    5. Cooldown: not again about the same beer within N hours.
+ *    6. Daily cap: at most N pushes per person per Israeli calendar day.
+ *    7. Quiet hours: not at night. This one DEFERS instead of skipping — a promotion that is
  *       still running at 08:00 is still worth a morning notification.
+ *
+ * Rules 4–7 are PROTECTIONS FOR A PERSON, not thresholds for an offer, and a watch is not
+ * permission to ignore them: somebody watching eight beers gets the same two notifications a
+ * day as everybody else. That is what keeps a watchlist a statement about what matters rather
+ * than a subscription to noise.
+ *
+ * Why the thresholds moved from the event to the person (0037): they are the ADMIN's rules, and
+ * an admin's percentage is not the only reason somebody may want to be told. Deciding them at
+ * event level closed the event for everybody, so a watcher with their own ceiling could never
+ * have been reached. `eventVerdict` is kept, unchanged, as the admin-level summary.
  */
 
 export const ISRAEL = "Asia/Jerusalem";
@@ -45,6 +61,13 @@ export type PushRecipient = {
   primaryBeerId: string | null;
   notificationsEnabled: boolean;
   subscriptions: number;
+  /**
+   * Are they watching this beer (0037), and at what price?
+   *
+   * `null` = not watching. `{ maxPriceAgorot: null }` = watching with no price of
+   * their own, which means "treat it like my number one" and so the admin's rules.
+   */
+  watching?: { maxPriceAgorot: number | null } | null;
   /** Last successful push to this person about THIS beer. */
   lastSentForBeerAt: Date | null;
   /** Successful pushes to this person since the start of today (Israel). */
@@ -57,6 +80,7 @@ export type SkipReason =
   | "below_threshold"
   | "over_price_cap"
   | "not_primary"
+  | "over_my_price"
   | "disabled"
   | "no_subscription"
   | "cooldown"
@@ -64,23 +88,64 @@ export type SkipReason =
 
 export type Decision = { action: "send" } | { action: "skip"; reason: SkipReason } | { action: "defer" };
 
-/** Rules that depend only on the offer: if it fails these, nobody gets it. */
-export function eventVerdict(
+/**
+ * Is the deal still on? The only question whose answer is the same for everybody.
+ *
+ * Everything else was event-level until 0037 and is now decided per person, because
+ * an administrator's percentage is not the only reason somebody may want to be told.
+ */
+export function stillOn(now: Date, expiresAt: Date): boolean {
+  return now.getTime() < expiresAt.getTime();
+}
+
+/**
+ * The administrator's rules: a verified saving, big enough, cheap enough.
+ *
+ * Applied to somebody for whom this is favourite #1, and to a watcher who named no
+ * price of their own.
+ */
+export function adminThresholds(
   offer: PushOffer,
   settings: NotifySettings,
-  now: Date,
-  expiresAt: Date,
 ): { ok: true } | { ok: false; reason: SkipReason } {
-  if (now.getTime() >= expiresAt.getTime()) return { ok: false, reason: "expired" };
   if (offer.valuePct === null) return { ok: false, reason: "no_verified_saving" };
   if (offer.valuePct < settings.minValuePct) return { ok: false, reason: "below_threshold" };
   if (offer.priceAgorot > settings.maxPriceAgorot) return { ok: false, reason: "over_price_cap" };
   return { ok: true };
 }
 
-/** Rules that depend on the person. Call after `eventVerdict` said ok. */
+/**
+ * The admin-level summary: would this offer interrupt anybody under the admin's own
+ * rules? Kept unchanged from before 0037 — it is what the dashboard and the docs
+ * mean by "a notifiable deal" — but the WORKER no longer gates an event on it,
+ * because that would close the event for watchers too.
+ */
+export function eventVerdict(
+  offer: PushOffer,
+  settings: NotifySettings,
+  now: Date,
+  expiresAt: Date,
+): { ok: true } | { ok: false; reason: SkipReason } {
+  if (!stillOn(now, expiresAt)) return { ok: false, reason: "expired" };
+  return adminThresholds(offer, settings);
+}
+
+/** Everything that depends on the person. Call after `stillOn` said yes. */
 export function decide(offer: PushOffer, person: PushRecipient, settings: NotifySettings, now: Date): Decision {
-  if (person.primaryBeerId !== offer.beerId) return { action: "skip", reason: "not_primary" };
+  const isPrimary = person.primaryBeerId === offer.beerId;
+  const watch = person.watching ?? null;
+  if (!isPrimary && !watch) return { action: "skip", reason: "not_primary" };
+
+  // Why they are here decides what "worth telling them" means. A ceiling they typed
+  // is a more specific statement of intent than any global percentage, and it is
+  // about the price — so it is measured against the price alone.
+  if (!isPrimary && watch && watch.maxPriceAgorot !== null) {
+    if (offer.priceAgorot > watch.maxPriceAgorot) return { action: "skip", reason: "over_my_price" };
+  } else {
+    const threshold = adminThresholds(offer, settings);
+    if (!threshold.ok) return { action: "skip", reason: threshold.reason };
+  }
+
   if (!person.notificationsEnabled) return { action: "skip", reason: "disabled" };
   if (person.subscriptions === 0) return { action: "skip", reason: "no_subscription" };
 

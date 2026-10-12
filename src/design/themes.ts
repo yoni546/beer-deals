@@ -159,6 +159,13 @@ export type BottlePhoto = {
   src: string;
   width: number;
   height: number;
+  /**
+   * The same photo at 216 px tall, for lists. Home draws four bottles in a 19×72 box
+   * and used to fetch the full hero asset for each — up to 292 KiB to paint four
+   * thumbnails. Written by scripts/lib/bottle-thumb.mjs; absent only on an entry that
+   * predates it, where the full file is still a correct (if heavy) fallback.
+   */
+  thumb?: { src: string; width: number; height: number };
   source: string;
   license: string;
   approvedBy: string;

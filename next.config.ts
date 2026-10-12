@@ -24,6 +24,17 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The bottle photo is the LCP element on every screen. These files are written
+        // once per beer by scripts/prepare-bottle.mjs and never edited in place, so they
+        // were being revalidated on every navigation for nothing.
+        source: "/bottles/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/onboarding/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
         source: "/manifest.webmanifest",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },

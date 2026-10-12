@@ -115,3 +115,14 @@ select k.id, st.id, 'promotion',
 
 select count(*) || ' sample observations present' as result
   from public.price_observations o join public.sources s on s.id = o.source_id where s.slug = 'sample-data';
+
+-- ---------------------------------------------------------------------------
+-- The feed's chain half is a table now (0044), filled by the import. A seed
+-- stands in for an import, so it fills it too — otherwise a freshly seeded
+-- database has prices in it and shows no chain offers at all, which is a
+-- confusing way to start.
+-- ---------------------------------------------------------------------------
+delete from public.offers_catalog;
+insert into public.offers_catalog select s.*, now() from public.offers_catalog_source s;
+
+select count(*) || ' offers in the chain half' as result from public.offers_catalog;

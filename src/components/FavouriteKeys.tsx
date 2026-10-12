@@ -17,14 +17,21 @@ export function FavouriteKeys({
   summaries: Record<string, BeerSummary>;
 }) {
   return (
-    <ol className="grid grid-cols-4 gap-1" aria-label="ארבע הבירות שלי, לפי הסדר">
+    // Sized from how many beers there are, not fixed at four (0024): with one to three,
+    // a four-column grid left the keys hanging against one edge.
+    <ol
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(beers.length, 1), 4)}, minmax(0, 1fr))` }}
+      aria-label="הבירות שלי, לפי הסדר"
+    >
       {beers.map((beer, index) => {
         const count = summaries[beer.id]?.count ?? 0;
         return (
           <li key={beer.id} data-rank={index + 1}>
             <Link href={`/beer/${beer.slug}`} className="favourite-key flex flex-col items-center gap-1 rounded-xl px-1 pt-1 pb-1.5 text-center">
               <span className="relative flex h-[4.5rem] items-end justify-center">
-                <BeerBottle slug={beer.slug} height={72} />
+                {/* Home's header: above the fold on every phone, so not lazy. */}
+                <BeerBottle slug={beer.slug} height={72} eager />
                 <span
                   aria-hidden
                   className={`num absolute -top-1 -start-3 rounded-full px-1.5 text-[0.75rem] leading-5 font-bold ${

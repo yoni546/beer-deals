@@ -4,6 +4,7 @@ import { BeerMark } from "@/components/ui/Bottle";
 import { ChevronLeftIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import type { Offer } from "@/lib/db/types";
+import type { NearbyBranch } from "@/lib/distance";
 
 /**
  * A strip of paper for one heading (a beer, a pack, a chain) and its lines, ruled
@@ -23,6 +24,8 @@ export function Strip({
   headingLevel = "h2",
   beerSlug,
   perLiter = false,
+  distances,
+  branches,
 }: {
   title: string;
   href?: string;
@@ -38,6 +41,10 @@ export function Strip({
   beerSlug?: string;
   /** The list is ordered per litre: each line shows that number. */
   perLiter?: boolean;
+  /** How far each offer is, by offer_key. Only the ones we could place are in it. */
+  distances?: Record<string, number>;
+  /** Which branch that distance is to, by offer_key — named on the line, with a tap to Waze. */
+  branches?: Record<string, NearbyBranch>;
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
@@ -49,7 +56,7 @@ export function Strip({
         {beerSlug && <BeerMark slug={beerSlug} height={30} className="shrink-0 self-center" />}
         <Heading className="min-w-0 flex-1 truncate text-lg leading-tight font-bold text-ink">
           {href ? (
-            <Link href={href} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
+            <Link href={href} prefetch={false} className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline">
               {title}
             </Link>
           ) : (
@@ -61,12 +68,20 @@ export function Strip({
 
       <div className="divide-y divide-paper-line">
         {shown.map((offer) => (
-          <OfferLine key={offer.offer_key} offer={offer} lead={lead} showStore={showStore} perLiter={perLiter} />
+          <OfferLine
+            key={offer.offer_key}
+            offer={offer}
+            lead={lead}
+            showStore={showStore}
+            perLiter={perLiter}
+            distanceKm={distances?.[offer.offer_key]}
+            nearestBranch={branches?.[offer.offer_key]}
+          />
         ))}
       </div>
 
       {hidden > 0 && moreHref && (
-        <Link href={moreHref} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
+        <Link href={moreHref} prefetch={false} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
           עוד {hidden} {hidden === 1 ? "מבצע" : "מבצעים"} · {title}
           <ChevronLeftIcon size={18} />
         </Link>

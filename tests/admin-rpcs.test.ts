@@ -33,7 +33,7 @@ describe("admin RPCs (0020)", () => {
   it("refuse anyone who is not an admin: a signed-in visitor and the anonymous public", async () => {
     const { w } = await setup();
     await expect(asUser(w.db, w.visitor, () => w.db.query("select public.admin_overview()"))).rejects.toThrow(/admin privileges required/);
-    await expect(addDeal(w, w.visitor)).rejects.toThrow(/admin privileges required/);
+    await expect(addDeal(w, w.visitor)).rejects.toThrow(/moderator privileges required/);
     await expect(asUser(w.db, null, () => w.db.query("select public.admin_overview()"), "anon")).rejects.toThrow(/permission denied/);
     await expect(addDeal(w, null, undefined, "anon")).rejects.toThrow(/permission denied/);
     expect((await w.db.query("select count(*)::int n from public.deals")).rows[0]).toEqual({ n: 0 });

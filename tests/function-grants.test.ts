@@ -26,13 +26,17 @@ describe("function grants (0023)", () => {
     }
   });
 
-  it("no SECURITY DEFINER function a person could call is left executable by anon, except the two public checks", async () => {
+  it("no SECURITY DEFINER function a person could call is left executable by anon, except the three public checks", async () => {
     const db = await freshDatabase();
     const { rows } = await db.query<{ name: string }>(
       `select p.proname as name from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtype
           and has_function_privilege('anon', p.oid, 'execute') order by 1`,
     );
-    expect(rows.map((r) => r.name)).toEqual(["is_admin", "is_super_admin"]);
+    // The three are the role checks themselves (is_moderator joined them in 0040).
+    // They are definer because they read `admins`, which nobody may read directly,
+    // and they answer one boolean about the CALLER — there is nothing to leak and
+    // no argument to abuse. Everything else on this list would be a finding.
+    expect(rows.map((r) => r.name)).toEqual(["is_admin", "is_moderator", "is_super_admin"]);
   });
 });

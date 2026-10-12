@@ -1,5 +1,961 @@
 [
   {
+    "version": "0.38.0",
+    "date": "2026-10-12",
+    "title_he": "הכי קרוב — באמת הכי קרוב",
+    "highlights_he": [
+      "המסך פותח עכשיו בארבעת המבצעים הכי קרובים אליכם, מכל בירה שהיא.",
+      "אחריהם הבירות שלכם, לפי הסדר שבחרתם — וליד כל אחת כתוב מאיזה מרחק היא מתחילה.",
+      "ככה גם רואים מיד מה קרוב, וגם לא צריך לחפש את הבירה שאוהבים."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Grouping \"closest to me\" by favourite beer (0.36.0) was asked for and is right, but it had a consequence nobody asked for: the first thing on the screen stopped being the nearest offer and became favourite #1's nearest offer. Somebody standing in מנחמיה was shown עפולה (25 km) and קריית טבעון (39 km) while בית שאן was nearer and further down the page. He reported it as \"it is not bringing me nearby branches\", which is exactly what it looked like.",
+      "The four genuinely nearest offers now lead, whatever beer they are, and the favourites follow in the person's own order. Both questions get answered where they are asked, and neither ordering is a guess about which one he meant.",
+      "Nothing is shown twice: an offer in the lead strip is removed from the strips below, and the test asserts the union is exactly the full set.",
+      "Each strip's heading now carries the distance its nearest offer is at (\"מ־12 ק״מ\"), so the page can be scanned without opening anything — which is also what makes it obvious at a glance when a favourite's nearest offer really is far away."
+    ]
+  },
+  {
+    "version": "0.37.1",
+    "date": "2026-10-12",
+    "title_he": "אפרת, כפר עציון, טירת הכרמל וטבעון",
+    "highlights_he": [
+      "ארבעה יישובים שסניפים אמיתיים חיכו להם נוספו לרשימה.",
+      "1,021 מתוך 1,160 הסניפים כבר על המפה.",
+      "מה שנשאר הוא סניפים שהרשת מסמנת ב‑0, בלי יישוב בכלל, או במספור פנימי משלה — ואלה יישארו בלי מרחק."
+    ],
+    "kind": [
+      "data"
+    ],
+    "showInApp": true,
+    "internal": [
+      "After 0050 the count stood at 1,021 of 1,160 placed. Asking what was still unmatched turned up four names that are not noise: אפרת (its dataset row 3650 sits on the Negev fallback point, refused correctly and never put back), כפר עציון (row 3488 is at 32.178/34.907, near Ra'anana — Kfar Etzion is in Gush Etzion; refused with the two others sharing that point), טירת הכרמל (the dataset does not carry it at all) and טבעון (how people and Stores files write קריית טבעון).",
+      "The first three go into scripts/data/curated-towns.json on the same disclosed standard as the other ninety: an approximate centre from well-established public geographic knowledge, marked source='compiled'. Two get their CBS symbol back from the refused dataset row, because a refused coordinate is not a refused identity (0049).",
+      "WHAT IS DELIBERATELY NOT MATCHED, written into migration 0051 so the next person does not go looking: '0' (78 branches — a placeholder several chains write where a town goes, and no amount of data makes it a place), an empty city (47 branches), 'מ.א. עמק חפר' (a regional council, not a settlement — placing it at the council's centre would be a different claim than this column makes), 'תל אבית יפה' (one branch, a typo in the publisher's own file; encoding somebody's typo as a legitimate spelling of a city is not a fix), and 10018 / 10044 / 10098 / 1306 / 50 (a chain's internal numbering, or symbols the government list we have does not carry).",
+      "Each of those branches keeps no position, stays out of the screen, and stays counted in the line that says how many offers are not shown. That is the end state, not a gap waiting to be filled with a guess."
+    ]
+  },
+  {
+    "version": "0.37.0",
+    "date": "2026-10-12",
+    "title_he": "יוחננוף חזרה למפה",
+    "highlights_he": [
+      "יש רשתות שכותבות את היישוב בשם הסניף ולא בשדה היישוב. עכשיו גם אלה מזוהים.",
+      "יוחננוף לבדה — 51 סניפים ו‑25 מבצעי בירה שלא יכלו להופיע ב״הכי קרוב אליי״.",
+      "סניף ששמו הוא קניון או רחוב עדיין לא מקבל מיקום. שם של מקום בתוך שם סניף זה לא יישוב."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "יוחננוף had 25 beer offers in the feed and 0 of 52 branches placed — every one of those offers invisible in \"closest to me\". Its Stores file writes city = '0' on 51 of them (address 'unknown') and puts the settlement in the branch's NAME instead: \"אור יהודה\". Nothing in 0045–0049 could see it, because they all read `city`, and '0' is not a place.",
+      "Migration 0050 adds a fourth pass over the branch name — and the restraint is the entire design. A branch name is usually NOT a town: it is קניון איילון, a road, a neighbourhood. Matching a settlement INSIDE a branch name would place a Haifa branch called נווה שאנן at a moshav of the same name somewhere else — confident, undetectable and wrong, which is the one failure this product cannot absorb.",
+      "So the whole name, normalised, must BE a settlement we know, or the whole name minus the chain's own name must be (\"רמי לוי נהריה\"). No substring matching, no longest-prefix, no guessing. Asserted both ways: אור יהודה places, קניון איילון and 'הסניף שליד חולון מערב' place nothing.",
+      "The city passes still run first and win, so a branch the city already placed is never moved. Recorded as geocode_source 'israel-cities (town centre, from branch name)', separately from the city-based rows, so that if this ever turns out to be the wrong call every row it wrote can be found and undone.",
+      "The sequence that got here is worth recording: the screen said it could not measure (no branch had a position) → it said 91 offers were not shown (a sixth of branches carry a number where a name belongs) → it still said some were not shown (four settlements had lost their number to a gate of mine) → and now this. Four real data problems, every one found by somebody using the app and asking what the honest refusal was refusing. The test suite asserted the refusal was correct, and it was correct every time."
+    ]
+  },
+  {
+    "version": "0.36.1",
+    "date": "2026-10-12",
+    "title_he": "עוד ארבעה יישובים חזרו למפה",
+    "highlights_he": [
+      "סניפים בטירה, טייבה, מעלה אדומים וביתר עילית מופיעים שוב ב״הכי קרוב אליי״.",
+      "סניף שהרשת מסמנת ב‑0 או במספר פנימי משלה עדיין לא מקבל מיקום. לא מנחשים."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Asking what was STILL unplaced after 0047 turned up six numbers the matcher did not know. Four of them are settlements the app has had all along: 2720 טירה, 2730 טייבה, 3616 מעלה אדומים, 3780 ביתר עילית.",
+      "My bug, from 0046. Those four were refused by the import's gate (the dataset had put them on a geocoder's fallback point) and then re-added by hand from the curated list — which carries a name and a coordinate and NO symbol. Their coordinate was the thing that was wrong; the government's key for them never was. A refused coordinate is not a refused identity, and dropping the key cost those branches their position just as surely as a wrong pin would have.",
+      "scripts/build-settlements.mjs now carries the symbol across when it re-adds a settlement by hand (the `c()` helper takes one), and tests/town-centres.test.ts asserts that a hand-placed settlement still answers to its number. Migration 0049 sets what that recovered and re-runs the placement.",
+      "The remaining unmatched values are not settlements and are not pretended to be: \"0\" — a placeholder several chains use — an empty field, and 10018 / 10044 / 10098, which look like a chain's own internal numbering. Asserted: all three place nothing. Those branches stay unplaced, out of the screen, and counted in the line that says how many offers are not shown.",
+      "Still open and bigger: יוחננוף has 25 beer offers in the feed and 0 of its 52 branches placed. Its city values have not been seen yet."
+    ]
+  },
+  {
+    "version": "0.36.0",
+    "date": "2026-10-12",
+    "title_he": "הכי קרוב אליי — לפי הבירות שלכם",
+    "highlights_he": [
+      "״הכי קרוב אליי״ מסודר עכשיו לפי הבירות שאתם אוהבים, לפי הסדר שבחרתם — וכל בירה מסודרת מהקרוב לרחוק.",
+      "ליד המרחק כתוב איזה סניף זה, באיזה יישוב ובאיזו כתובת.",
+      "לחיצה על השורה פותחת את הסניף בוויז.",
+      "מבצע על בירה שלא עוקבים אחריה עדיין מופיע, בקבוצה נפרדת בסוף."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "\"הכי קרוב אליי\" was one flat distance list, on my argument that \"I want beer now\" is a question about where and not whose, with a comment in the code saying grouping by beer was the wrong shape. The owner used it and said otherwise, and the app's own permanent rule agrees with him: favourite #1 is the app, and that does not stop being true when the question is where. Now grouped by beer in the person's own ranking, each strip nearest-first, with 'עוד בסביבה' at the foot so a bargain on a beer nobody follows is still findable rather than dropped.",
+      "\"הכי קרוב אליי\" started working in 0045–0047 and the first thing it got wrong was obvious the moment somebody used it: it said \"12 ק״מ ממך\" and nothing else. Not which branch, not which town, nothing to put into Waze. A distance with no place attached is a number, and the person still has to go and find the shop.",
+      "Migration 0048 adds `address` to branches_within_km()'s result — branches.address has been carrying it from the Stores file since the beginning and no caller was asking for it. Dropped and recreated rather than replaced: a function's OUT columns are part of its signature.",
+      "distancesFor() now returns branchByOffer as well as byOffer, so each line knows WHICH branch its distance is to — the offer's own branch where the deal is known to run at one, otherwise the nearest branch of its chain, which is already the branch the distance was measured to.",
+      "The Waze link carries TEXT, never a coordinate, and tests/nearest-branch.test.tsx asserts there is no ll= in it. The coordinate is the town centre (geocode_precision = 'locality'), so handing it to a navigation app would route somebody confidently to a roundabout — the exact lie this feature exists to refuse. The address is the publisher's own text; Waze resolves it and gets the door right far more often than our centroid would.",
+      "With no address at all it still searches by chain, branch and town, which is what a person would have typed anyway. With no name and no town it renders nothing rather than an empty line.",
+      "tests/nearest-by-favourite.test.ts holds the parts that are easy to lose in that change: that 'closest' still means closest INSIDE each beer, that a beer nobody follows is not dropped, and that an offer we cannot measure is still refused rather than sorted to the bottom."
+    ]
+  },
+  {
+    "version": "0.35.1",
+    "date": "2026-10-12",
+    "title_he": "עוד סניפים על המפה",
+    "highlights_he": [
+      "חלק מהרשתות כותבות בקובץ שלהן את המספר הרשמי של היישוב במקום את השם. עכשיו גם אלה מזוהים.",
+      "חיפה לבדה — 50 סניפים שלא היה להם מרחק.",
+      "סניף שעדיין לא מזוהה לא מקבל מרחק מומצא, והמסך ממשיך לומר כמה מבצעים לא מוצגים בגללו."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging by asking which towns we had failed to match. The answer was not towns: 4000 (50 branches), 7600, 2660, 9400, 9500, 7800 — CBS settlement symbols written where the name goes. 4000 is חיפה, 7600 עכו, 2660 יבנה, 9400 יהוד־מונוסון, 9500 קריית ביאליק, 7800 פרדס חנה־כרכור. Perfectly valid data that 0045's name matching could never recognise. 91 offers were being held out of \"הכי קרוב אליי\" on staging because of it.",
+      "The settlement list already carried the same symbol on every row — it is how the government's list is keyed — so this was a lookup we had and were not using. Migration 0047 puts `code` on town_centres, fills it for 1,162 spellings, and adds a third matching pass: a city that is all digits is matched on the symbol, leading zeros ignored on both sides.",
+      "Ordered last on purpose, and the ORDER BY says so: a name we recognise is better evidence than a code, and no settlement's name is a number.",
+      "Still only ever fills a branch with NO position, and still refuses to guess: 999999 places nothing. A branch that is neither a name nor a symbol we know stays unplaced, out of the screen, and counted in the line that says how many offers are not shown.",
+      "This is the second time the screen's honest refusal was the only thing that revealed a data problem — first that no branch had a position at all, now that a sixth of them had a number where a name belongs. Both were invisible to the tests, which assert the refusal."
+    ]
+  },
+  {
+    "version": "0.35.0",
+    "date": "2026-10-12",
+    "title_he": "כל יישוב בארץ, לא רק הערים",
+    "highlights_he": [
+      "אפשר לבחור כל יישוב בארץ — עיר, מושב, קיבוץ או כפר. 1,155 במקום 90.",
+      "מי שהיישוב שלו לא היה ברשימה ולכן לא ראה מרחקים — רואה אותם עכשיו.",
+      "סניף שלא הצלחנו למקם עדיין לא מקבל מרחק מומצא. הוא פשוט לא מופיע ב״הכי קרוב אליי״."
+    ],
+    "kind": [
+      "feature",
+      "data"
+    ],
+    "showInApp": true,
+    "internal": [
+      "0045 shipped town_centres with the 90 towns this project had compiled by hand. That covers cities and misses the kibbutz, the moshav and the village — so the people who most need \"where is the nearest branch\" were exactly the ones told, correctly and uselessly, that we could not measure. The owner hit it on his own settlement the first time he tried it.",
+      "Source: data-sources/israel-geolocation-1.0.1/, vendored with its licence and a PROVENANCE.md — the official data.gov.il settlement list keyed by CBS settlement symbol (verified: 3000 Jerusalem, 5000 Tel Aviv-Yafo, 4000 Haifa, 9000 Be'er Sheva, 8300 Rishon), with coordinates from OpenStreetMap (ODbL, credited in the generated file) and Google's geocoder. No network and no runtime dependency: the file is in the repo and scripts/build-settlements.mjs reads it.",
+      "THE DATASET IS NOT CLEAN, AND WAS NOT TAKEN ON TRUST. 115 of its 1,264 rows are demonstrably not places: 85 settlements share ONE point in the Negev (31.0461, 34.8516) — a geocoder's fallback, which is how מעלה אדומים, ביתר עילית, טירה and מעלה אפרים appeared 76–132 km from where they are; four military camps sit on Jerusalem's exact point; and עטרת is in Los Angeles (34.0551, −118.3892). The import refuses every one and prints what it refused.",
+      "The gate started at 'three or more settlements on one point', to spare the genuine pairs. Checking the pairs that survived is what settled it: קרית ארבע came back at KIRYAT SHMONA's coordinates, 190 km away, sharing them with קרית שלמה; עופרה sat on עופר near Haifa; קרני שומרון sat near Jenin; טייבה (בעמק) took the Triangle Taybe's point. A shared point is not evidence of neighbours, it is evidence that something was not looked up — so the line is two, and it costs about two dozen real neighbours (עין חרוד איחוד/מאוחד) their position. Each is still a place you can type, with no distance, which the app already says out loud.",
+      "What this does NOT claim: that every remaining row is right. It claims that every row the data itself could convict was removed, and that the rest agrees with 90 independently compiled values to a median of 350 m. A row that is simply wrong, alone, on its own point, is not detectable from here and is not pretended to be.",
+      "Cross-checked against the 90 hand-compiled towns: median disagreement 350 m. Over 5 km the dataset has a different place (תמרה came back at the other Tamra, 31 km away) and the hand-compiled value wins; under it the two are the same settlement with different ideas of its centre and the dataset's systematic choice stands (Haifa 2.9 km, Ramat Gan 1.8 km, Jerusalem 1.4 km — all reported, none overridden).",
+      "The 90 live on in scripts/data/curated-towns.json, which wins over the dataset and carries the alternative spellings the dataset has no column for (נצרת עילית, ת״א, מודיעין). A correction goes there and the file is rebuilt (npm run settlements), so a re-import cannot quietly undo it.",
+      "src/data/israel-cities.ts is now GENERATED (66 KB, alphabetical by Hebrew name so a re-import diffs readably) and so are the SQL rows, from the same validated list — tests/town-centres.test.ts fails if the database and the module drift, and now also asserts that nothing sits outside Israel and no point is shared by three settlements.",
+      "Migration 0046 upserts all 1,189 spellings, teaches norm_place() that brackets are separators (טמרה (יזרעאל), בן שמן (מושב) — people do not type them), and re-runs 0045's two backfills, which now match a village as well as a city. Both still only ever fill a row with NO position.",
+      "Tests that asserted a hardcoded latitude now compare against the module's own value, so a re-import that moves a centre by a kilometre does not fail a test that was only checking the right town was found.",
+      "Bundle cost, measured: /welcome 127 kB → 147 kB and /settings 128 kB → 148 kB first-load JS. The shared bundle is unchanged at 103 kB, so it lands only on the two screens that need the list. Paid knowingly: lazy-loading it would put a round trip between a keystroke and the suggestions on exactly the screen where somebody is deciding whether this app is worth their time.",
+      "One real search regression found and fixed on the way: with 1,155 names, typing נתנייה returned יונתן, a village in the Golan. Hebrew's skeleton folding drops א ו י ה ע, so both reduce to נתנ, the two tied at rank 50 and the alphabet decided. src/lib/search.ts now ranks 'one typo in the whole name' (65) above a skeleton coincidence (50).",
+      "The display name is the hand-compiled spelling where there is one: the dataset writes \"תל אביב - יפו\" with spaces around the dash, which is not how anyone writes it or looks it up. Its spelling is kept as an alternative so a Stores file using it still finds the town."
+    ]
+  },
+  {
+    "version": "0.34.0",
+    "date": "2026-10-12",
+    "title_he": "הכי קרוב אליי עובד, והמסכים זזים",
+    "highlights_he": [
+      "כל סניף שאנחנו מכירים את היישוב שלו מופיע עכשו ב‏״הכי קרוב אליי״, לפי מרחק.",
+      "המרחק נמדד ממרכז היישוב של הסניף — וכתוב לידו ‏״מרכז העיר״, כדי שיהיה ברור מה מדדנו.",
+      "יישוב שכתבתם בעצמכם מספיק עכשו — לא צריך לבחור אותו מהרשימה.",
+      "סניף שהיישוב שלו לא מוכר לנו לא מקבל מרחק מומצא — הוא פשוט לא מופיע במסך הזה.",
+      "מעבר בין מסכים מקבל תנועה קצרה, כדי שיהיה ברור שהגעתם למסך חדש."
+    ],
+    "kind": [
+      "feature",
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "The feature shipped in 0026 with branches.latitude/longitude deliberately empty (the Stores file carries name, address and city and never a coordinate), so \"הכי קרוב אליי\" had nothing to order: 0 of ~1,160 branches placed. The screen said so correctly, and correctly saying nothing is still nothing.",
+      "Migration 0045 adds public.town_centres (one row per SPELLING, each carrying the town's display name and its approximate centre), norm_place() for comparing two spellings of one place, and place_branches_by_town(), which fills every unplaced branch with its town's centre as geocode_source='israel-cities (town centre)', geocode_precision='locality'.",
+      "Why this is not the invented coordinate scripts/ingest/lib/geocode/null.mjs exists to refuse: the forbidden thing is a plausible, wrong, UNDETECTABLE pin on a building that is not the shop. A town centre is labelled as a town centre in the row, in the API and on the screen (ScopeLine already prints \"(מרכז העיר)\" for precision=locality, since 0026 defined it that way).",
+      "Nominatim is still the better answer and still works: place_branches_by_town() only ever fills a branch with NO position, so a later rooftop fix is never overwritten by a town centre. It is a floor, not a ceiling. (It cannot be run from this container at all: the agent proxy refuses nominatim.openstreetmap.org with 403.)",
+      "Matching is mechanical only — maqaf/hyphen to space, geresh dropped, קרית unified with קריית, whitespace collapsed — plus a longest-whole-word-prefix pass so \"ירושלים תלפיות\" lands in Jerusalem. No transliteration, no edit distance. An unrecognised town keeps no position.",
+      "The other half of the measurement had the same hole: PlacePicker sends a point when the town is PICKED from the list and none when it is TYPED, so somebody who typed חולון had told us exactly where they live and still got \"we have your town but not the positions\". 0.32.4 fixed the wording; save_location now fills the point from town_centres when the caller supplies none, and a shared GPS position still wins.",
+      "town_centres is published geography with nothing personal in it and the app already ships the same list to the browser, so: select to anon/authenticated/service_role, RLS on with a read policy, no write grant and no write policy.",
+      "Two copies of a list is how a list goes wrong: the SQL rows are generated from src/data/israel-cities.ts by scripts/build-town-centres-sql.mjs (npm run towns:sql) and tests/town-centres.test.ts fails if they drift, including a check that Postgres's norm_place() and the generator's normPlace() agree character for character. Adding a town later means a new migration with its row — 0045 is applied and is not edited.",
+      "scripts/ingest/run.mjs calls place_branches_by_town() beside refresh_offers_catalog(), not under `must`: an unplaced branch is a state the app already says out loud, and the prices are in and correct either way.",
+      "The migration backfills on apply — both the branches and any profile already holding a town with no point — so applying it is what makes the screen work for the data already there.",
+      "Coverage is honest about resolution: at town granularity every branch in one town ties, which is the right answer for a 5 km radius and the wrong one for choosing between two shops on the same street. That is what the street-level upgrade is for.",
+      "Movement between screens: almost every navigation here is a client-side render, so globals.css's cross-document @view-transition never fired for it — the only animated navigation in the product was onboarding → Home, which really is a document load. That is why the app felt static.",
+      "src/components/ui/PageTransition.tsx re-keys the page by usePathname() and globals.css plays `page-enter` (240ms, rise 0.5rem + fade) on mount. Keyed by the PATH only, so ?intent=near, a sort or a pack chip updates the list in place instead of flashing it.",
+      "Not Next.js's experimental view-transition support: this project has already been taken down once by an experimental navigation feature (loading.tsx, docs/LESSONS.md), and an ordinary CSS animation on an ordinary element cannot stall a navigation.",
+      "tests/page-transitions.test.ts holds the parts that are easy to lose: that the layout is actually wrapped (an unwrapped layout animates nothing, silently), that it re-keys by path and not by query, that it stays under 400ms with no delay, and that it animates only transform and opacity.",
+      "It animates only screens navigated TO: the path the document landed on is remembered (useState(pathname)) and left alone, so a plain page load is not faded in over what the browser already painted, and the onboarding → Home journey keeps its 780ms bottle to itself. No data-arrived rule needed.",
+      "No animation-fill-mode: a filling animation keeps the transform applied for the element's whole life, which composites the page under it and turns exact measurements into fractions of a pixel — e2e measured the מה חדש link at 43.99999px against a 44px floor and was right to refuse it.",
+      "e2e found a REAL 0.33.0 regression at the same time, unrelated to this release: 41 specs failed because seedRealCatalog() re-attributes price sources after the seed has filled offers_catalog, leaving the stored feed describing the catalogue as it was. 0.33.0 shipped without an e2e run (it was a data-model change). tests/e2e/helpers.ts now exports rebuildFeed() and calls it there, and branch-scope.spec rebuilds inside its own seeding transaction."
+    ]
+  },
+  {
+    "version": "0.33.0",
+    "date": "2026-10-12",
+    "title_he": "המסכים נפתחים מהר",
+    "highlights_he": [
+      "מבצעי הרשתות מחושבים פעם אחת בייבוא במקום מחדש בכל כניסה לדף.",
+      "מסך הסופרים חזר לעבוד — הוא היה נכשל כי החישוב לא הספיק להסתיים.",
+      "מבצע שמנהל מאשר ממשיך להופיע מיד, כמו קודם."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Measured on production, 2026-10-12: `explain analyze select store_slug, value_pct from offers_feed` → Execution Time 15,306.545 ms, past the 8-second cancellation Supabase applies to anon and authenticated. The chain listing threw; every page touching the feed waited. Older than this branch — the read model is 0009's — and found only by walking the app against real volume.",
+      "Why: offers_ranked (0022) finds each offer's reference price with two one-row index probes. Production holds 18,627 live promotion rows and shows 526 offers, so that is 18,627 random probes per request — microseconds each on a warm instance, a disk seek each on a cold free-tier one. 18,627 × 0.8 ms is the 15 seconds observed.",
+      "Migration 0044 stores the chain half as `offers_catalog`, filled by refresh_offers_catalog() at the end of an ingestion run beside refresh_offer_scores, which has had this shape since 0027. The manual half stays live in the view, so an approved deal still appears at once.",
+      "A table, not a materialized view: REFRESH … CONCURRENTLY cannot run in a transaction and so cannot be called from a function, and the non-concurrent form holds an ACCESS EXCLUSIVE lock for the length of the rebuild. Delete-and-insert in one transaction takes ordinary row locks, readers see the previous rows until commit, and a failed refresh leaves yesterday's offers rather than none.",
+      "The migration fills the table itself — without it, applying it empties every chain offer from every screen until the next import.",
+      "scripts/bench/feed-at-scale.mjs reproduces the shape and measures it: 575 ms per request → 49 ms from the table, at production's promotion volume. Two earlier versions of that benchmark were wrong (all rows live; 500 promotion rows instead of 18,627) and each told me nothing was wrong.",
+      "Accepted regression, written into the migration: a beer renamed in the admin panel reaches the chain offers at the next import rather than at once. Prices were already only as fresh as the last import. The cleaner fix is to store ids and join names live, which deserves its own change and its own measurement.",
+      "tests/security-sweep.test.ts caught a real bug in the first draft: RLS enabled on the new table with no read policy, which would have returned no chain offers to anybody. The sweep is a day old.",
+      "21 other tests failed because they seed prices and read the feed. They now do what the import does — write, then rebuild — rather than the table filling itself on every price write, which would have returned the entire cost the change removes.",
+      "npm test: 1004 passed, 74 files."
+    ]
+  },
+  {
+    "version": "0.32.4",
+    "date": "2026-10-12",
+    "title_he": "מי שאמר לנו איפה הוא גר — לא נשאל שוב",
+    "highlights_he": [
+      "הגדרתם יישוב? האפליקציה כבר לא אומרת שלא סיפרתם לה איפה אתם.",
+      "במקום זה היא אומרת את האמת: היישוב אצלנו, המיקומים עוד לא — וזה עלינו."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging's preview by the owner, on the first walk-through with real data: he set a town and the screen still said 'you didn't tell us where you are', with a button to a settings page where the town was already filled in.",
+      "distancesFor() tested home_lat/home_lon only. A town is stored as home_city and nothing geocodes it — there is no geocoder for towns any more than for branches — so a person who answered was told they had not.",
+      "New reason `no_home_position`, separate from `no_home`: one is a question for the person, the other is our own gap, and the wording now matches which it is. The same correction in the branches route, where `home: lat !== null` made the branch sheet say the same false thing.",
+      "The decision lives in src/lib/distance-reason.ts rather than distance.ts, which is server-only and cannot be imported by a test — as with trust.ts and feed-result.ts.",
+      "Phase E of the brief says the system must still work when a person only gives a town. It did work; it just blamed them for the part that does not.",
+      "npm test: 997 passed."
+    ]
+  },
+  {
+    "version": "0.32.3",
+    "date": "2026-10-12",
+    "title_he": "תקלה רגעית כבר לא נראית כמו קטלוג ריק",
+    "highlights_he": [
+      "אם קריאה לשרת נכשלת לרגע, המסך מתאושש בפעם הבאה במקום להיתקע חמש דקות על ״אין כלום״.",
+      "מה שנכשל נרשם בשמו, במקום להיעלם בשקט."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging's preview, with real data behind it: the onboarding screen offered no beers to choose from while the database held 33 active ones.",
+      "Every catalogue reader ended `data ?? []`, which turns a refused or unreachable query into an empty catalogue, and unstable_cache then kept that empty catalogue for the full 300s TTL. While the anon key was broken every read failed and was cached as 'no beers'; fixing the key did not fix the screen, because the failure had been stored as an answer.",
+      "This is the Phase A disease in a corner I had not looked at — a failure wearing the costume of a result — and it survived every test because the tests never had a reader fail.",
+      "rows() throws on error instead of returning []; unstable_cache writes nothing when the reader throws, so the next request asks again. orEmpty() catches at the getter so the screen degrades for ONE request rather than the TTL, and logs feed.read_failed with the feed's name.",
+      "Both live in src/lib/feed-result.ts rather than feeds.ts, which is server-only and cannot be imported by a test — the same reason src/lib/trust.ts sits outside its SQL.",
+      "tests/feed-failures.test.ts separates the three cases that used to look identical: a read that failed, a table that is genuinely empty, and a table with rows.",
+      "npm test: 995 passed, 72 files."
+    ]
+  },
+  {
+    "version": "0.32.2",
+    "date": "2026-10-12",
+    "title_he": "מסך ״לא הצלחנו להתחבר״ אומר למה",
+    "highlights_he": [
+      "בסביבות בדיקה, המסך מראה את מה שהשרת ענה — במקום להשאיר את מי שמתקן לנחש.",
+      "בייצור המסך נשאר בדיוק כפי שהיה: משפט אחד, בלי פרטים טכניים."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Staging's preview deployment showed the designed 'לא הצלחנו להתחבר' card, which is the screen for an anonymous sign-in that Supabase refused. The reason is in a server log the owner could not find across several attempts, so the screen now carries it — away from production only, guarded before any network call, with the guard asserted by a test.",
+      "It asks /auth/v1/signup itself rather than reporting what the middleware saw, so the answer belongs to this request, and it prints the HTTP status beside the body: 'refused' and 'unreachable' read identically in a message string and need completely different fixes.",
+      "Never in production: a stranger reading an error screen should learn nothing about our auth provider. tests/welcome-diagnostic.test.ts asserts the production guard precedes the fetch, that neither returned string can carry the key, and that the status is printed."
+    ]
+  },
+  {
+    "version": "0.32.1",
+    "date": "2026-10-11",
+    "title_he": "סגירת פרצה שהתגלתה בחזרה הגנרלית",
+    "highlights_he": [
+      "יומן פעולות המנהלים היה פתוח להרשאות שאיש לא העניק לו. נסגר.",
+      "מעכשיו כל טבלה חדשה נולדת סגורה, וצריך לפתוח אותה במפורש.",
+      "שום מידע של אף אדם לא נחשף ולא השתנה."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0043. Found on staging — the first time this schema was verified against a real Supabase project rather than against PGlite.",
+      "`anon`, the role every visitor's browser arrives as, held SELECT, INSERT, DELETE and TRUNCATE on public.admin_actions, the append-only audit log that 0032 deliberately grants nobody anything on. 123 unintended write privileges for anon across 87 tables, none of them granted by any migration.",
+      "Source: every Supabase project is created with `alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role`, so a table created by a later migration is handed to the API roles before that migration speaks. The whole schema was written on the opposite assumption, which is CLAUDE.md's first non-negotiable.",
+      "Exposure was narrower than the grant list: RLS is on for every table in public and a table with RLS and no policy answers a role with nothing, so the log was never readable or writable through the API. Two things were real anyway — TRUNCATE ignores RLS entirely (PostgREST does not expose it, but 'no path I can find' is not 'no path'), and the two independent layers we describe everywhere were one.",
+      "tests/sql/bootstrap.sql is why this survived: security-sweep.test.ts asserts exactly this and passed, because PGlite has no such default privileges. The bootstrap now starts from the platform's defaults, which made the sweep fail immediately and will ask the same question of every table added from here on.",
+      "0043 revokes the default privileges, revokes everything from anon, authenticated and service_role on every table and view in public, and re-grants what 0001–0042 actually grant. The list is REPLAYED from their own GRANT and REVOKE statements in order, column-level grants included — reading only the grants handed `beers` its DELETE back (0034 removed it: a beer is deactivated, never deleted) and dropped `profiles`' column-level UPDATE (0010), which would have stopped people changing their own name. Both were caught by the suite.",
+      "service_role was not in the first plan and is in scope now because three tests assert the worker's role has 'exactly the privileges it uses, and no more' and failed the moment the bootstrap was honest. It bypasses RLS, so for that role the grant list IS the boundary, with no second layer behind it.",
+      "0006's test lost its 'and nothing more' half, which was never true at 0006 — the platform's grants were still in force there, on the real thing as much as in the test. The assertion moved to the sweep, against the whole schema, where it is true.",
+      "One casualty, accepted: scripts/seed-demo-deals.mjs inserted into `deals` as the service role on a privilege no migration granted. It is a dev/staging seeder that already refuses to run on production, and widening the live write path to keep a seeder convenient is the wrong trade.",
+      "npm test: 989 passed, 70 files. Migration 0043 needs applying to staging and production."
+    ]
+  },
+  {
+    "version": "0.32.0",
+    "date": "2026-10-09",
+    "title_he": "האנשים, מי מצא, ומה גדול עכשיו",
+    "highlights_he": [
+      "המבצע הראשי בדף הבית אומר עכשיו מי מצא אותו.",
+      "בלוח הניהול: מסך אנשים עם היישוב, המרחק והבירות שלהם, ולוח שמראה מה גדול עכשיו.",
+      "ורואים איפה יש אנשים — כדי לדעת איפה חסרים מבצעים.",
+      "אם יצאה גרסה חדשה בזמן שהאפליקציה פתוחה, היא מציעה לרענן. לא מרעננת לבד."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phases L, M, R, T, Y and Z, after a pass over the brief found seven phases I had reported on loosely or not at all.",
+      "L: the Hero names who found the deal, which the brief's own example asked for. getOfferByKey already decorates, so the weekly pick carries it too.",
+      "M: migration 0041 adds the four fields the owner asked for by name — town, search radius, favourite beers in their own order, registration date. 0035 had left them out on my own judgement, citing a comment in 0003; the owner called them non-sensitive and that call is theirs. Added NARROWLY: `profiles` keeps its owner-only policy and this reads through one definer function returning those columns and no others. Still absent, and only on request: first_name, coordinates, email, notification state. Rejection counts are returned here but still NOT stored on world-readable `contributors` — how often somebody was turned down is a fact for a moderator, not a leaderboard.",
+      "The submitters screen now redirects to the people screen: the same rows, counts and blocking control plus the new fields, so keeping both would be two screens for one job drifting apart a wording at a time.",
+      "R: migration 0042. Most popular beer (by favourite #1 — the only sense in which this app has one), most popular chain by LIVE offers, most active town, highest Deal Score, top contributors. 'Active users today' is deliberately absent AND the absence is said on screen: nothing records a visit, by design, so the number would be something else wearing that label — which is exactly what 0.11.1 was spent fixing.",
+      "T: where the people are, counted per PERSON against the radius they themselves set rather than from a town centre — two people in one town may have set different radii, and measuring from a centre would discard the precise position of anybody who tapped 'use my location'. Reports 'we do not know' rather than zero while no branch has a position.",
+      "Y: the PWA review I had never done. The manifest, icons, iOS meta, install prompt, offline page and caching strategy were all already right. The gap was the UPDATE strategy: /api/version existed with no consumer. A deploy can leave an installed PWA running the previous build's JavaScript for days, which posts a Server Action the new server never heard of — the 'Failed to find Server Action' history sw.js records in its own comments. NewVersion checks when the tab becomes visible (not on a timer: a PWA returning from the background is the moment that matters), notices a rollback as well as a newer build, and NEVER reloads by itself.",
+      "Z: the review is now a test. tests/security-sweep.test.ts asserts RLS on every table, that a table without a policy is one of five deliberate deny-alls, that anon has no write grant anywhere, that every SECURITY DEFINER function is guarded or scoped to auth.uid() (with the single exception proven unreachable), the uploads bucket's size limit and mime allowlist and its three policies, and that no grant exists without a policy behind it. Its first run reported two dozen false findings because a FOR ALL policy has polcmd '*' — noise that teaches people to ignore a sweep, so it was fixed rather than filtered."
+    ]
+  },
+  {
+    "version": "0.31.0",
+    "date": "2026-10-09",
+    "title_he": "ארבעה תפקידים בלוח הניהול",
+    "highlights_he": [
+      "אפשר עכשיו למנות ״מנהל תוכן״ שמאשר ודוחה מבצעים — וזה כל מה שהוא יכול.",
+      "ניהול בירות, מבצע השבוע וכיסוי נשארים למנהל; הרשאות, מחיקה והתראות למנהל על.",
+      "ההגבלה היא בבסיס הנתונים, לא בהסתרת כפתורים."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0040. Until now there were two levels and is_admin() meant 'has a row in admins' — everybody who could review a deal could also manage the catalogue and reach every screen. The brief asked for Owner / Admin / Moderator / User, and it is the right separation: reviewing prices is the job you hand to somebody else, managing beers and granting privileges is the job you do not.",
+      "is_admin() IS TIGHTENED, NOT WIDENED: it means admin-or-owner now, and a moderator is not one. Every policy and every require_admin() that already existed therefore CLOSED to moderators by default, and 0040 re-opens exactly the ones the job needs, by name. That direction is the whole safety argument — the mistake you cannot recover from is a new role silently inheriting a permission nobody listed.",
+      "A moderator gets: approve, reject, close a report, edit a deal, add one by hand, the queue and reports screens, the submitters screen with blocking, and the audit log (their own actions are in it — a log only the most powerful person can see is not accountability, it is a privilege). They do not get: beers, coverage, the weekly pick, the dashboard, grants, deletion, notification rules.",
+      "'You cannot block an admin' is generalised to 'you cannot block somebody at your level or above', which is the same rule once there are three levels. It leans on the enum's declared order, so moderator < admin < super_admin compares directly.",
+      "tests/roles.test.ts walks every door for all four. One assertion had to be written differently and is stronger for it: RLS on an UPDATE filters rows rather than raising, so a moderator's attempt to edit a beer directly is asserted by the OUTCOME — nothing matched, nothing changed — rather than by an error that never comes.",
+      "And the third repeat of one mistake: admin_add_deal is defined in both 0025 and 0032, and the first draft re-issued the 0025 body, which silently dropped the audit entry 0032 added. A test caught it, as it did the two previous times."
+    ]
+  },
+  {
+    "version": "0.30.0",
+    "date": "2026-10-09",
+    "title_he": "לדלפק יש עכשיו עומק",
+    "highlights_he": [
+      "שלושת הבקבוקים על הדלפק עומדים עכשיו במרחב אמיתי — שניים מאחור ומופנים הצידה.",
+      "הבקבוק הראשי מתיישב פעם אחת כשמגיעים, ואז נח. לא מתנועע כל הזמן.",
+      "מי שביקש פחות תנועה מקבל את העומק בלי התזוזה."
+    ],
+    "kind": [
+      "design"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phase Q, which the brief gated on the app being fast and stable — so the gate was MEASURED first, not assumed. tests/e2e/perf.spec.ts now holds a navigation budget in the suite, where it fails a pull request rather than being rediscovered in an audit. Before: TTFB 40–136 ms, DCL 73–226 ms across the five routes people move between, on a 103 kB shared bundle. After: unchanged within noise, and the bundle is byte-identical because this is CSS only — no library, no per-frame JavaScript.",
+      "The budgets are deliberately generous (2.5 s). This runs on CI hardware against a local fake database and cannot tell us what a phone in a shop in Haifa experiences; what it CAN catch is the regression that turns 200 ms into 2 s. A tight budget here would be a flaky test pretending to be a guarantee.",
+      "WHAT THE 3D IS: a perspective on the bottle stage, so the two bottles behind the hero are set back in Z and turned away rather than merely smaller. They read as further away because they ARE. Long focal length (1400px) on purpose — a short one distorts the label of the one bottle this app is about.",
+      "The hero settles once on arrival, transform-only so it is composited, and then never moves again: a bottle that keeps moving is a bottle you stop seeing. `both` on the animation matters — without it the bottle jumps to its un-animated transform for one frame first — and translateX(-50%) is repeated in both keyframes because animating `transform` replaces the property outright.",
+      "IT DOES NOT RUN ON THE ONE NAVIGATION THAT IS ALREADY ANIMATED. Arriving from onboarding, this same element is the view transition's travelling bottle; two animations competing for one transform is how a tuned 780 ms journey becomes a twitch. The reveal script now marks that arrival on <html>, because the mark survives the transition where the transition TYPE does not, and a test asserts both halves: silent on that arrival, settling on every later one.",
+      "Under reduced motion the MOTION goes and the DEPTH stays: a perspective is composition, not movement, and somebody who asked for no animation did not ask for a flatter picture. The test asserts the computed DURATION rather than a class name — the global reduced-motion rule works by duration, so testing for the animation's name would pass while the bottle still moved."
+    ]
+  },
+  {
+    "version": "0.29.0",
+    "date": "2026-10-09",
+    "title_he": "איזה סניף קרוב אליי",
+    "highlights_he": [
+      "ברשימת הסניפים של מבצע: הקרוב אליכם ראשון, עם המרחק.",
+      "סניף שאין לנו את המיקום שלו נשאר ברשימה — אחרי הממוקמים, ובלי מרחק מומצא.",
+      "כשאין מרחקים, כתוב למה: או שאין לנו את מיקומי הסניפים, או שלא סיפרתם לנו איפה אתם."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0039, Phase H. The brief asked for a map; there is not one, and docs/GEOCODING.md records the reasoning rather than leaving it an omission. A map of this data would be an EMPTY map — branches.latitude is null for every branch (0026 shipped the columns with no provider on purpose) — and it would add an external tile service that sees every viewer's IP on every pan, a key the owner must obtain, and a map library, on an app whose loudest audit complaint was that it was slow. That is the trade Phase Q is gated on and it fails the gate the same way.",
+      "What somebody wants from a map here is one sentence: which branch near me has this. That is answerable from the data we hold the moment any branch has a position, and answerable in text now — including the honest answer.",
+      "promotion_branches_near orders the sheet that already opens under a deal's 'where' line by distance. A branch we cannot place keeps its alphabetical order AFTER the ones we can rather than being dropped: a branch we cannot locate is still a branch the deal is at. A 'locality' fix is labelled as a town centre, because '2 km' measured from a city centre is a precision we do not have.",
+      "The point distance is measured from is the viewer's own home, read on the SERVER from their profile — never taken from the request. A client-supplied point would let anybody ask about somebody else's town, and worse, would put a person's home in a URL: in logs, in a referrer, in a shared link. Not SECURITY DEFINER either: promotion_branches (0017) and branches (0008) are world-readable by policy and a branch's address is public. What would be private is storing where somebody asked from, and this stores nothing.",
+      "The sheet says WHICH of the two reasons there are no distances — no branch locations, or no home on record — because the second is the one a person can do something about.",
+      "Two things the first draft got wrong, both caught before anything ran: `precision` is a reserved word in Postgres (as in `double precision`) and will not parse as an OUT column name, and I had guessed the promotions/promotion_occurrences columns rather than reading them."
+    ]
+  },
+  {
+    "version": "0.28.0",
+    "date": "2026-10-08",
+    "title_he": "דף הבית אומר לכם מה ביקשתם לדעת",
+    "highlights_he": [
+      "בירה שאתם עוקבים אחריה והגיעה למחיר שקבעתם — מופיעה בראש דף הבית, מעל כל מה שאנחנו בחרנו.",
+      "וכתוב איזה מחיר ביקשתם, כדי שתוכלו לבדוק אותנו.",
+      "מבצע שמשתמשים מדווחים שנגמר לא יהיה יותר ההמלצה הראשית של הדף."
+    ],
+    "kind": [
+      "feature",
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phase P. Home was already developed — hero, the four keys, the intent switch, strips, groups, the top hunter — so this closes the two real gaps rather than redesigning for its own sake.",
+      "THE GAP I MADE IN 0.26.0: somebody follows a beer at ₪24.90 and Home says nothing about it. They find out from a notification — if notifications are on, which for most people they are not. A promise kept only through a channel most people never enable is not kept. The section sits ABOVE everything the app chose for them, because they chose this, and it names the price that was reached so the claim is checkable rather than a feeling.",
+      "Absent entirely when nothing reached its price: an empty frame saying 'no beer you follow is cheap today' is a daily reminder of nothing happening on the screen somebody opens to find beer. The extra feed read is skipped when nobody is followed, which is most people.",
+      "A follow with no price is NOT reported as 'reached'. It means 'the same rules as my number one', which is a statement about notifications and not a claim about any particular shelf — those offers join the ordinary lists.",
+      "AND THE HERO NO LONGER RECOMMENDS WHAT THE SHELF HAS CONTRADICTED. pickHero skips an offer whose standing is 'ended' (0031), however good it looks: on a line in a list the label beside it is enough and the person can weigh it, but the hero is the one thing the app puts its name to and the only thing many people will look at. Sending somebody out on a journey the shop has already contradicted is the single worst thing this screen can do. It stays in every list, labelled — it just stops being the recommendation, and the test asserts the app would rather have no hero than a contradicted one.",
+      "'unclear' is not 'gone': a disputed offer can still be the hero. An administrator's weekly pick also stays — it is a deliberate human choice — but the Hero now carries the standing beside it, hatched as well as worded."
+    ]
+  },
+  {
+    "version": "0.27.0",
+    "date": "2026-10-08",
+    "title_he": "רקורד, ומה הוא עושה",
+    "highlights_he": [
+      "בהגדרות רואים עכשיו את הרקורד שלכם: כמה מהדיווחים שלכם אושרו, וכמה נקודות.",
+      "וכתוב בדיוק מה זה עושה: מה שאתם אומרים על מדף ריק נחשב יותר. זה הכול.",
+      "רקורד הוא לא הרשאה. גם למי שהכי אמין אין שום דבר שלמשתמש רגיל אין."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0038, Phase W. Trust is context for a person's judgement and weight in a tally. That is the whole list.",
+      "THE TEMPTATION CLOSED OFF DELIBERATELY: auto-approving a trusted person's submission. It is the obvious reward, it would save a moderator real time, and it is exactly what the brief rules out — a reputation number that publishes prices is one that can be farmed into publishing a wrong one. deals_submit (0003) pins every submission to 'pending' at the storage layer and nothing here touches it. tests/trust.test.ts gives somebody a score of 100000 and then proves every door is shut: cannot approve, cannot publish without moderation, cannot read one thing a stranger cannot, is not exempt from the 8/hour submission limit, and can still be blocked like anybody else.",
+      "ONE LADDER. It was already in the schema, written inline inside offer_standings (0031) as `least(2, score / 50)`. One ladder in two places is two ladders waiting to disagree, and the second is always the one somebody forgets. contributor_weight and contributor_trust are now the only copies in SQL, src/lib/trust.ts is the only copy in TypeScript (no server-only, so the test can import it), and a test asserts the two agree at every boundary and either side of it.",
+      "THE QUEUE ORDER IS UNTOUCHED, on purpose. Serving trusted people first would make a newcomer's FIRST submission wait behind everybody else's — and that first wait is what decides whether they ever send a second one. The standing appears beside the submitter's name as context for the judgement, worded as a record ('a good record over time') rather than as a rank, because a rank reads like authority.",
+      "A ladder nobody can see is not an incentive, it is a secret — so Settings says where somebody stands and what it does, small and exact. Null until they choose a name: there is no contributors row before that (0030), and inventing a 'new contributor' row for everybody would be a label they never asked for."
+    ]
+  },
+  {
+    "version": "0.26.0",
+    "date": "2026-10-08",
+    "title_he": "עקבו אחרי בירה",
+    "highlights_he": [
+      "אפשר עכשיו לעקוב אחרי בירה שהיא לא אחת מארבע שבחרתם — ולקבוע מחיר שבו נודיע לכם.",
+      "בלי מחיר? נודיע על מבצע חזק, לפי אותם כללים של הבירה הראשית.",
+      "ההתראות לא נעשות רועשות יותר: אותה הגבלה יומית, אותן שעות שקט, אותו זמן המתנה.",
+      "עד עשר בירות במעקב, והרשימה נמצאת בהגדרות."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0037, phases O and N together — a watchlist that does not notify is a bookmark list, and 'we will tell you' has to either work or not be said.",
+      "WHAT COULD HAPPEN BEFORE: exactly one beer could reach a phone, favourite #1, and only on a deal clearing the admin's global thresholds (25 %, under ₪30). Somebody who wanted to hear about a sixth beer, or about their own price rather than an admin's percentage, had nowhere to say it.",
+      "THE PIPELINE IS EXTENDED, NOT REPLACED: same outbox, same worker, same per-person protections. The seam was in the wrong place, though — the admin's thresholds were EVENT-level, so an offer that failed them closed the event for everybody and a watcher with a ceiling of their own could never have been reached. Event level now holds the one rule that really is the same for everyone ('is it still on'); everything else is a question about the person. eventVerdict is kept unchanged as the admin-level summary and its 17 tests pass untouched.",
+      "WHAT A WATCH RELAXES, deliberately: the verified-SAVING rule. It exists because the message claims a percentage, and a watch-hit message states the price — the fact the person asked about. A trusted saving and a trusted price are different things, and conflating them would make the feature impossible for every chain whose reference price we cannot vouch for.",
+      "WHAT IT DOES NOT RELAX: cooldown, daily cap and quiet hours. Those are protections for a person, not thresholds for an offer, and a watch is not permission to ignore them — somebody watching eight beers gets the same two notifications a day as everybody else. Nine tests in the worker suite cover the watch paths, including that it buys no way past the cap or the night, and that a beer which is BOTH number one and watched notifies once.",
+      "TEN AT A TIME, in the database. Beyond that the daily cap would be choosing which watched beer a person hears about, arbitrarily. A test caught that the BEFORE INSERT trigger fires before Postgres detects an upsert's conflict, so somebody at the limit could not change a price they had already set; it counts the OTHER beers now.",
+      "The fake Supabase caught a missing grant: the worker reads the watchlist with the service role, which the first draft granted nothing. Read only — a watch is set by the person whose watch it is.",
+      "An event whose every recipient was skipped for the SAME reason now closes with that reason rather than 'all_skipped'. The decision moved to the person, but 'why did this news go nowhere?' still deserves a one-glance answer where there is a single one.",
+      "Settings lists what you follow and reads it from EVERY beer rather than the list people choose from: a beer an admin switched off (0034) is still followed and must not vanish from its owner's screen. getBeersById exists for exactly that, and it is the same mistake getBeerBySlug once made.",
+      "One UI bug found by the e2e and fixed properly: removing the last followed beer took the list away, and the confirmation lived inside it — the same shape as the admin-row bug in 0.21.1. The message renders outside the branch now."
+    ]
+  },
+  {
+    "version": "0.25.0",
+    "date": "2026-10-08",
+    "title_he": "מסך כיסוי הרשתות",
+    "highlights_he": [
+      "בלוח הניהול רואים עכשיו לכל רשת: כמה סניפים, כמה נבדקו בסריקה האחרונה, ומתי.",
+      "ורואים כמה סניפים יש לנו להם מיקום — המספר שקובע אם ״הכי קרוב אליי״ יכול לעבוד.",
+      "הכיסוי מוצג לפי מה שהמערכת יודעת עכשיו, לא לפי מסמך שנוצר פעם אחת."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0036, Phase T. docs/RETAILER-COVERAGE.md is produced by scripts/ingest/coverage.mjs on the machine that ran a scan. It is the fuller picture — it knows why Super Yuda is BLOCKED, because that lives in publisher metadata and in no table — and it is a snapshot of one run on somebody's laptop. Nothing in the app could say what the database holds NOW.",
+      "WHAT IT DELIBERATELY DOES NOT DO: reproduce coverage.mjs's status model. That model reads the scan plan (blocked, sourcePartial, a publisher's note), which no table contains, so a SQL copy would be guessing at the half it cannot see — and the first time a publisher's situation changed, the panel and the document would disagree while both looked authoritative. So the vocabulary is about OUR RECORD ('every branch was checked in the last scan' is a fact about branch_scans), and the page names the document for the rest.",
+      "A test caught a flaw that would have been badly wrong in production: the first draft picked the latest scan per chain by matching max(scanned_at), but every branch of a scan carries its own timestamp — a real run takes about ninety seconds — so the equality counted exactly one branch per chain. It groups by the latest scan_id now.",
+      "Latest scan PER CHAIN, not the latest scan overall: a scan is incremental and need not touch every retailer, and showing one chain's numbers from a run that skipped it would be confidently stale. A chain never scanned reads as 'never scanned' rather than '0 of 0 checked', which would look like a result.",
+      "It also carries the number the geo work (0026) had no surface for anywhere: how many of a chain's branches we can place on a map. That was invisible everywhere, which is how 'we have no locations' stayed true for a fortnight without anybody seeing it."
+    ]
+  },
+  {
+    "version": "0.24.0",
+    "date": "2026-10-08",
+    "title_he": "סינון בלוח המבצעים",
+    "highlights_he": [
+      "בלוח הניהול אפשר עכשיו לסנן מבצעים: לפי סטטוס, חנות, בירה, מקור וחיפוש בהערה.",
+      "הסינון נשמר בכתובת — רענון, חזור, ושליחת קישור למה שאתם רואים, כולם עובדים.",
+      "אם הרשימה ארוכה מהמוצג, כתוב בדיוק את זה ולא מספר שהמצאנו."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Phase U. The queue was two fixed lists — every pending deal oldest-first and the last thirty approved. Workable at a hundred deals, useless at four thousand, and 'what did this chain send us?' or 'what have we rejected on this beer?' had no answer at all. One filtered list now, with pending as the default because that is the only list with work in it.",
+      "The state is in the URL (src/lib/urls.ts), like every other filter in the app: refresh, back button, a tab kept open on 'rejected, Rami Levy', and sending somebody the link all work. A client component holding this in useState would lose all four, and the link-building is where that quietly breaks — so tests/admin-deal-filters.test.ts pins it, including that Hebrew search text is encoded and that an emptied box is no filter at all.",
+      "The two long lists are a GET <form> with plain <select>s and a submit button, not an onChange that navigates: it works before hydration, and a select that jumps the moment you touch it is unusable with a keyboard. Each chosen filter also carries its own way out — a 'clear all' alone makes somebody start over to drop one of three.",
+      "NO TOTAL COUNT, deliberately. A count means a second query whose only job is a number, and the local fake the e2e suite runs against does not implement PostgREST's count header — so the number would be real in production and a fiction in the tests. getAdminDeals asks for one row more than it shows and says 'there are more'. That is the honest version of the same information: whether this list is everything.",
+      "A wildcard typed into the search box is escaped: '%' and '_' are characters somebody typed, not patterns, and a ',' would end a PostgREST filter early. Tested with a note containing '50%'.",
+      "One real a11y fix found while writing it: the filter's selects were labelled 'חנות' and 'בירה', which the add-a-deal form on the same page already uses. Two controls with one accessible name is an ambiguity for a screen reader, not only for a test, so the filters now read 'הצגה לפי חנות' / 'הצגה לפי בירה'."
+    ]
+  },
+  {
+    "version": "0.23.0",
+    "date": "2026-10-08",
+    "title_he": "אפשר לעצור מי ששולח מחירים שלא קיימים",
+    "highlights_he": [
+      "למנהלים יש עכשיו מסך של מי שולח מבצעים, עם כמה אושרו וכמה נדחו.",
+      "אפשר לעצור חשבון מסוים משליחת מבצעים חדשים — עם סיבה כתובה, וניתן לבטל.",
+      "זו לא חסימה מהאפליקציה: המועדפות, ההתראות, השם והקרדיט על מה שאושר נשארים.",
+      "המסך לא מציג שמות פרטיים, כתובות מייל, יישובים או בירות של אף אחד."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0035. The constraint this is built inside, from 0003: 'Admins are deliberately NOT given read access to every profile. Moderating deals does not require knowing who else uses the app.' That is still true. A 'users' screen listing names, emails, cities and favourite beers would be a straight reversal of it for no moderation benefit, so this is NOT a people directory — it is the one tool the panel was actually missing.",
+      "What the screen shows about a person is only what they chose to publish (their display name from contributors, 0030, null for somebody who never chose one) and what they did TO US: approved, rejected and pending counts, and when they last sent one. A test asserts the row carries no first_name, home_city, email or coordinates, and that somebody with no public name is shown as 'לא בחר שם ציבורי' rather than by a private name or as 'anonymous'.",
+      "WHY A BLOCK AND NOT A HARDER LIMIT. 0033 bounds what a session can write — eight deals an hour. That stops a flood and does nothing about somebody sending four bad deals a day for a fortnight. A limit is arithmetic; this is a judgement, so a person makes it, a reason is REQUIRED (a block nobody can explain is a block nobody can review), and it is reversible. The audit entry carries the reason AND the approved/rejected counts as they stood, because reviewed six months later it needs both and the counts will have moved.",
+      "Enforced on the INSERT, like the rate limits and for the same reason: deals_submit is a direct table insert under RLS, so a check in a server action would be a check on the polite route only. An admin's hand-entered deal is exempt, blocking yourself is refused, and blocking another admin is refused with 'remove the permission first'.",
+      "NOT A BAN, deliberately. A blocked person keeps their account, favourites, notifications, public name and the leaderboard credit for everything already approved. Taking somebody's beers away because they filed bad prices would be a punishment out of all proportion to the thing being prevented.",
+      "The refusal raises P0001, not 42501: describeDbError turns 42501 into the fixed 'you have no permission for this', which is right for a request that should never have been made and exactly wrong here — the person made an ordinary request and deserves the sentence written for them. src/lib/actions/result.ts now records that convention, and a test pins the code."
+    ]
+  },
+  {
+    "version": "0.22.0",
+    "date": "2026-10-08",
+    "title_he": "ניהול בירות",
+    "highlights_he": [
+      "בלוח הניהול יש עכשיו מסך בירות: הוספה, שינוי שם, סדר, וקטגוריה.",
+      "אפשר להסיר בירה מרשימת הבחירה — ומי שכבר בחר אותה שומר אותה, גם כבירה ראשית.",
+      "לפני הסרה רואים כמה אנשים בחרו אותה וכמה היא הבירה הראשית שלהם.",
+      "יש רשימה של הבירות שעוד מחכות לזהות ויזואלית ולתמונת בקבוק."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0034. What was already there: beers_admin_write (0003) was `for all` with is_admin(), so an admin could insert, update and DELETE a beer by hand through PostgREST — with no screen, no audit entry and no guard against the two edits that quietly break things.",
+      "DELETING IS GONE. user_favorite_beers and deals reference a beer, so a delete either fails on a foreign key or takes somebody's favourite with it. The rest of this system deactivates and keeps the record; beers now do the same. The DELETE policy is dropped and the grant revoked, for admins and super admins alike, and a test asserts both.",
+      "THE SLUG IS FOREVER, enforced by a trigger rather than by the form: it is the URL of /beer/<slug>, the key of the beer's identity in src/design/themes.ts and the filename of its bottle photo. Changing it in the database alone silently takes the beer's whole appearance away and breaks every link anybody shared. A script, a hand-written PostgREST call and a future migration all go through the trigger.",
+      "WHAT AN ADMIN CANNOT DO FROM HERE, deliberately: give a beer its look. An identity is code and a photo is a reviewed asset with provenance (CLAUDE.md). A colour picker in the panel would be a second source of truth for the one thing this product is built around, and a photo field would be an invitation to paste a hotlink. So the screen REPORTS which active beers have neither — read from the same code that decides the look, so the list cannot drift — and that is a list of work for a deploy, not a form. It doubles as the tracking surface for the bottle-photo gaps.",
+      "admin_beers() carries the counts that make the decision possible: chosen_by and first_for are deliberately two numbers, because favourite #1 is the app. Deactivating records first_for in the audit log at the moment it happened — the number changes afterwards, and 'how many did this affect?' can only be answered from there.",
+      "admin_add_beer explains the one-beer-per-brand-per-variant rule (0007) in words — 'if this is another version, give the version a name' — instead of letting a unique index name reach a person. A new beer lands at the end of the list so nobody else's order moves behind their back.",
+      "admin_product_categories() reads the category names through a definer function rather than from the table: product_categories has a read POLICY for anon and authenticated (0014) and no table GRANT, so that policy has never actually let anybody read it. Widening the grant to serve one admin form would have been the wrong way round."
+    ]
+  },
+  {
+    "version": "0.21.1",
+    "date": "2026-10-08",
+    "title_he": "מנהל רואה מה הוא עשה",
+    "highlights_he": [
+      "בלוח הניהול: אישור או הסרה של מבצע מראים עכשיו אישור שנשאר על המסך.",
+      "עד היום ההודעה הייתה בתוך השורה עצמה — וכשהשורה נעלמה, גם ההודעה."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Every admin row action reported its result INSIDE the row. That works for an edit and for nothing else: approving a deal moves it from 'ממתינים' to 'מאושרים', removing one takes it off the page, closing a report takes it out of the open list, and revoking an admin takes the person off the roster — so the server re-render unmounts the row and the sentence goes with it. On a destructive action that is the worst outcome available: you cannot tell 'it worked' from 'nothing happened, press it again'.",
+      "AdminNotices is a provider in the panel layout with one polite live region above the list, outside anything an action can unmount. A success lingers eight seconds — long enough to read and look up at what changed, short enough never to be mistaken for the result of the next thing pressed; a failure does not expire and carries a close button, because it needs acting on. The region is always in the tree even when empty: a live region added to the document at the same moment as its text is not announced by every screen reader. DealActions, ReportRow and AdminRoster use it, each falling back to showing the message in place when there is no provider.",
+      "Found as an intermittent e2e failure — whether the notice painted before the revalidation landed was a race — which is the worst way for a real bug to present itself. It is the second one this week to arrive disguised as test noise.",
+      "Also in this commit: 0033 had dropped `perform public.recount_contributor(uid)` from set_display_name, so naming yourself no longer picked up the deals you had already submitted and the leaderboard stayed empty. The cause is worth recording: 0030 defines set_display_name TWICE — once before recount_contributor exists and once after — and the first draft of 0033 copied the earlier one. The e2e caught it; tests/contributors.test.ts now covers it at the unit level too, verified by failing without the line."
+    ]
+  },
+  {
+    "version": "0.21.0",
+    "date": "2026-10-08",
+    "title_he": "גבול למה שאפשר לשלוח",
+    "highlights_he": [
+      "יש עכשיו גבול לכמה מבצעים אפשר לשלוח בשעה וביום — כדי שאף אחד לא יוכל לשטוף את התור.",
+      "הגבול נדיב: מי שמוצא מבצעים באמת לא יפגוש אותו.",
+      "אם כן הגעתם אליו, ההודעה אומרת מתי לנסות שוב — והמבצעים שכבר שלחתם לא הולכים לאיבוד."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0033, security finding M-2 — the last one open. An anonymous session (every visitor gets one automatically) could write three things and nothing counted any of them: a deal straight into the moderation queue, feedback on every offer in the feed, and a public display name shown beside other people's prices.",
+      "THE DEAL PATH IS THE SERIOUS ONE. deals_submit (0003) checks that a submission is theirs and pending — not how many. A shell loop over the PostgREST endpoint could put ten thousand rows in front of the moderators and make the queue useless, and NO SERVER ACTION IS IN THAT PATH, so nothing in the app could have stopped it. The limit is therefore in Postgres, where a trigger covers the app, a script and a hand-written request alike.",
+      "It counts the rows themselves in a window rather than keeping a ledger of attempts: a counter table would be one more thing able to drift from the truth it describes, and would need its own write path and cleanup. Deals 8/hour and 25/day; offer feedback 60/hour (high on purpose — somebody answering 'still there' down an aisle is who the feature is for); display name 10/hour, with clearing counted because alternating is the obvious way round a limit that only counts setting it. Rejected submissions count too: being rejected a lot is the signal, and resetting on rejection would reward it. An admin typing a deal in is exempt.",
+      "SQLSTATE 54000 (program_limit_exceeded), deliberately not 42501 — describeDbError turns that into 'you have no permission for this', which would be a lie told to somebody who simply found four deals tonight. The Hebrew message reaches the person and says when to come back; OfferFeedback now shows the database's words instead of a generic 'we could not send'.",
+      "What it is NOT: a defence against a botnet, since a thousand sessions are a thousand quotas. It raises the one-session flood from a shell loop to real work. Supabase's own anonymous sign-in limit (~30/hour/IP) is the layer above and belongs to the hosted project — go-live checklist item E.",
+      "docs/V2-AUDIT-2026-10-07.md section 8 now records all three findings (M-1, M-2, M-3) and where each one ended. That section was missing, which meant an 'open and documented' finding was only half true."
+    ]
+  },
+  {
+    "version": "0.20.0",
+    "date": "2026-10-08",
+    "title_he": "יומן פעולות מנהלים",
+    "highlights_he": [
+      "יש עכשיו יומן שאומר מי עשה מה בלוח הניהול, ומתי.",
+      "מבצע שהוסר שומר ביומן מי אישר אותו — עד היום המידע הזה נמחק.",
+      "היומן נכתב בלבד: אי אפשר לערוך או למחוק ממנו, גם לא מנהל ראשי.",
+      "כל מנהל רואה אותו, לא רק מנהל ראשי."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0032. THE GAP: nothing in this database recorded what an administrator did. Each table kept at most the LATEST actor on a column -- approved_by, resolved_by, weekly_deal_set_by, updated_by -- and every one of them is overwritten by the next action and erased by some of them. set_deal_status deliberately nulls approved_by/approved_at (correct: leaving them would misreport who stands behind a deal that is no longer public), so after one click nothing said the deal was ever approved, by whom, or who removed it. admin_delete_deal destroys the row outright.",
+      "APPEND-ONLY, ENFORCED. A trigger refuses UPDATE and DELETE on admin_actions, so the thing being audited cannot rewrite its own record and there is no path in the schema that edits a row. The table has NO write grant for anybody: entries are written only from inside the definer functions that do the work, in the same transaction -- an action that raises leaves no entry because it did not happen, and one that commits cannot leave none. Two tests pin both halves.",
+      "IT DOES NOT MOVE WHEN THE WORLD DOES. actor is a plain uuid with no foreign key, beside the email as it stood at the time. `on delete set null` would let a deleted account blank out who did something, which is the one thing an audit log may not allow.",
+      "Ten functions redefined, each its previous definition with ONE statement added, bodies otherwise unchanged down to the Hebrew error messages -- callers and tests depend on them, and a rewrite that tidied one would be a behaviour change hidden inside an audit feature. The entries carry only what answers a real question: the two columns set_deal_status is about to erase, the whole deal before admin_delete_deal destroys it, and for an edit only the fields that actually moved (jsonb_strip_nulls over before/after pairs).",
+      "record_admin_action does NOT re-check the role: every caller is already behind require_admin()/require_super_admin(), and a second check here would be a second place to get it wrong. It is granted to nobody. Reading goes through admin_audit(), definer and guarded like every other entry point.",
+      "/admin/audit is a reading screen with deliberately nothing to press -- an audit log with controls on it is a log somebody can tidy, and an e2e asserts the page has no buttons. Available to every admin, not only a super admin: a log only the most powerful person can see is not accountability, it is a privilege. Actions are rendered as Hebrew sentences and before/after pairs rather than JSON; the rule is that a field which cannot be put into words on the screen has no business being recorded in the log."
+    ]
+  },
+  {
+    "version": "0.19.1",
+    "date": "2026-10-08",
+    "title_he": "המרחק שבחרתם נשאר",
+    "highlights_he": [
+      "תיקון: מי שבחר יישוב ואז בחר כמה רחוק הוא נוסע — המרחק נמחק בשקט אחרי רגע."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "PlacePicker's blur on the town field is delayed by 120 ms on purpose, so a click on a suggestion lands before the list closes. The delayed work spread the place as it was AT THE MOMENT OF THE BLUR -- before the distance was tapped -- and so wrote the town back over the newer place, resetting radiusKm to null. The geolocation callback had the same hazard.",
+      "The current place is now read from a ref in both paths that run after their render has been replaced, and keepTyped returns early when nothing has been typed since the place was settled, so it can no longer undo anything.",
+      "It presented as an intermittent e2e failure in two different specs -- the worst way for a real bug to show up, because it looks like test noise. tests/place-picker.test.tsx covers it, verified by failing on the original code and passing on the fix. The first version of that test proved nothing: React attaches onBlur to focusout, and a non-bubbling 'blur' event never reaches it.",
+      "Test-side debts the same run exposed: /settings carries three 'שמירה' buttons now (beers, credit, place) and two specs still asked for 'the' save button; and addBeerWithoutIdentity inserted a beer without ringing the cache doorbell, so the onboarding step offered a catalogue up to five minutes old without it."
+    ]
+  },
+  {
+    "version": "0.19.0",
+    "date": "2026-10-08",
+    "title_he": "הייתם שם? אפשר להגיד",
+    "highlights_he": [
+      "על כל מבצע — גם של הרשתות — אפשר עכשיו להגיד \"המבצע עדיין קיים\" או \"המבצע נגמר\".",
+      "לחיצה אחת לא מורידה כלום. צריך כמה אנשים, לאחרונה, כדי שנכתוב שהמבצע נגמר.",
+      "אם יש דיווחים סותרים, נכתוב בדיוק את זה — ומנהל יבדוק. אנחנו לא מכריעים בשבילכם.",
+      "גם אישור שווה: מי שהיה בחנות וראה את המבצע עוזר לכל מי שיגיע אחריו."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0031. THE GAP: until now only a user-submitted deal could be reported at all -- ReportDealButton rendered for origin = 'legacy' alone, and deal_reports.deal_id is a foreign key to deals whose RLS predicate requires an approved deals row. The chain feed is the bulk of what anybody sees, and none of it had a report path, in the UI or in the schema. A person standing in front of an empty shelf had nowhere to say so.",
+      "So offer_feedback is keyed by offer_key -- the same 'obs:' / 'deal:' / 'grp:' string offers_feed emits and offer_scores (0027) is already keyed by. Deliberately NOT a foreign key: an offer is a row of a view over two tables, and a promotion that ends stops being in the view at all. Feedback about something that has since vanished is still evidence about what happened.",
+      "A TAP IS NOT A VERDICT, and nothing here deletes anything. offer_standings weighs who said it (1, or 2 from 50 contributor points, 3 from 100 -- capped on purpose: a tie-breaker between neighbours, not a reputation system that lets one person decide alone), how recent it is (full for a week, half for a fortnight, nothing after thirty days) and which way. The answer is one of four words -- ended / still_there / unclear / quiet -- and 'ended' is a LABEL on a line that stays on the screen. Only a person takes a deal down.",
+      "BOTH DIRECTIONS, because the people most likely to tap are the ones who just had a wasted journey, and an app that collects only complaints collects a biased picture. A confirmation is what lets somebody answer a report instead of only an admin being able to. Where both sides have real weight the answer is 'unclear' and it goes to the admin screen -- the one case a rule should not settle.",
+      "offer_standing (one key) is now a thin view of offer_standings (every key), so the rules live in one place and the screen reads them in ONE call -- a Home render touches dozens of offers. Offers nobody has spoken about are absent from that read entirely, so a line with nothing to say says nothing. reportOffer clears FEEDS_TAG: the whole point is that the next person in the aisle sees it, not the shelf as it was five minutes ago.",
+      "ONE STANDING OPINION PER PERSON PER OFFER, replaced when they say it again -- changing your mind is the normal case when a deal comes back. The optional note column is finally reachable; the old flow had a 280-character column the UI could only ever send an empty string to.",
+      "ReportDealButton is deleted. admin_offer_feedback (require_admin, like every definer function here) shows both directions and the weight behind them, disagreements first."
+    ]
+  },
+  {
+    "version": "0.18.1",
+    "date": "2026-10-08",
+    "title_he": "ציידי המבצעים",
+    "highlights_he": [
+      "יש עכשיו עמוד שמראה מי מוצא את המבצעים שכולנו רואים, ואיך נספר הניקוד.",
+      "בדף הבית מופיע צייד המבצעים של השבוע — שורה אחת, לא עוד רשימה.",
+      "שני דיווחים טובים שווים יותר ממאה שלא. הכללים כתובים בעמוד, לא מוסתרים."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "/hunters renders the standings from contributors (0030) plus the scoring rules in words — a leaderboard nobody understands is a ranking of strangers. On its own route rather than on Home, which is already long: a leaderboard is something you go and look at, not something that should sit between a person and tonight's beer. Home carries only the top hunter, one line. Empty renders nothing, never an empty frame.",
+      "Two real bugs the e2e found. saveDisplayName did not clear FEEDS_TAG, so somebody who had just named themselves would wait out the five-minute TTL before seeing the credit on their own deals — the exact moment the feature is supposed to land. And the contributor read used an embedded PostgREST select, which cannot work: deals.created_by points at auth.users and contributors.profile_id at profiles, so there is no foreign key between the two tables to follow. It silently returned nothing. Both are now two plain reads merged in TypeScript, and a failed read is logged instead of swallowed.",
+      "CreditEditor had the same stale-prop bug LocationEditor had: a client component's initial props do not come back changed after the action revalidates, so the save notice needs a local snapshot of what is on record.",
+      "getDealsByStatus now reports its error rather than rendering a failed read as 'nothing is pending'."
+    ]
+  },
+  {
+    "version": "0.18.0",
+    "date": "2026-10-08",
+    "title_he": "מי מצא את המבצע",
+    "highlights_he": [
+      "אפשר לבחור שם שיוצג על מבצעים שאתם מוצאים: \"דווח על ידי יוני\".",
+      "השם הזה נפרד מהשם הפרטי שלכם — הוא נבחר בנפרד, ואפשר להסיר אותו בכל רגע.",
+      "בלי שם, המבצעים שלכם פשוט לא אומרים מי דיווח. לא \"אנונימי\".",
+      "גם בלוח הניהול רואים עכשיו מי שלח כל מבצע — עד היום אי אפשר היה."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0030. deals.created_by has been recorded since 0001 and shown nowhere: it was not in DEAL_COLUMNS, and profiles is owner-only by RLS (0003 deliberately gives admins no profile read), so no screen could render a name. A new public.contributors table holds the public half of a person -- one name they chose to be credited by -- world-readable under an obvious policy, while profiles.first_name stays private and unchanged. Putting a public name inside profiles would have meant carving an exception into the policy protecting everything else there.",
+      "CONSENT IS THE DEFAULT. No row until somebody chooses a name; their deals then say nothing about who found them, not 'anonymous', which is itself a label nobody asked for. Clearing it deletes the row. set_display_name is the only way in -- the table has no write grant, like admins.",
+      "The tallies live ON the row, maintained by an AFTER trigger on deals. Two reasons, and the second decided it: aggregating over deals per page view is the mistake 0018 recorded the cost of, but a view or function over deals would also need SECURITY DEFINER to see rejected rows, and granting a definer function to anon is exactly what tests/function-grants.test.ts forbids. Storing the answer means the public reads an ordinary table and nothing bypasses RLS for an unauthenticated caller. The first draft did add such a function; the guard test refused it, and it was right to.",
+      "QUALITY, NOT VOLUME: approved +10, became the weekly pick +25 on top, rejected -5, floored at zero. Pending counts nothing. A deal an admin typed in credits nobody. A test seeds one accepted out of twenty-three against two out of two and asserts the careful submitter wins.",
+      "The COUNT of somebody's rejections is deliberately not stored: the penalty is inside the score, and a person's failures do not belong beside their name on a public leaderboard.",
+      "deals.was_weekly records that a deal was once the pick -- app_settings holds a pointer with no history, so the credit would otherwise vanish when it moved on. set_weekly_deal is otherwise byte-for-byte the 0002 version, message and updated_by included (a first rewrite changed both and a test caught it).",
+      "Surfaced: 'דווח על ידי X' on deal lines (read separately on offer_key, like the Deal Score -- offers_feed is not touched), the submitter in the moderation queue, and a name editor in Settings."
+    ]
+  },
+  {
+    "version": "0.17.1",
+    "date": "2026-10-07",
+    "title_he": "הקשחת אבטחה: התמונה שמצרפים למבצע",
+    "highlights_he": [
+      "סגרנו פרצה שאפשרה לצרף למבצע \"תמונה\" שאינה תמונה, ולנסות לפגוע במנהל שלוחץ עליה. שום דבר לא משתנה בשימוש באפליקציה."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": false,
+    "internal": [
+      "M-1 from the V2 security audit. deals.image_url was validated as z.string().optional() -- anything -- and rendered to a moderator as href. Any visitor (an anonymous session is minted automatically) could submit a valid deal with image_url='javascript:...' and wait for an admin to click 'צפייה בתמונה שצורפה'. That scheme executes in the current document regardless of target=_blank: script execution in a super-admin session, one server-action call from grant_admin. data:text/html and a look-alike host are the quieter versions.",
+      "Fixed in three places. (1) src/lib/actions/deals.ts pins the value to a real URL under this project's own /storage/v1/object/public/deal-images/ prefix -- nothing else is a photo of a shelf label. (2) src/components/admin/DealActions.tsx parses it and renders the link only when the protocol is https, and opens it rel='noreferrer noopener'; the raw column value never reaches the attribute. (3) Migration 0029 adds deals_image_url_is_https so no code path -- a future import, a script, a hand-written PostgREST call that satisfies the RLS policy -- can store one either.",
+      "The constraint is NOT VALID deliberately: it applies to every INSERT and UPDATE from now on, which is the point, without failing the migration on historical rows nobody has audited. Those are still rendered safely by (2). `alter table public.deals validate constraint deals_image_url_is_https` tightens it after a review.",
+      "tests/deal-image-url.test.ts proves all three layers, including that a submitting user cannot smuggle one in through the RLS insert policy."
+    ]
+  },
+  {
+    "version": "0.17.0",
+    "date": "2026-10-07",
+    "title_he": "אפשר לאתר את הסניפים על המפה",
+    "highlights_he": [
+      "הוספנו את הכלי שנותן לסניפים מיקום — זה מה שיגרום ל\"הכי קרוב אליי\" לעבוד.",
+      "בלוח הניהול רואים עכשיו כמה סניפים כבר אותרו וכמה ממתינים.",
+      "בלי הגדרה מפורשת הכלי מסרב לנחש. עדיף סניף בלי מיקום מאשר סניף במקום הלא נכון."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": false,
+    "internal": [
+      "scripts/ingest/geocode.mjs + a provider abstraction in scripts/ingest/lib/geocode/. Dry run by default, --apply to write, --limit/--store for a slice. Only branches with latitude null are looked up, so a re-run is cheap and the rate limit is respected. Documented in docs/GEOCODING.md and .env.example.",
+      "FOUR THINGS STOP AN INVENTED COORDINATE: the default provider refuses everything and an unknown GEOCODER name is an error rather than a silent fallback; 0026's CHECKs refuse a point with no provenance, outside Israel, with an unknown precision, or half a pair; the runner refuses an implausible answer before the database sees it; and nothing is written without --apply. An invented position is the one failure this product cannot absorb -- a missing one is visible in the admin count and on the screen, a wrong one is visible nowhere, and the person it misleads is standing outside the wrong supermarket.",
+      "The real provider is Nominatim: no key, no account, no cost, so the owner can run it today. Its usage policy is enforced rather than documented -- one request per second in the provider itself, and GEOCODER_CONTACT required because an unidentified bulk client is how a project gets the service blocked. Anything short of a house number is recorded as street or locality, never dressed up as rooftop. Google Geocoding is documented as the upgrade path (better mall coverage, ~$5/1000, needs a billing account); adding it is one file and one line in PROVIDERS.",
+      "Configuration comes only from the target's git-ignored env file, never the shell -- the same rule as the database credentials, and a test enforces it.",
+      "Migration 0028 adds branches {total, located, geocodable, no_address} to admin_overview, and the dashboard shows it. The gap was invisible to the people running the app: the screen told a VISITOR we do not know where the branches are, but nothing told the owner how far from fixed that was or whether a geocoding run had helped. 'geocodable' separates branches a geocoder could try from ones with neither an address nor a city, which are a data problem and not a geocoding one."
+    ]
+  },
+  {
+    "version": "0.16.0",
+    "date": "2026-10-07",
+    "title_he": "הכי משתלם, או הכי קרוב אליי",
+    "highlights_he": [
+      "בדף הבית יש עכשיו בורר: \"הכי משתלם\" או \"הכי קרוב אליי\". זו בחירה לחיפוש הנוכחי — לא הגדרה שנשמרת עליכם.",
+      "\"הכי משתלם\" מסדר לפי ציון המבצע ועובד כבר עכשיו.",
+      "\"הכי קרוב\" עדיין מחכה למיקומים של הסניפים. עד אז הוא אומר את זה — ולא מסדר לכם רשימה שנראית לפי מרחק ואינה.",
+      "הבחירה נשמרת בכתובת, כך שקישור ששיתפתם מראה בדיוק את מה שראיתם."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/lib/offer-logic.ts: SearchIntent ('best' | 'near'), parseIntent, orderByIntent returning { offers, unplaceable }. In the URL beside sort and pack, never written to the profile -- the brief is explicit and right: the same person wants the nearest shop tonight and the best price on Friday.",
+      "'near' LEAVES OUT every offer it cannot measure and reports how many. Dropping an unplaceable deal to the bottom of a list labelled by distance would be claiming a distance we do not have -- the same mistake as a price we have not verified. 'best' shows everything: a deal with no score is still a deal.",
+      "src/lib/distance.ts: an offer's distance is the distance to the NEAREST LOCATED BRANCH OF ITS CHAIN, except where the deal is known to run at one branch only. That is the brief's own example -- a Goldstar deal at Rami Levy should answer 'where is the nearest Rami Levy', not 'which branch was it seen at'. Radius 0 is nationwide: still ordered by distance, no limit.",
+      "TODAY IT MEASURES NOTHING, as designed: 0026 shipped the branch coordinate columns empty because the Stores file carries an address and never a position, and geocoding needs a provider credential this repository does not have. The two reasons are distinguished and answered differently -- no home location offers the Settings link; a home location with no located branches says we do not know where the branches are and offers 'best' instead. Both are proven by e2e.",
+      "In 'near' Home shows ONE flat list, not per-beer strips: grouping by beer is the wrong shape for 'I want beer now'. OfferLine takes an optional distanceKm, passed only for an offer that was actually placed. kmHe gives one decimal below 10 km and whole numbers above, because a branch fix is good to a street at best and a home point is a town centre.",
+      "The control is the existing Segmented component (URL links, replace, scroll=false, aria-current), so it costs no new interaction model and no client JavaScript."
+    ]
+  },
+  {
+    "version": "0.15.0",
+    "date": "2026-10-07",
+    "title_he": "אפשר לשנות את היישוב ואת מרחק הנסיעה בהגדרות",
+    "highlights_he": [
+      "מי שדילג על שאלת המיקום בהרשמה, או שעבר דירה, יכול להגדיר אותה עכשיו בהגדרות.",
+      "אותו בורר יישובים ואותם מרחקים כמו בהרשמה.",
+      "מחיקת היישוב ושמירה מסירה אותו לגמרי — לא צריך להמציא עיר כדי שנפסיק למדוד מרחקים."
+    ],
+    "kind": [
+      "feature",
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/components/LocationEditor.tsx reuses PlacePicker and the saveLocation action, added to /settings as a new section. It tracks what is on record in its own state rather than from the prop: a client component's initial props do not come back changed after the action revalidates, so the success notice and the disabled-save both need a local snapshot. The notice shows only while nothing has been touched since the save -- a success message above a changed form would be telling the person their current edit is saved.",
+      "ACCESSIBILITY FIX (from the V2 audit). Settings built its section ids as `s-${title}`, so the Hebrew heading 'הבירות שלי' produced the id 's-הבירות שלי'. A space is not valid in an id, and aria-labelledby is a SPACE-SEPARATED list of IDREFs -- it split into two tokens pointing at nothing, leaving every section on the page unnamed to a screen reader navigating by region. axe does not flag it, because the attribute and the heading each look well-formed alone. Sections take an explicit slug id now, and tests/aria-ids.test.ts refuses any aria id interpolated from free text.",
+      "Profile gains home_city/home_lat/home_lon/search_radius_km, and getViewer asks for them with a fallback to the pre-0026 column list -- a database that has not had the migration applied yet must not fail the whole profile read, which is the read that used to throw people out of the app.",
+      "The two forms on /settings both say 'שמירה', so the e2e scopes each to its section by region name -- which the aria fix above is what makes possible."
+    ]
+  },
+  {
+    "version": "0.14.1",
+    "date": "2026-10-07",
+    "title_he": "הציון מופיע על המבצעים",
+    "highlights_he": [
+      "על כל מבצע עם מחיר ייחוס אמין מופיע עכשיו הדירוג שלו: מטורף, משתלם מאוד, סביר, או לא באמת מבצע — עם המספר לצידו.",
+      "מבצע בלי מחיר ייחוס פשוט לא מציג ציון. בלי אפס, בלי מציין מקום."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/lib/offers.ts reads offer_scores through the shared cached reader and merges on offer_key (decorate = withPackaging + withScores). offers_feed is deliberately untouched: joining the score in would mean replacing the view 0018 and 0022 spent two migrations making cheap. A missing table (migration not yet applied) returns {} rather than throwing -- the deals are still true, they just arrive unscored.",
+      "src/components/ui/DealScore.tsx: the band in WORDS with the number beside it, never colour alone and never an emoji. Only contrast-verified text roles; the weak band uses ring-danger and not text-danger, because the theme generator fixes `danger` at one lightness for both modes, which is why the project uses it as a border. Shown on OfferLine (in the facts row, beside the condition chips) and on the Hero.",
+      "refresh_offer_scores() runs at the end of scripts/ingest/run.mjs and after the five admin actions that add, remove or reprice a deal. Neither is allowed to fail its caller: a live but unscored deal is a far smaller problem than an import being undone or an admin being told their approval failed when it did not.",
+      "The ingest run also rings POST /api/cache/revalidate, reading the address and the secret from the TARGET'S git-ignored env file rather than the shell -- the project's own guard test (tests/ingest.test.ts) caught the first attempt, and reading it from the environment could point the doorbell at a different deployment than the data."
+    ]
+  },
+  {
+    "version": "0.14.0",
+    "date": "2026-10-07",
+    "title_he": "ציון למבצע — כמה הוא באמת שווה",
+    "highlights_he": [
+      "לכל מבצע עם מחיר ייחוס אמין יש עכשיו ציון מ-0 עד 100, ודירוג: מטורף, משתלם מאוד, סביר, או לא באמת מבצע.",
+      "הציון בודק בעיקר מול הרשתות האחרות, לא מול מחיר המדף של אותה רשת — כך שרשת לא יכולה לנפח לעצמה הנחה.",
+      "הוא גם יודע אם זה המחיר הכי טוב שראינו לאריזה הזאת בחצי השנה האחרונה.",
+      "למבצע בלי מחיר ייחוס אמין פשוט אין ציון. לא ננחש."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0027: public.offer_scores (offer_key primary key, score, band, basis jsonb, computed_at) plus refresh_offer_scores(). Formula and reasoning in docs/DEAL-SCORE.md; 12 cases in tests/deal-score.test.ts.",
+      "Three components, each from a measurement already on record: CHAIN 0.25 (value_pct, the chain's own claim, weighted LEAST because a chain that lifts its shelf price deepens its own discount for free), MARKET 0.45 (market_value_pct, the median of >= 2 OTHER chains, which no chain can inflate), HISTORY 0.30 (where the price sits between the lowest and the median of every observation for that pack in 180 days, >= 4 samples required). Missing components are dropped and the weights renormalised; a chain-only score is capped at 80, because one self-reported signal cannot make something exceptional. basis records every input, its points and its weight, so any score can be explained.",
+      "value_pct null or needs_review -> NO ROW. Not a zero: a zero is a claim, absence is the truth. Same rule CLAUDE.md sets for discounts, one level up. Each refresh also deletes the score of an offer that has ended, so nothing keeps a number it can no longer justify.",
+      "A table refreshed by the import, not a view: 0018's header records the feeds timing out at ~10,600 live promotions and ~32,000 regular prices when something recomputed over the ledger per request, and the history component reads 180 days of it. offers_feed is deliberately untouched -- joining the score in would mean replacing the view 0018 and 0022 spent two migrations making cheap. The app reads offer_scores separately on the same offer_key and merges.",
+      "Guarded by require_price_writer() (0008) rather than a second hand-rolled check: whoever may write a price may write what we think of it. Everyone may read."
+    ]
+  },
+  {
+    "version": "0.13.0",
+    "date": "2026-10-07",
+    "title_he": "מספרים לנו איפה אתם גרים, וכמה רחוק שווה לכם לנסוע",
+    "highlights_he": [
+      "בהרשמה יש עכשיו שלב חדש: היישוב שלכם, וכמה רחוק אתם מוכנים לנסוע בשביל מבצע.",
+      "רק היישוב — לא צריך כתובת. אפשר גם לבחור \"השתמשו במיקום שלי\", והדפדפן יבקש רשות רק אחרי שתלחצו.",
+      "אם היישוב שלכם לא ברשימה, פשוט כתבו אותו. זה נשמר.",
+      "אפשר לדלג על השלב הזה לגמרי ולהמשיך."
+    ],
+    "kind": [
+      "feature"
+    ],
+    "showInApp": true,
+    "internal": [
+      "src/data/israel-cities.ts: 90 settlements with approximate centres, each row carrying its source. The file states plainly what it is -- hand-compiled from public geographic knowledge, good to a kilometre or two, which is the right precision for a radius chosen in 5 km steps and nothing more -- and documents the refresh path from data.gov.il's settlements resource for when the build has outbound network. Deliberately a weaker claim than the project makes about prices.",
+      "src/lib/cities.ts reuses src/lib/search.ts rather than growing a second idea of matching, so the folding that lets 'שופר-סל' find שופרסל also lets 'תל אביב' find תל אביב-יפו and forgives 'נתנייה'. nearestCity() returns null beyond 25 km rather than naming somewhere absurd for a fix we cannot explain. kmBetween() is the same haversine as public.km_between (0026), so client and database never disagree.",
+      "src/components/PlacePicker.tsx: settlement autocomplete, an explicit 'use my location' (the geolocation prompt never fires because a screen loaded -- an e2e stubs getCurrentPosition and asserts it is untouched until tapped), and the radius chips, which appear only once there is a place to measure from. A typed name we do not hold is kept as text with no coordinates: a real answer, just not a measurable one.",
+      "Onboarding is five steps now; the save moved from the ranking step to the place step so the beers and the place go in one submit. persistLocation() runs after save_preferences and is deliberately not allowed to fail the whole save -- the beers are what the app cannot work without, a location is an enhancement. Also exports saveLocation for Settings.",
+      "Added PinIcon. The 'use my location' button is btn-ghost, not btn-quiet: btn-quiet is the paper variant and its ink colour fails contrast against the dark counter -- caught by the existing axe sweep, which now also covers the place step in light and dark and at three viewport sizes.",
+      "tests/cities.test.ts holds the list to its own claim: every point inside the bounds 0026 accepts, no two places on the same spot, and the distances between the big cities check out against reality."
+    ]
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-10-07",
+    "title_he": "בקבוקים קלים יותר, והתשתית למבצעים לפי מרחק",
+    "highlights_he": [
+      "תמונות הבקבוקים ברשימות קלות ב-90 אחוז. דף הבית נפתח מהר יותר, במיוחד ברשת איטית.",
+      "הכנו את הבסיס ל\"מבצעים קרובים אליי\": מרחקים, רדיוס חיפוש ועיר מגורים.",
+      "סניף שאנחנו לא יודעים איפה הוא פשוט לא יוצג כקרוב — לא ננחש."
+    ],
+    "kind": [
+      "feature",
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Thumbnail tier: scripts/lib/bottle-thumb.mjs writes <slug>@216.webp (3x the 72px Home key) beside the hero asset; prepare-bottle.mjs does it for new photos and scripts/make-bottle-thumbs.mjs backfilled the 27 on record. 1245 KB -> 123 KB, 90% smaller. BeerBottle takes the thumb at height <= 96; BottleBackdrop keeps the full file. Home's keys are eager, not lazy: they are in the header, above the fold on every phone. Same approved pixels, only scaled, so the provenance recorded for the full photo covers it.",
+      "tests/bottle-photos.test.ts now declares PHOTOLESS, so photo coverage can only shrink deliberately (the old floor was '>= 19 entries' while 27 existed -- eight photos and their manifest entries could have been deleted together and CI stayed green); asserts manifest width/height against sharp metadata; and holds a per-file byte budget.",
+      "Migration 0026 is the geographic foundation. branches gets latitude/longitude/geocoded_at/geocode_source/geocode_precision with four CHECKs: both-or-neither, inside Israel (a typo and unit-confusion guard, catching a swapped pair or a 0/0 fix), a known precision, and no coordinate without a recorded source. profiles gets home_city/home_lat/home_lon/search_radius_km, the radius constrained to the set the app offers plus 0 for nationwide. save_location() is a definer function, not a column grant, for the same reason save_preferences is: 0010 revoked table-wide UPDATE on profiles, and the columns that decide what a person is shown are written in one audited place that can only touch auth.uid()'s row.",
+      "km_between() is haversine in plain SQL and branches_within_km() is a bounding-box prefilter plus the exact distance -- NOT postgis/earthdistance, because the suite runs the real migrations on PGlite and that is what makes the RLS tests trustworthy. At ~1,100 branches this is comfortably fast; every caller goes through branches_within_km(), so a spatial index later is a local change.",
+      "NO COORDINATE IS INVENTED. The price-transparency Stores file carries name, address and city and never a position, so real branch coordinates need a geocoding provider and a credential this repository does not have. The columns ship empty and branches_within_km() never returns an unlocated branch -- not even nationwide. 'We do not know where this is' is a first-class state, like a price with no trusted reference.",
+      "New POST /api/cache/revalidate (Bearer CRON_SECRET, 503 when unconfigured, same discipline as the notification worker). The shared reads are held under FEEDS_TAG for five minutes and every admin action clears it, but an INGESTION RUN writes to Postgres from a script and cannot -- so after an import the app served the previous catalogue, and the SKU index is not merely stale in that window, it decides which offers a beer page can find at all. The e2e suite rings the same doorbell after it resets the fake database; without it one test's catalogue was served to the next, which is how 0.11.2's caching broke seven specs.",
+      "middleware no longer runs the session machinery for /bottles/, /onboarding/ or /api/cache/ -- static files and a bearer-token endpoint have no use for an anonymous user, and the bottle path was adding a hop to the LCP image."
+    ]
+  },
+  {
+    "version": "0.11.2",
+    "date": "2026-10-07",
+    "title_he": "האפליקציה נפתחת מהר יותר",
+    "highlights_he": [
+      "מעבר בין המסכים כבר לא מבקש מהשרת דפים שלא ביקשתם — זה היה עד פי ארבעה עבודה מיותרת בכל צפייה.",
+      "רשימת הבירות והרשתות נקראת פעם אחת ולא בכל כניסה לכל דף.",
+      "תמונות הבקבוקים נשמרות במכשיר במקום להיבדק מחדש בכל ניווט.",
+      "מסך שליחת מבצע נטען קל יותר בשני שלישים.",
+      "אחרי עדכון גרסה כבר לא תיתקעו עם קוד ישן שגורם לשגיאה בלחיצה על כפתור."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "prefetch={false} on the TabBar (root layout, four force-dynamic routes) and on ListingSearch/BeerStrip/OfferLine/RegularStrip row links. /beer renders ~40 prefetching rows and a busy chain page ~340 anchors, each one a full dynamic render in Tokyo queued ahead of the person's own tap. Hero keeps its prefetch: one link, the likeliest tap.",
+      "New src/lib/feeds.ts holds publicReader + cachedFeed + FEEDS_TAG, so queries.ts can use them without importing offers.ts (which imports queries.ts). getBeers/getStores/getSettings and the SKU index now read through the cookie-less anon client under FEEDS_TAG with explicit column lists instead of select(*) on every page load — 4-5 round trips off the critical path of every page. Every table involved is `select to anon, authenticated using (true)` with a matching grant, so the anon role sees the same rows; every admin mutation already clears FEEDS_TAG.",
+      "getBeerBySlug/getStoreBySlug read a SEPARATE cached index over every row, not the filtered choose-from list: a deactivated beer's or a cider's page must still render rather than 404.",
+      "next.config.ts: /bottles/ and /onboarding/ get max-age=31536000, immutable. They are written once per beer by prepare-bottle.mjs and were revalidated on every navigation — the LCP image.",
+      "sw.js: navigationPreload so a navigation leaves the device while the worker boots (navigations stay network-only); the offline page is precached with its own add so a missing icon cannot take it down, and the navigate handler can no longer call respondWith(undefined); /bottles/ and /onboarding/ are cache-first; /_next/static/ is NO LONGER cached — Next already serves it immutable, while a cache-first rule under a fixed cache name grew without bound and let an open tab run the previous deploy's JS against the new server, which is what produced 'Failed to find Server Action' and the generic error screen after a release.",
+      "SubmitDealForm imports supabase-js dynamically inside the upload handler: /submit first load 178 kB -> 111 kB.",
+      "The store page no longer awaits getStoreBySlug before getViewer; they are independent.",
+      "Still outstanding from the audit's section 2: getFreshness computes the ranked feed to read one timestamp (needs a cheap SQL function), and the materialized-CTE fence in offers_ranked (C1) is the remaining database floor."
+    ]
+  },
+  {
+    "version": "0.11.1",
+    "date": "2026-10-07",
+    "title_he": "המספרים בלוח הניהול אומרים את האמת",
+    "highlights_he": [
+      "\"מבצעים באוויר\" ספר כל מבצע ידני פעמיים. עכשיו הוא נכון.",
+      "\"הורדו השבוע\" ספר גם עריכות של מבצעים ישנים. עכשיו הוא סופר רק הורדות אמיתיות.",
+      "\"נשלחו ע״י משתמשים\" ספר גם מבצעים שמנהל הקליד בעצמו.",
+      "תיבת \"שלחו התראה\" ביצירת מבצע ידני לא עשתה כלום. עכשיו היא עובדת.",
+      "רשימת המנהלים כבר לא גלויה למי שאינו מנהל."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": false,
+    "internal": [
+      "Migration 0025. deals.deactivated_at (written by set_deal_status) replaces updated_at as the takedown signal — deals_touch bumps updated_at on any edit, so editing a months-old rejection counted as a takedown this week. deals.entered_by_admin is recorded at insert by admin_add_deal, because deciding it from current admins membership would be wrong the moment somebody gains or loses the role. Rows deactivated before 0025 have a null deactivated_at and are not counted: honest from here rather than wrong forever.",
+      "admin_overview: offers.live and the new offers.from_chains are reported separately and must never be added (offers_feed is catalog UNION ALL deals_public). notifications.sent_ever filters kind='offer' so an admin's test pushes stop inflating it. The expiring window uses (now() at time zone 'Asia/Jerusalem')::date — current_date is UTC on Supabase and rolls over at 02:00/03:00 local. The three whole-feed counts are one pass instead of three.",
+      "admin_add_deal now enqueues the notification itself: the enqueue trigger is `after update of status`, so an INSERT never fired it and p_notify had no effect at all. Same dedupe key and expiry as enqueue_deal_notification (0012).",
+      "M-3: admins_read was `to authenticated using (true)`, and middleware gives every visitor an authenticated anonymous session, so the whole roster — including which id is the super admin — was readable with the public anon key. Now own-row-or-admin. is_admin()/is_super_admin() still answer 'am I an admin?' for anon.",
+      "getAdminOverview and getExpiringOffers report their errors instead of discarding them, and getExpiringOffers returns {rows, ok} so the screen can tell 'nothing ends this week' from 'we could not look'. Its window was also UTC-dated in JS.",
+      "tests/admin-metrics.test.ts (9 cases) asserts what each number MEANS. The previous suite only proved admin_overview refuses a non-admin, which is why four wrong metrics survived."
+    ]
+  },
+  {
+    "version": "0.11.0",
+    "date": "2026-10-07",
+    "title_he": "בוחרים בין בירה אחת לארבע — והמסכים כבר לא נופלים בשלמותם",
+    "highlights_he": [
+      "לא חייבים ארבע בירות. בוחרים אחת, שתיים, שלוש או ארבע — והראשונה עדיין קובעת את המראה של האפליקציה.",
+      "כשחלק מהמסך לא נטען, רק אותו חלק אומר זאת ומציע לנסות שוב. שאר הדף נשאר.",
+      "כבר לא יוצג \"אין מבצעים\" כשפשוט לא הצלחנו לבדוק — אלו שני דברים שונים.",
+      "תקלה רגעית כבר לא מחזירה אתכם להרשמה מחדש ולא מאבדת את הבירות שלכם.",
+      "הדף הראשי נפתח מהר יותר כשמוגדר מבצע שבועי."
+    ],
+    "kind": [
+      "feature",
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Migration 0024 replaces save_preferences(): between one and four beer ids instead of exactly four, and an INSERT ... ON CONFLICT DO NOTHING plus a row-count check so a missing profile row can no longer produce a successful-looking save that leaves onboarded_at null — the silent onboarding loop. user_favorite_beers needed no change: check (rank between 1 and 4) with PK (profile_id, rank) already allowed one to three rows.",
+      "The 1-4 change touches: src/lib/actions/profile.ts (zod min/max), src/lib/session.ts (isOnboarded >= 1), Onboarding.tsx, FavouritesEditor.tsx (the last beer has no remove button), OnboardingStage.tsx (empty slots only during 'pick'; data-count on the stage), onboarding.css (per-count re-centring of the line), FavouriteKeys.tsx (grid sized from beers.length; aria-label no longer says ארבע — it was an e2e locator in two specs).",
+      "src/lib/attempt.ts + src/components/CouldNotLoad.tsx: each Home read fails on its own instead of blanking the route. offers.ts still throws rather than returning an empty list — that part was right. Home's empty state is now suppressed when a read failed.",
+      "src/lib/session.ts reports a degraded read; every redirect that could act on an absence (/, /settings, the admin layout) checks it first. Previously a timeout was indistinguishable from 'no profile and no favourites'.",
+      "src/middleware.ts mints an anonymous user only when no session cookie is present — getUser() returns {user:null} for every failure, including the refresh-token rotation race, and the old branch replaced the person's identity. It also skips the auth round trip while the token is comfortably valid.",
+      "getOfferByKey pairs offer_key with origin (a plan-time constant per union branch) so a weekly-deal lookup no longer computes the whole feed on every Home render.",
+      "Added src/app/global-error.tsx; src/app/error.tsx now surfaces and logs the digest; src/lib/log.ts is the app's first server-side logging.",
+      "docs/V2-AUDIT-2026-10-07.md records the full audit these fixes came from."
+    ]
+  },
+  {
     "version": "0.10.4",
     "date": "2026-10-06",
     "title_he": "הקשחת אבטחה",

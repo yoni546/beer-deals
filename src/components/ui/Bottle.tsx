@@ -198,13 +198,41 @@ export function BeerMark({ slug, height = 36, className = "" }: { slug: string; 
 /**
  * A beer's own bottle, small: the real product photo when there is one (as photographed — the same
  * approved files as the counter), else the drawn bottle. Decorative: the beer's name is always beside it.
+ *
+ * At list sizes it takes the 216 px thumbnail rather than the hero asset. Home's four keys were
+ * fetching up to 292 KiB of imagery to paint four 19×72 boxes; the same four are now ~20 KB.
+ *
+ * `eager` is for the ones above the fold. Home's keys sit in the header, where lazy-loading only
+ * defers the request past layout for no benefit.
  */
-export function BeerBottle({ slug, height = 72, className = "" }: { slug: string; height?: number; className?: string }) {
+export function BeerBottle({
+  slug,
+  height = 72,
+  className = "",
+  eager = false,
+}: {
+  slug: string;
+  height?: number;
+  className?: string;
+  eager?: boolean;
+}) {
   const photo = photoFor(slug);
   if (!photo) return <BeerMark slug={slug} height={height} className={className} />;
-  const width = Math.round((height * photo.width) / photo.height);
+  // 216 px covers a 72 px box at DPR 3 exactly, and the 52 px list comfortably.
+  const asset = height <= 96 && photo.thumb ? photo.thumb : photo;
+  const width = Math.round((height * asset.width) / asset.height);
   return (
     // eslint-disable-next-line @next/next/no-img-element -- a small, already-optimised WebP; next/image adds nothing here
-    <img src={photo.src} alt="" width={width} height={height} data-bottle-photo={slug} className={`object-contain ${className}`} style={{ width, height }} loading="lazy" decoding="async" />
+    <img
+      src={asset.src}
+      alt=""
+      width={width}
+      height={height}
+      data-bottle-photo={slug}
+      className={`object-contain ${className}`}
+      style={{ width, height }}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+    />
   );
 }

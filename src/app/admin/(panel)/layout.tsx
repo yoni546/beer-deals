@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminNotices } from "@/components/admin/AdminNotices";
 import { Screen, TopBar } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +25,30 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
-  if (!viewer.isAdmin) redirect("/admin/login");
+  // A failed read must not look like "you are not an admin" — that bounced signed-in
+  // admins to the sign-in page whenever the database hiccuped.
+  if (viewer.degraded && !viewer.isModerator) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את ההרשאות שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
+  if (!viewer.isModerator) redirect("/admin/login");
 
   const tabs = [
     { href: "/admin", label: "בית" },
     { href: "/admin/queue", label: "ממתינים" },
+    { href: "/admin/beers", label: "בירות" },
     { href: "/admin/reports", label: "דיווחים" },
+    { href: "/admin/people", label: "אנשים" },
     { href: "/admin/weekly", label: "מבצע השבוע" },
+    // Every admin can read it, not only a super admin: a log only the most powerful
+    // person can see is not accountability, it is a privilege.
+    { href: "/admin/coverage", label: "כיסוי" },
+    { href: "/admin/audit", label: "יומן" },
     ...(viewer.isSuperAdmin
       ? [
           { href: "/admin/admins", label: "מנהלים" },
@@ -51,7 +70,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <AdminNav tabs={tabs} />
 
-      {children}
+      {/* The result of an action is shown HERE, above everything an action can
+          unmount — approving a deal moves it between lists and removing one takes
+          it off the page, and the row used to carry its own confirmation. */}
+      <AdminNotices>{children}</AdminNotices>
     </Screen>
   );
 }

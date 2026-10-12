@@ -24,6 +24,9 @@ const appEnv = {
   NEXT_PUBLIC_VAPID_PUBLIC_KEY:
     "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U",
   SUPABASE_SERVICE_ROLE_KEY: "fake-service-role-key",
+  // Lets the suite clear the app's shared caches after it resets the fake database;
+  // without it the catalogue read for one test would be served to the next.
+  CRON_SECRET: "e2e-cron-secret-not-a-real-one",
   APP_ENV: "production", // behave like production: demo rows must never show
   NEXT_TELEMETRY_DISABLED: "1",
   NEXT_DIST_DIR: ".next-e2e",
@@ -53,6 +56,12 @@ export default defineConfig({
     locale: "he-IL",
     timezoneId: "Asia/Jerusalem",
     channel: process.env.PW_CHANNEL || undefined,
+    // Cloud containers ship a pre-installed Chromium whose build number may not match the
+    // one this Playwright version downloads. PW_EXECUTABLE_PATH points at that browser so
+    // the suite runs without a download. Unset everywhere else, including CI.
+    launchOptions: process.env.PW_EXECUTABLE_PATH
+      ? { executablePath: process.env.PW_EXECUTABLE_PATH }
+      : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

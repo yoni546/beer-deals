@@ -5,9 +5,12 @@ import { getViewer } from "@/lib/session";
 import { publicEnv } from "@/lib/env";
 import { chromeColors, getThemeForBeer, themeStyleSheet } from "@/design/themes";
 import { BottleBackdrop } from "@/components/ui/Bottle";
+import packageJson from "../../package.json";
+import { NewVersion } from "@/components/NewVersion";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 import { NavigationProgress } from "@/components/ui/NavigationProgress";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { TabBar } from "@/components/ui/TabBar";
 
 // Self-hosted at build time by next/font: no request to Google at runtime, no layout
@@ -62,7 +65,10 @@ export const viewport: Viewport = {
  * arrival on Home from onboarding (globals.css, "arriving from onboarding") — so this tags that one
  * and cancels the browser's default cross-fade for every other. A fixed string: nothing user-supplied.
  */
-const REVEAL_SCRIPT = `addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;var a=window.navigation&&navigation.activation,f=a&&a.from&&a.from.url;if(f&&new URL(f).pathname==="/welcome"&&location.pathname==="/")t.types.add("from-welcome");else t.skipTransition()})`;
+const REVEAL_SCRIPT = `addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;var a=window.navigation&&navigation.activation,f=a&&a.from&&a.from.url;if(f&&new URL(f).pathname==="/welcome"&&location.pathname==="/"){t.types.add("from-welcome");document.documentElement.dataset.arrived="welcome"}else t.skipTransition()})`;
+
+/** What this build is, for the update check below. */
+const appVersion = packageJson.version;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const preset = await currentTheme();
@@ -81,9 +87,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased" data-theme={preset.beerId}>
         <BottleBackdrop preset={preset} />
         <NavigationProgress />
-        {children}
+        <PageTransition>{children}</PageTransition>
         <TabBar />
         <RegisterServiceWorker />
+        {/* A deploy can leave an installed PWA running the previous build (Phase Y).
+            This offers a refresh when the tab comes back; it never reloads by itself. */}
+        <NewVersion current={appVersion} />
         <EnvironmentBadge />
       </body>
     </html>

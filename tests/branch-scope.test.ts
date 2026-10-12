@@ -43,7 +43,8 @@ async function promo(w: World, sku: string, branches: string[], key = "rami-levy
 }
 
 const feed = async (w: World) =>
-  (await w.asPublic(async () => (await w.db.query<Record<string, unknown>>("select * from public.offers_feed where origin = 'catalog' order by effective_agorot")).rows));
+  (await w.rebuildFeed(),
+   await w.asPublic(async () => (await w.db.query<Record<string, unknown>>("select * from public.offers_feed where origin = 'catalog' order by effective_agorot")).rows));
 
 describe("promotion_scope — the one rule", () => {
   const rule = async (w: World, declared: string | null, known: number, checked: number, matching: number) =>

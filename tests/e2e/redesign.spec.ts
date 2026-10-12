@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { onboard, resetDb, seedDeals, seedRealCatalog, sql } from "./helpers";
+import { onboard, resetDb, revalidateAppCaches, seedDeals, seedRealCatalog, sql } from "./helpers";
 
 /**
  * The rebuilt screens ("The Tape", DESIGN.md), exercised the way a person uses them.
@@ -24,7 +24,7 @@ async function pricesIn(scope: ReturnType<Page["locator"]>): Promise<number[]> {
 
 test("Home: the four beers are keys in the person's own order, and the first is marked", async ({ page }) => {
   await onboard(page, "דנה", ["מכבי", "גולדסטאר", "היינקן", "קורונה"]);
-  const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+  const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
   await expect(keys).toHaveCount(4);
   await expect(keys.nth(0)).toContainText("מכבי");
   await expect(keys.nth(0)).toContainText("#1");
@@ -90,7 +90,7 @@ test("Home: the search box, the number-one beer and the bottom bar are all on th
   await onboard(page);
   const height = page.viewportSize()!.height;
   const searchbox = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
-  const numberOne = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem").first();
+  const numberOne = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem").first();
   const bar = page.getByRole("navigation", { name: "ניווט ראשי" });
   for (const [name, locator] of [["search", searchbox], ["number one", numberOne], ["bottom bar", bar]] as const) {
     const box = (await locator.boundingBox())!;
@@ -247,40 +247,83 @@ test("A deal line says, on the line itself, the regular price it is measured aga
   await expect(line.locator("s")).toHaveText("₪37.90");
   await expect(line).toContainText("המחיר הרגיל, אושר על ידי מנהל"); // read out to screen readers
   await expect(line.getByText("−34%")).toBeVisible();
-  // One unit per deal: nothing to unfold on an ordinary line.
-  await expect(line.locator("summary")).toHaveCount(0);
+  // One unit per deal: nothing to unfold on an ordinary line -- bar the two
+  // disclosures that are on every line by design, the branch list (data-scope) and
+  // "הייתם שם?" (data-feedback, 0031).
+  await expect(line.locator("details:not([data-feedback]):not([data-scope])")).toHaveCount(0);
 });
 
 test.describe("settings", () => {
+  /** The two forms on /settings both have a "שמירה"; name the section you mean. */
+  const section = (page: Page, name: string) => page.getByRole("region", { name });
+
   test("changing the order of the four beers changes what Home puts first, and the theme follows the new number one", async ({ page }) => {
     await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
     await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 
     await page.goto("/settings");
     await page.getByRole("button", { name: "העלו את מכבי מקום אחד" }).click();
-    await page.getByRole("button", { name: "שמירה" }).click();
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
     await expect(page.locator("body")).toHaveAttribute("data-theme", "maccabee");
 
     await page.goto("/");
-    const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+    const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
     await expect(keys.nth(0)).toContainText("מכבי");
     await expect(keys.nth(1)).toContainText("גולדסטאר");
   });
 
-  test("swapping a beer out is remove-then-add, and saving needs exactly four", async ({ page }) => {
+  // 0024: between one and four. Removing one is a complete, saveable state in its own
+  // right — it used to disable the save until a fourth was put back.
+  test("a beer can be removed and saved, or swapped for another", async ({ page }) => {
     await onboard(page);
     await page.goto("/settings");
+
     await page.getByRole("button", { name: "הסירו את קורונה" }).click();
-    await expect(page.getByRole("button", { name: "שמירה" })).toBeDisabled(); // only three left
+    await expect(section(page, "הבירות שלי").getByRole("button", { name: "שמירה" })).toBeEnabled(); // three is a choice
     await page.getByRole("button", { name: /^\s*טובורג\s*$/ }).click();
-    await expect(page.getByRole("button", { name: "שמירה" })).toBeEnabled();
-    await page.getByRole("button", { name: "שמירה" }).click();
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
     await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
 
     await page.goto("/");
-    await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).toContainText("טובורג");
-    await expect(page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toContainText("טובורג");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).not.toContainText("קורונה");
+  });
+
+  // 0026: the place is editable after onboarding, through the same picker the first run uses.
+  test("where I live and how far I will go can be changed later", async ({ page }) => {
+    await onboard(page);
+    await page.goto("/settings");
+
+    const field = page.getByPlaceholder("תל אביב, חיפה, באר שבע…");
+    await expect(field).toBeVisible();
+    await field.fill("חיפה");
+    await page.getByRole("button", { name: "חיפה", exact: true }).click();
+    await page.getByRole("button", { name: "עד 25 ק״מ" }).click();
+
+    await section(page, "איפה אני").getByRole("button", { name: "שמירה" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+    // And it is still there on the next visit.
+    await page.reload();
+    await expect(page.getByPlaceholder("תל אביב, חיפה, באר שבע…")).toHaveValue("חיפה");
+    await expect(page.getByRole("button", { name: "עד 25 ק״מ" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("the last beer cannot be removed: one is the minimum", async ({ page }) => {
+    await onboard(page);
+    await page.goto("/settings");
+
+    for (const beer of ["קורונה", "היינקן", "מכבי"]) {
+      await page.getByRole("button", { name: `הסירו את ${beer}` }).click();
+    }
+    // One left, and no way to reach zero — a form that could would only fail at the database.
+    await expect(page.getByRole("button", { name: /^הסירו את/ })).toHaveCount(0);
+    await section(page, "הבירות שלי").getByRole("button", { name: "שמירה" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+    await page.goto("/");
+    await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem")).toHaveCount(1);
   });
 });
 
@@ -308,4 +351,283 @@ test("an unknown beer is a designed 404, not a crash", async ({ page }) => {
   await page.goto("/beer/no-such-beer");
   await expect(page.getByRole("heading", { name: "לא מצאנו את הדף הזה" })).toBeVisible();
   await expect(page.getByRole("link", { name: "לחיפוש בירה" })).toBeVisible();
+});
+
+// "Closest to me" vs "Best deal": the control the V2 brief calls out as important.
+// It is a per-search choice, so it lives in the URL and never in the profile — and
+// where it cannot do what its label promises, it says so instead of reordering.
+test("the intent control is in the URL, not in the profile", async ({ page }) => {
+  await onboard(page);
+
+  const control = page.getByRole("navigation", { name: "מה מחפשים עכשיו" });
+  await expect(control.getByRole("link", { name: "הכי משתלם" })).toHaveAttribute("aria-current", "page");
+
+  await control.getByRole("link", { name: "הכי קרוב אליי" }).click();
+  await expect(page).toHaveURL(/intent=near/);
+  await expect(control.getByRole("link", { name: "הכי קרוב אליי" })).toHaveAttribute("aria-current", "page");
+
+  // A shared link reproduces it, and going back to best clears it from the address.
+  await page.goto("/?intent=near");
+  await expect(page.getByRole("navigation", { name: "מה מחפשים עכשיו" }).getByRole("link", { name: "הכי קרוב אליי" })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("link", { name: "הכי משתלם" }).click();
+  await expect(page).not.toHaveURL(/intent=near/);
+});
+
+test("'closest to me' asks for a place when it has none, instead of pretending to sort", async ({ page }) => {
+  await onboard(page); // the default walk skips the place step
+  await page.goto("/?intent=near");
+
+  await expect(page.getByText("לא סיפרתם לנו איפה אתם")).toBeVisible();
+  await expect(page.getByRole("link", { name: "להגדרת היישוב" })).toBeVisible();
+  // And it does NOT quietly show a list in some other order under this label.
+  await expect(page.getByRole("heading", { name: "הכי קרוב אליך" })).toHaveCount(0);
+});
+
+test("with a place but no located branches, it says that — it does not invent distances", async ({ page }) => {
+  await onboard(page);
+
+  await page.goto("/settings");
+  await page.getByPlaceholder("תל אביב, חיפה, באר שבע…").fill("תל אביב");
+  await page.getByRole("link", { name: "תל אביב-יפו" }).or(page.getByRole("button", { name: "תל אביב-יפו" })).first().click();
+  await page.getByRole("button", { name: "עד 25 ק״מ" }).click();
+  await page.getByRole("region", { name: "איפה אני" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  await page.goto("/?intent=near");
+  // Migration 0026 shipped the branch coordinates deliberately empty: no provider, no
+  // guesses. The screen says exactly that rather than showing an order it cannot justify.
+  await expect(page.getByText("עוד אין לנו את המיקומים של הסניפים")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "הכי קרוב אליך" })).toHaveCount(0);
+});
+
+// Phase J/K: who found the deal, and the people who find them.
+test("the hunters page explains the score and says plainly when nobody qualifies yet", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/hunters");
+
+  await expect(page.getByRole("heading", { name: "ציידי המבצעים" })).toBeVisible();
+  await expect(page.getByText("עוד אין ציידים")).toBeVisible();
+
+  // A leaderboard nobody understands is a ranking of strangers, so the rules are on the page.
+  await expect(page.getByRole("heading", { name: "איך נספר הניקוד" })).toBeVisible();
+  await expect(page.getByText(/שני דיווחים טובים שווים יותר ממאה דיווחים שלא/)).toBeVisible();
+});
+
+test("choosing a name credits the deals you already found, and puts you on the board", async ({ page }) => {
+  await onboard(page);
+
+  // A deal this person submitted, already approved.
+  const [me] = await sql<{ id: string }>("select id from public.profiles order by created_at desc limit 1");
+  await sql(
+    `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
+     select b.id, s.id, 'sixpack', 2490, 3990, 'approved', $1::uuid, $1::uuid, now()
+       from public.beers b, public.stores s where b.slug = 'goldstar' and s.slug = 'rami-levy'`,
+    [me.id],
+  );
+
+  // Nobody is credited until they ask to be.
+  await page.goto("/hunters");
+  await expect(page.getByText("עוד אין ציידים")).toBeVisible();
+
+  await page.goto("/settings");
+  await page.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני");
+  await page.getByRole("region", { name: "הקרדיט שלי" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  // Naming yourself picks up what you already submitted.
+  await page.goto("/hunters");
+  await expect(page.getByRole("listitem").filter({ hasText: "יוני" })).toBeVisible();
+
+  // The chain the credit travels along, asserted where it can actually be seen to break.
+  const [row] = await sql<{ display_name: string; approved: number }>(
+    "select display_name, approved from public.contributors",
+  );
+  expect(row, "nobody was recorded as a contributor").toBeDefined();
+  expect(row.approved, "the trigger did not count the approved deal").toBe(1);
+
+  const [feed] = await sql<{ offer_key: string; origin: string }>(
+    "select offer_key, origin from public.offers_feed where origin = 'legacy' limit 1",
+  );
+  expect(feed, "the submitted deal never reached offers_feed").toBeDefined();
+
+  // And the deal itself now says who found it. On the beer's own page, which shows
+  // every deal — Home's strips cap at three, and this one need not be in the top three.
+  await page.goto("/beer/goldstar");
+  await expect(page.getByText("דווח על ידי יוני").first()).toBeVisible();
+});
+
+test("the credit can be taken back", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/settings");
+
+  const field = page.getByLabel("השם שיוצג על מבצעים שמצאתם");
+  const save = page.getByRole("region", { name: "הקרדיט שלי" }).getByRole("button", { name: "שמירה" });
+
+  // A name of this test's own, so the assertion is about this person and not about
+  // whatever another test left behind.
+  await field.fill("דנה-בדיקה");
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+  expect(await sql("select 1 from public.contributors where display_name = 'דנה-בדיקה'")).toHaveLength(1);
+
+  await field.fill("");
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "השם הוסר" })).toBeVisible();
+
+  // Taken back means the row is gone, not blanked.
+  expect(await sql("select 1 from public.contributors where display_name = 'דנה-בדיקה'")).toHaveLength(0);
+});
+
+// Phase V: "המבצע עדיין קיים" / "המבצע נגמר", on a CHAIN offer — the case that had no
+// report path at all before 0031, in the UI or in the schema.
+test("anyone can say a chain offer has ended, and what people said reaches the next person", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/beer/goldstar");
+
+  const line = page.locator("article").filter({ hasText: "הייתם שם?" }).first();
+  await line.getByText("הייתם שם?").click();
+  await line.getByRole("button", { name: "המבצע נגמר" }).click();
+
+  // The wording matters: pressing it must not look like it deleted anything.
+  await expect(line.getByText("לא הסרנו כלום")).toBeVisible();
+
+  // It is a catalogue offer, not a `deals` row — the thing that used to be impossible.
+  const [said] = await sql<{ offer_key: string; verdict: string }>(
+    "select offer_key, verdict from public.offer_feedback",
+  );
+  expect(said, "nothing was recorded").toBeDefined();
+  expect(said.offer_key.startsWith("obs:"), `expected a chain offer, got ${said.offer_key}`).toBe(true);
+  expect(said.verdict).toBe("ended");
+
+  // One tap says nothing to anybody else. That is the whole rule.
+  await page.reload();
+  await expect(page.getByText("משתמשים מדווחים שהמבצע נגמר")).toHaveCount(0);
+
+  // Two more strangers agree, and now the line says so — still showing the offer,
+  // because this is a label and not a deletion.
+  await sql(
+    "insert into auth.users (id, email) values (gen_random_uuid(), 'a@example.test'), (gen_random_uuid(), 'b@example.test')",
+  );
+  await sql(
+    `insert into public.offer_feedback (offer_key, verdict, reported_by)
+     select $1, 'ended', u.id from auth.users u where u.email in ('a@example.test', 'b@example.test')`,
+    [said.offer_key],
+  );
+  // Written behind the app's back, so ring the same doorbell an import does.
+  await revalidateAppCaches();
+
+  await page.goto("/beer/goldstar");
+  await expect(page.getByText("משתמשים מדווחים שהמבצע נגמר").first()).toBeVisible();
+  await expect(line).toBeVisible();
+});
+
+// Phase O/N: following a beer beyond the four favourites, at a price of your own.
+test("a beer can be followed at your own price, and it shows up in Settings", async ({ page }) => {
+  await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
+
+  // A beer that is NOT one of the four: the thing the app could not do before.
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+  await page.getByLabel("להודיע לי כשהמחיר מתחת ל־ (רשות)").fill("24.90");
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText("נודיע לכם כשהמחיר יגיע לשם.")).toBeVisible();
+  await expect(page.getByText(/עוקבים · נודיע מתחת ל/)).toBeVisible();
+
+  // It is on record, with the price in agorot.
+  const [row] = await sql<{ max_price_agorot: number }>("select max_price_agorot from public.watchlist");
+  expect(row.max_price_agorot).toBe(2490);
+
+  // And Settings lists it, with a way out.
+  await page.goto("/settings");
+  const section = page.getByRole("region", { name: "בירות שאני עוקב אחריהן" });
+  await expect(section.getByText("קרלסברג")).toBeVisible();
+  await expect(section.getByText(/נודיע מתחת ל/)).toBeVisible();
+  await section.getByRole("button", { name: "הסרה" }).click();
+  await expect(page.getByText("הפסקנו לעקוב.")).toBeVisible();
+  expect(await sql("select 1 from public.watchlist")).toHaveLength(0);
+});
+
+test("following with no price is a real choice, and the app says what it means", async ({ page }) => {
+  await onboard(page);
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+
+  // Empty is not a mistake: it means "the same rules as my number one", and the
+  // copy says so before the button is pressed.
+  await expect(page.getByText(/בלי מחיר — נודיע לכם על מבצע חזק/)).toBeVisible();
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText("כמו על הבירה הראשית שלכם.")).toBeVisible();
+
+  const [row] = await sql<{ max_price_agorot: number | null }>("select max_price_agorot from public.watchlist");
+  expect(row.max_price_agorot).toBeNull();
+});
+
+// Phase W: trust is context and weight — never authority, and said as a record.
+test("standing is shown to the person it belongs to, and says exactly what it does", async ({ page }) => {
+  await onboard(page);
+
+  // Nothing before a name is chosen: no row exists, and inventing one would be a
+  // label nobody asked for.
+  await page.goto("/settings");
+  const credit = page.getByRole("region", { name: "הקרדיט שלי" });
+  await expect(credit.getByText(/נקודות/)).toHaveCount(0);
+
+  const [me] = await sql<{ id: string }>("select id from public.profiles order by created_at desc limit 1");
+  // A shelf no other test in this file uses: one approved deal per beer, chain and
+  // pack (0005), and an earlier test already claims goldstar · rami-levy · sixpack.
+  await sql(
+    `insert into public.deals (beer_id, store_id, category, deal_price_agorot, regular_price_agorot, status, created_by, approved_by, approved_at)
+     select b.id, s.id, 'case', 8900, 11900, 'approved', $1::uuid, $1::uuid, now()
+       from public.beers b, public.stores s where b.slug = 'tuborg' and s.slug = 'victory'`,
+    [me.id],
+  );
+
+  await credit.getByLabel("השם שיוצג על מבצעים שמצאתם").fill("יוני-רקורד");
+  await credit.getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("אתם בתחילת הדרך")).toBeVisible();
+  // The only thing standing does, said plainly. No rank, no badge, and nothing that
+  // reads like permission.
+  await expect(page.getByText(/ייחשב יותר/)).toBeVisible();
+  await expect(page.getByText("1 מבצע שלכם אושר")).toBeVisible();
+});
+
+// Phase P: Home tells you about the price you asked to be told about.
+test("Home leads with a followed beer that reached your price, and only then with its own picks", async ({ page }) => {
+  await onboard(page); // גולדסטאר, מכבי, היינקן, קורונה
+
+  // Nothing before anything is followed: no empty frame about nothing happening.
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
+
+  // Follow a beer that is NOT a favourite, at a price the seeded catalogue beats.
+  await page.goto("/beer/carlsberg");
+  await page.getByRole("button", { name: /עקבו אחרי/ }).click();
+  await page.getByLabel("להודיע לי כשהמחיר מתחת ל־ (רשות)").fill("500");
+  await page.getByRole("region", { name: "מעקב" }).getByRole("button", { name: "שמירה" }).click();
+  await expect(page.getByText(/נודיע לכם כשהמחיר יגיע לשם/)).toBeVisible();
+
+  await page.goto("/");
+  const section = page.getByRole("region", { name: /המחיר/ });
+  await expect(section).toBeVisible();
+  // The claim is checkable: it says which price was reached.
+  await expect(section.getByText(/ביקשתם מתחת ל/)).toBeVisible();
+  await expect(section.getByText("קרלסברג").first()).toBeVisible();
+
+  // It is above the person's own four beers, because they asked for this one.
+  const order = await page.evaluate(() => {
+    const names = [...document.querySelectorAll("h2")].map((h) => h.textContent?.trim() ?? "");
+    return { watch: names.findIndex((n) => n.includes("המחיר")), mine: names.indexOf("הבירות שלי") };
+  });
+  expect(order.watch).toBeGreaterThanOrEqual(0);
+  expect(order.watch).toBeLessThan(order.mine);
+
+  // And it goes away when the follow does.
+  await page.goto("/settings");
+  await page.getByRole("region", { name: "בירות שאני עוקב אחריהן" }).getByRole("button", { name: "הסרה" }).click();
+  await expect(page.getByText("הפסקנו לעקוב.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
 });

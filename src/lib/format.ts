@@ -202,3 +202,14 @@ export function scopeHe(row: {
 /** "החל מ־": the lowest of several branch prices that differ. */
 export const isFromPrice = (row: { branch_count?: number | null; price_agorot: number; max_price_agorot?: number | null }) =>
   (row.branch_count ?? 0) > 1 && (row.max_price_agorot ?? row.price_agorot) > row.price_agorot;
+
+/**
+ * "4.3 ק״מ" — one decimal below 10 km, whole numbers above it.
+ *
+ * A branch fix is good to a street at best, and a home point is a town centre unless
+ * the person shared their location, so a second decimal would be stating a precision
+ * we do not have.
+ */
+export function kmHe(km: number): string {
+  return km < 10 ? `${km.toFixed(1)} ק״מ` : `${Math.round(km)} ק״מ`;
+}

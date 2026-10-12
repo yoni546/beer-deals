@@ -71,11 +71,11 @@ test("Home: packs and cases only — never a single can — the person's beers f
   await expect(page.getByRole("link", { name: "בודדים", exact: true })).toHaveCount(0);
   await expect(page.getByText("מארזים")).toHaveCount(0);
   // The four beers: bottle, small rank, name — no cards.
-  const keys = page.getByRole("list", { name: "ארבע הבירות שלי, לפי הסדר" }).getByRole("listitem");
+  const keys = page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem");
   await expect(keys).toHaveCount(4);
   for (const [i, rank] of ["#1", "#2", "#3", "#4"].entries()) await expect(keys.nth(i)).toContainText(rank);
   await expect(keys.nth(0).locator("img[data-bottle-photo='goldstar']")).toBeVisible();
-  await expect(page.locator("[aria-label='ארבע הבירות שלי, לפי הסדר'] .tape")).toHaveCount(0);
+  await expect(page.locator("[aria-label='הבירות שלי, לפי הסדר'] .tape")).toHaveCount(0);
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 });
 
@@ -167,7 +167,8 @@ test("Settings: the four beers stand on the counter — bottle, rank, name — d
   await expect(first).toContainText("#1");
   await expect(first.locator("img[data-bottle-photo='goldstar']")).toBeVisible();
   await page.getByRole("button", { name: "העלו את היינקן מקום אחד" }).click();
-  await page.getByRole("button", { name: "שמירה" }).click();
+  // Three sections carry a "שמירה" now (beers, credit, place): name the one you mean.
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.getByRole("status").filter({ hasText: "נשמר" })).toBeVisible();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "heineken");
   await shot("settings-heineken");
@@ -186,7 +187,7 @@ test("Settings: the four beers stand on the counter — bottle, rank, name — d
   for (let step = 1; step <= 8; step++) await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + ((to.y - from.y) * step) / 8);
   await page.mouse.up();
   await expect(page.locator("li[data-rank='1']")).toContainText("גולדסטאר");
-  await page.getByRole("button", { name: "שמירה" }).click();
+  await page.getByRole("region", { name: "הבירות שלי" }).getByRole("button", { name: "שמירה" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
 });
 

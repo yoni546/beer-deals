@@ -1,13 +1,12 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
-import { unstable_cache } from "next/cache";
 import { cache } from "react";
-import { publicEnv } from "@/lib/env";
+import { cachedFeed, publicReader } from "@/lib/feeds";
+import { note } from "@/lib/log";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { GroupOffer, Offer, Packaging, RegularPrice } from "@/lib/db/types";
+import type { DealScore, GroupOffer, Offer, OfferStanding, Packaging, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
 
@@ -36,7 +35,7 @@ export class DataUnavailableError extends Error {
 const hideSamples = isProductionEnvironment;
 
 /**
- * The SKU table, read once per request (a few hundred rows), for two things the feeds cannot do cheaply:
+ * The SKU table (a few hundred rows), for two things the feeds cannot do cheaply:
  *  - each SKU's pack form (skus.packaging, migration 0021) — what decides "ארגזים". If it cannot be read
  *    (the migration not applied), every pack stays null, and a null pack is never a crate;
  *  - a beer's SKU ids. The feeds are partitioned by store and SKU: a filter on store_id or sku_id reaches the
@@ -44,45 +43,162 @@ const hideSamples = isProductionEnvironment;
  *    production 2026-10-06: a beer's deals 1.3 s by beer_slug, 0.32 s by its SKU ids; a chain's 1.3 s by
  *    store_slug, 0.22 s by store_id). So pages filter by those, never by slug.
  */
-type SkuIndex = { packaging: Map<string, Packaging>; skusOfBeer: Map<string, string[]> };
-const getSkuIndex = cache(async (): Promise<SkuIndex> => {
-  const supabase = await supabaseServer();
+type SkuIndex = { packaging: Record<string, Packaging>; skusOfBeer: Record<string, string[]> };
+
+// Cached site-wide, not per render: `skus` is catalogue data, the same for everyone,
+// and this was re-read from the database on Home, every beer page and every chain page.
+// Maps do not survive the cache (it serialises), so the index is plain objects.
+const readSkuIndex = cachedFeed("skus", async (): Promise<SkuIndex> => {
+  const supabase = publicReader();
   let { data, error } = await supabase.from("skus").select("id, beer_id, packaging");
   // Before 0021 there is no packaging column: still index the beers' SKUs.
   if (error) ({ data, error } = await supabase.from("skus").select("id, beer_id"));
   if (error) throw new DataUnavailableError("packs", error.message);
-  const index: SkuIndex = { packaging: new Map(), skusOfBeer: new Map() };
+  const index: SkuIndex = { packaging: {}, skusOfBeer: {} };
   for (const row of (data ?? []) as Array<{ id: string; beer_id: string; packaging?: Packaging }>) {
-    if (row.packaging) index.packaging.set(row.id, row.packaging);
-    index.skusOfBeer.set(row.beer_id, [...(index.skusOfBeer.get(row.beer_id) ?? []), row.id]);
+    if (row.packaging) index.packaging[row.id] = row.packaging;
+    (index.skusOfBeer[row.beer_id] ??= []).push(row.id);
   }
   return index;
 });
+const getSkuIndex = cache(readSkuIndex);
 
 async function withPackaging<T extends { sku_id: string | null }>(rows: T[]): Promise<Array<T & { packaging: Packaging | null }>> {
   if (rows.length === 0) return [];
   const { packaging } = await getSkuIndex();
-  return rows.map((row) => ({ ...row, packaging: (row.sku_id && packaging.get(row.sku_id)) || null }));
+  return rows.map((row) => ({ ...row, packaging: (row.sku_id && packaging[row.sku_id]) || null }));
+}
+
+/**
+ * The Deal Scores, read once and merged in.
+ *
+ * Deliberately NOT joined into offers_feed: that view is what every screen reads and
+ * what migrations 0018 and 0022 spent two rounds making cheap, and adding a join to it
+ * would put the cost back. The scores are a small, separately indexed table keyed by
+ * the same offer_key the feed already emits, so one read covers a whole page.
+ *
+ * An offer with no row here keeps `deal_score: null` — see docs/DEAL-SCORE.md: a deal
+ * with no trusted reference gets no score, not a guessed one, and the UI shows none.
+ */
+const readScoreIndex = cachedFeed("deal-scores", async (): Promise<Record<string, DealScore>> => {
+  const { data, error } = await publicReader().from("offer_scores").select("offer_key, score, band");
+  // A missing table (the migration not applied yet) must not take the prices down with
+  // it: the deals are still true, they simply arrive unscored.
+  if (error) return {};
+  return Object.fromEntries(
+    ((data ?? []) as Array<{ offer_key: string; score: number; band: DealScore["band"] }>).map((row) => [
+      row.offer_key,
+      { score: row.score, band: row.band },
+    ]),
+  );
+});
+const getScoreIndex = cache(readScoreIndex);
+
+async function withScores<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { deal_score: DealScore | null }>> {
+  if (rows.length === 0) return [];
+  const scores = await getScoreIndex();
+  return rows.map((row) => ({ ...row, deal_score: scores[row.offer_key] ?? null }));
+}
+
+/**
+ * Who found each user-submitted deal, by offer_key.
+ *
+ * Read separately rather than joined into offers_feed, for the same reason the Deal
+ * Score is: that view is what every screen reads and two migrations went into making
+ * it cheap. `contributors` is a small, world-readable table (0030), so one read
+ * covers a page.
+ *
+ * Only people who CHOSE a name appear. A deal from somebody who has not is absent
+ * from this map and its line says nothing about who found it — not "anonymous",
+ * which is itself a label somebody did not ask for.
+ */
+const readContributors = cachedFeed("contributors", async (): Promise<Record<string, string>> => {
+  const supabase = publicReader();
+  // Two reads and a join here, not an embedded select: `deals.created_by` points at
+  // auth.users and `contributors.profile_id` at profiles, so there is no foreign key
+  // between the two tables for PostgREST to follow. Both are small.
+  const [deals, people] = await Promise.all([
+    // No `.not(…, "is", null)`: plain filters only, so this works the same against
+    // PostgREST and against the local fake the e2e suite runs on. Rows with no
+    // submitter simply find no name below.
+    supabase.from("deals").select("id, created_by").eq("status", "approved"),
+    supabase.from("contributors").select("profile_id, display_name"),
+  ]);
+  if (deals.error || people.error) {
+    note("contributors.read_failed", { deals: deals.error?.message, people: people.error?.message });
+    return {};
+  }
+
+  const names = new Map(
+    ((people.data ?? []) as Array<{ profile_id: string; display_name: string }>).map((row) => [
+      row.profile_id,
+      row.display_name,
+    ]),
+  );
+  const found: Record<string, string> = {};
+  for (const row of (deals.data ?? []) as Array<{ id: string; created_by: string | null }>) {
+    const name = row.created_by ? names.get(row.created_by) : undefined;
+    if (name) found[`deal:${row.id}`] = name;
+  }
+  return found;
+});
+const getContributors = cache(readContributors);
+
+async function withContributors<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { found_by: string | null }>> {
+  if (rows.length === 0) return [];
+  const names = await getContributors();
+  return rows.map((row) => ({ ...row, found_by: names[row.offer_key] ?? null }));
+}
+
+/**
+ * What people who were actually in the shop say about each offer (0031).
+ *
+ * One read for the whole screen, not one per line: a Home render touches dozens of
+ * offers. Only offers somebody has spoken about in the last thirty days come back;
+ * everything else is absent and its line says nothing, which is the honest default.
+ *
+ * A missing function (the migration not applied yet) is not allowed to take the
+ * prices down with it — the deals are still true, they simply arrive unlabelled.
+ */
+const readStandings = cachedFeed("offer-standings", async (): Promise<Record<string, OfferStanding>> => {
+  const { data, error } = await publicReader().rpc("offer_standings");
+  if (error) {
+    note("offer_standings.read_failed", { reason: error.message });
+    return {};
+  }
+  const index: Record<string, OfferStanding> = {};
+  for (const row of (data ?? []) as Array<{ offer_key: string; standing: string }>) {
+    if (row.standing === "ended" || row.standing === "still_there" || row.standing === "unclear") {
+      index[row.offer_key] = row.standing;
+    }
+  }
+  return index;
+});
+const getStandings = cache(readStandings);
+
+async function withStandings<T extends { offer_key: string }>(rows: T[]): Promise<Array<T & { standing: OfferStanding | null }>> {
+  if (rows.length === 0) return [];
+  const standings = await getStandings();
+  return rows.map((row) => ({ ...row, standing: standings[row.offer_key] ?? null }));
+}
+
+/** Everything a deal line needs that the feed itself does not carry. */
+async function decorate(rows: Offer[]): Promise<Offer[]> {
+  return withStandings(await withContributors(await withScores(await withPackaging(rows)))) as Promise<Offer[]>;
 }
 
 /** The beers' SKU ids (empty when they have none). */
 async function skuIdsOf(beerIds: string[]): Promise<string[]> {
   const { skusOfBeer } = await getSkuIndex();
-  return beerIds.flatMap((id) => skusOfBeer.get(id) ?? []);
+  return beerIds.flatMap((id) => skusOfBeer[id] ?? []);
 }
 
 /**
  * Reads that need the WHOLE feed (every chain) — Home's freshness and "more deals", the beer and chain
  * listings — cost ~1.2 s each at production scale and give every visitor the same answer, which changes
- * only when an import or an admin changes deals. They are cached for five minutes (FEEDS_TAG is cleared by
- * the admin actions) and read with a cookie-less client: the same public (anon) view of the data a signed-out
- * visitor gets — these views show nothing per person.
+ * only when an import or an admin changes deals. They are cached and read cookie-less: see src/lib/feeds.ts.
  */
-export const FEEDS_TAG = "feeds";
-const FEEDS_TTL_SECONDS = 300;
-const publicReader = () => createClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-const cachedFeed = <A extends unknown[], R>(key: string, read: (...args: A) => Promise<R>) =>
-  unstable_cache(read, ["feeds", key], { revalidate: FEEDS_TTL_SECONDS, tags: [FEEDS_TAG] });
+export { FEEDS_TAG } from "@/lib/feeds";
 
 /** The best verified savings across every chain, packs only — Home's "more deals", before excluding favourites. */
 const MORE_DEALS_POOL = 200;
@@ -134,7 +250,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
   if (filter.excludeBeerIds && filter.topByValue && filter.packsOnly && !beerIds && !storeId) {
     const excluded = new Set(filter.excludeBeerIds);
     const pool = await getTopPackOffers(hideSamples());
-    return withPackaging(pool.filter((offer) => !excluded.has(offer.beer_id)).slice(0, filter.topByValue));
+    return decorate(pool.filter((offer) => !excluded.has(offer.beer_id)).slice(0, filter.topByValue));
   }
 
   const base = () => {
@@ -164,7 +280,7 @@ export async function getOffers(filter: OfferFilter = {}): Promise<Offer[]> {
     if (error) throw new DataUnavailableError("offers", error.message);
     rows = (data ?? []) as Offer[];
   }
-  return withPackaging(rows);
+  return decorate(rows);
 }
 
 
@@ -213,7 +329,7 @@ export async function getGroupOffers(filter: { beerSlug?: string; storeSlug?: st
   const groups = (data ?? []) as GroupOffer[];
   if (groups.length === 0) return groups;
   const { packaging } = await getSkuIndex();
-  return groups.map((group) => ({ ...group, packs: group.packs.map((pack) => ({ ...pack, packaging: packaging.get(pack.sku_id) ?? null })) }));
+  return groups.map((group) => ({ ...group, packs: group.packs.map((pack) => ({ ...pack, packaging: packaging[pack.sku_id] ?? null })) }));
 }
 
 /** One row per beer or chain: how many offers there are, and the best verified saving. */
@@ -250,12 +366,28 @@ const readFreshness = cachedFeed("freshness", async (hide: boolean): Promise<str
   return (data?.[0] as { observed_at: string } | undefined)?.observed_at ?? null;
 });
 
-/** One offer by its key ('obs:12' or 'deal:<uuid>') — used for the editorial "deal of the week". */
+/**
+ * One offer by its key ('obs:12' or 'deal:<uuid>') — used for the editorial "deal of the week".
+ *
+ * `offer_key` is a computed expression in both halves of the view ('obs:' || observation_id,
+ * 'deal:' || d.id), so a filter on it alone cannot prune either branch of the UNION: Postgres
+ * computes the WHOLE feed and then string-compares every row. On Home, where the editor's pick
+ * is the default state, that was a full-feed scan on every single render — measured in
+ * `docs/V2-AUDIT-2026-10-07.md` as one of the two leading causes of the error screen.
+ *
+ * `origin` IS a plan-time constant per branch ('catalog' / 'legacy', migration 0017:332,383), so
+ * pairing the two filters prunes the other half to a one-time false and a 'deal:' lookup reads
+ * only `deals_public`.
+ */
 export async function getOfferByKey(key: string): Promise<Offer | null> {
   const supabase = await supabaseServer();
-  let query = supabase.from("offers_feed").select("*").eq("offer_key", key);
+  let query = supabase
+    .from("offers_feed")
+    .select("*")
+    .eq("origin", key.startsWith("deal:") ? "legacy" : "catalog")
+    .eq("offer_key", key);
   if (hideSamples()) query = query.eq("is_sample", false);
   const { data, error } = await query.maybeSingle();
   if (error) throw new DataUnavailableError("the featured deal", error.message);
-  return data ? (await withPackaging([data as Offer]))[0] : null;
+  return data ? (await decorate([data as Offer]))[0] : null;
 }

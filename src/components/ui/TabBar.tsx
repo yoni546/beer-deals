@@ -35,6 +35,11 @@ export function TabBar() {
             <li key={href} className="flex-1">
               <Link
                 href={href}
+                // Every tab points at a force-dynamic route, and this bar is in the root
+                // layout, so default prefetching turned one page view into up to four
+                // server renders -- three of which nobody asked for, each paying the full
+                // Israel-Tokyo round trip, and each queued ahead of the person's own tap.
+                prefetch={false}
                 aria-current={current ? "page" : undefined}
                 className={`relative flex h-16 flex-col items-center justify-center gap-1 text-xs ${
                   current ? "font-bold text-on-ground" : "font-medium text-on-ground-2"

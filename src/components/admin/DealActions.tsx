@@ -2,12 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
+import { useAdminNotice } from "@/components/admin/AdminNotices";
 import { SparkIcon } from "@/components/ui/icons";
 import { Price, Saving } from "@/components/ui/Price";
 import { approveDeal, deleteDeal, setDealStatus, setWeeklyDeal, updateDeal } from "@/lib/actions/admin";
 import { CATEGORY_LABEL, CATEGORY_LABEL_ONE, DEAL_CATEGORIES } from "@/lib/categories";
 import { formatAgorot, formatPrice } from "@/lib/money";
 import type { AdminDeal, Beer, DealStatus, Store } from "@/lib/db/types";
+
+/**
+ * The ladder, in words a moderator can act on (0038).
+ *
+ * Said as a record rather than as a rank: "two finds accepted" is something to weigh,
+ * where "level 2" is something to obey — and this must never read like authority.
+ */
+const TRUST_HE: Record<"new" | "known" | "trusted", string> = {
+  new: "אין לו עוד רקורד",
+  known: "כמה דיווחים שלו אושרו",
+  trusted: "רקורד טוב לאורך זמן",
+};
 
 const STATUS_LABEL: Record<DealStatus, string> = {
   pending: "ממתין",
@@ -29,6 +42,22 @@ const STATUS_LABEL: Record<DealStatus, string> = {
  * still waiting for a decision is hatched as well as labelled — unverified data
  * is marked in words and pattern, never colour alone.
  */
+/**
+ * The attached photo's link, or null.
+ *
+ * Only https survives. Everything else — javascript:, data:, a relative path that
+ * would resolve against the admin panel — is dropped rather than rendered, because
+ * this link is shown to a moderator and its value came from a stranger.
+ */
+function safePhotoHref(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).protocol === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AdminDealRow({
   deal,
   beers,
@@ -53,15 +82,23 @@ export function AdminDealRow({
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Approving a deal moves it between lists and removing one takes it off the page,
+  // so the panel shows the outcome above the list, where the action cannot unmount
+  // it. Without the provider (a test, or a page that does not have it) the row says
+  // it itself, as it always did.
+  const notify = useAdminNotice();
 
   function run(work: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
       const result = await work();
-      setMessage({ ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") });
+      const said = { ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") };
+      if (notify) notify(said);
+      else setMessage(said);
     });
   }
 
   const fieldId = (name: string) => `deal-${deal.id}-${name}`;
+  const photoHref = safePhotoHref(deal.image_url);
 
   return (
     <article className="px-4 py-4">
@@ -89,13 +126,32 @@ export function AdminDealRow({
         <Saving pct={deal.discount_percent} className="font-semibold text-ink" />
       </p>
 
+      {/* Who a moderator is actually judging. Before 0030 this row could not say:
+          created_by was recorded but not read, and profiles is owner-only.
+          The standing (0038) is context for the judgement — it does not move this
+          row up the queue, and it grants the person nothing. */}
+      <p className="mt-1 text-sm text-ink-2">
+        {deal.entered_by_admin
+          ? "נוסף ידנית על ידי מנהל"
+          : deal.contributors?.display_name
+            ? `דווח על ידי ${deal.contributors.display_name}`
+            : deal.created_by
+              ? "דווח על ידי משתמש שלא בחר שם"
+              : "מקור לא ידוע"}
+        {deal.contributors && <> · {TRUST_HE[deal.contributors.trust]}</>}
+      </p>
+
       {deal.notes && <p className="mt-2 text-sm leading-relaxed text-ink-2">{deal.notes}</p>}
 
-      {deal.image_url && (
+      {/* Defence in depth. The submission schema already pins this to the project's own
+          bucket and the table has a CHECK, but this is the one place an admin CLICKS a
+          value a stranger supplied, so it refuses anything that is not plainly https —
+          a javascript: href executes in the current document whatever `target` says. */}
+      {photoHref && (
         <a
-          href={deal.image_url}
+          href={photoHref}
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
           className="mt-1 flex min-h-11 items-center text-sm text-ink underline underline-offset-4"
         >
           צפייה בתמונה שצורפה

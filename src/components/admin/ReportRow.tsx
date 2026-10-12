@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Notice } from "@/components/Chrome";
+import { useAdminNotice } from "@/components/admin/AdminNotices";
 import { resolveReport, setDealStatus } from "@/lib/actions/admin";
 import { CATEGORY_LABEL_ONE } from "@/lib/categories";
 import { formatPrice } from "@/lib/money";
@@ -18,13 +19,18 @@ import type { DealReport } from "@/lib/db/types";
  */
 export function ReportRow({ report }: { report: DealReport }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const notify = useAdminNotice();
   const [pending, startTransition] = useTransition();
   const deal = report.deals;
 
   function run(work: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
       const result = await work();
-      setMessage({ ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") });
+      const said = { ok: result.ok, text: result.ok ? (result.message ?? "בוצע.") : (result.error ?? "שגיאה.") };
+      // Closing a report takes it out of the open list, so the row cannot be the
+      // thing that reports it. See AdminNotices.
+      if (notify) notify(said);
+      else setMessage(said);
     });
   }
 

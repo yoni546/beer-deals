@@ -29,6 +29,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Name, four beers, their order — and on to the place step, where the save button lives. */
 async function rankFourBeers(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByPlaceholderText("יוני"), "דנה");
   await user.click(screen.getByRole("button", { name: "ממשיכים" }));
@@ -36,6 +37,7 @@ async function rankFourBeers(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole("button", { name, pressed: false }));
   }
   await user.click(screen.getByRole("button", { name: "לדירוג" }));
+  await user.click(screen.getByRole("button", { name: "ממשיכים" })); // the place step (0026)
 }
 
 describe("onboarding (B-06 / B-07)", () => {
@@ -87,12 +89,29 @@ describe("onboarding (B-06 / B-07)", () => {
     await waitFor(() => expect(hardNavigate).not.toHaveBeenCalled());
   });
 
-  it("requires exactly four beers before it will submit", async () => {
+  // 0024: one beer is enough. Four is the ceiling, not the entry fee.
+  it("will not move on with nothing picked, and moves on as soon as one is", async () => {
     const user = userEvent.setup();
     render(<Onboarding beers={BEERS} />);
     await user.type(screen.getByPlaceholderText("יוני"), "דנה");
     await user.click(screen.getByRole("button", { name: "ממשיכים" }));
+
+    expect((screen.getByRole("button", { name: "בחרו בירה אחת לפחות" }) as HTMLButtonElement).disabled).toBe(true);
+
     await user.click(screen.getByRole("button", { name: "אלפא" }));
-    expect((screen.getByRole("button", { name: /בחרו עוד 3/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "לדירוג" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("takes no more than four", async () => {
+    const user = userEvent.setup();
+    render(<Onboarding beers={BEERS} />);
+    await user.type(screen.getByPlaceholderText("יוני"), "דנה");
+    await user.click(screen.getByRole("button", { name: "ממשיכים" }));
+
+    for (const beer of BEERS) await user.click(screen.getByRole("button", { name: beer.name_he }));
+
+    // Whatever the catalogue holds, only four can ever be pressed.
+    const chosen = screen.getAllByRole("button", { pressed: true });
+    expect(chosen.length).toBeLessThanOrEqual(4);
   });
 });

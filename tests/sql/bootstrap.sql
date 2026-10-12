@@ -29,8 +29,26 @@ end
 $$;
 
 grant usage on schema public to anon, authenticated, service_role;
+
+-- Supabase hands every NEW table in `public` to the API roles, before any
+-- migration says a word:
+--
+--   alter default privileges in schema public grant all on tables
+--     to postgres, anon, authenticated, service_role;
+--
+-- it runs at project creation. A bare Postgres does not, so until this line
+-- existed the tests believed "we never granted it" meant "nobody has it" —
+-- true here, false on the real thing. Staging proved the difference: anon held
+-- SELECT, INSERT, DELETE and TRUNCATE on `admin_actions`, the append-only audit
+-- log, which no migration ever grants.
+--
+-- So the tests now start from the platform's defaults, and a migration that
+-- means a table to be unreachable has to REVOKE rather than stay silent.
 grant usage on schema auth to anon, authenticated, service_role;
 grant usage on schema storage to anon, authenticated, service_role;
+
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 
 create table if not exists auth.users (
   id    uuid primary key default gen_random_uuid(),

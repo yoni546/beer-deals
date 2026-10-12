@@ -51,7 +51,7 @@ test("name → four beers → their order → the pour: #1 leads the line, then 
   await page.getByPlaceholder("יוני").fill("דנה");
   await page.getByPlaceholder("יוני").press("Enter"); // the keyboard's own button moves on
   await expect(stage(page)).toHaveAttribute("data-scene", "pick");
-  await expect(page.getByRole("button", { name: "בחרו עוד 4" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "בחרו בירה אחת לפחות" })).toBeDisabled();
 
   // The first beer chosen stands at the head of the line as its own real bottle, and the page takes its colours.
   await pick(page, "גולדסטאר");
@@ -74,6 +74,7 @@ test("name → four beers → their order → the pour: #1 leads the line, then 
   await expect.poll(() => ground(page)).not.toBe(goldstar);
   await shot(page, "3-rank-heineken");
 
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
   await page.getByRole("button", { name: "סיימנו" }).click();
   await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
   await expect(page.getByRole("heading", { name: "אהלן, דנה" })).toBeVisible();
@@ -116,6 +117,7 @@ test("the pour is the beer's own: the real cap comes off, and a stout gets a sto
   await toRanking(page, ["גינס", "גולדסטאר", "מכבי", "קורונה"]);
   // Until the last step the photo is whole.
   expect(await head(page).locator(".ob-cap").evaluate((el) => getComputedStyle(el).display)).toBe("none");
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
   await page.getByRole("button", { name: "סיימנו" }).click();
   await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
   // The same photo, shown as two pieces: the bottle without its top, and the top — which has flown.
@@ -140,6 +142,7 @@ test("arriving on Home from onboarding is the one animated navigation; no other 
   test.skip(!supported, "this browser has no cross-document view transitions; the page simply loads");
 
   await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
   await page.getByRole("button", { name: "סיימנו" }).click();
   await page.getByRole("button", { name: /קדימה/ }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -153,10 +156,112 @@ test("arriving on Home from onboarding is the one animated navigation; no other 
 
 test("nobody waits for the animation: leaving mid-pour works", async ({ page }) => {
   await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
   await page.getByRole("button", { name: "סיימנו" }).click();
   await page.getByRole("button", { name: /קדימה/ }).click(); // the bottle has barely started to lean
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("body")).toHaveAttribute("data-theme", "goldstar");
+});
+
+// 0024: a person picks between one and four. One is a complete answer, not a half-finished one.
+test("one beer is enough: the line holds one bottle, and that beer becomes the app", async ({ page }) => {
+  await page.goto("/welcome");
+  const neutral = await ground(page);
+
+  await page.getByPlaceholder("יוני").fill("דנה");
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+  await pick(page, "גולדסטאר");
+
+  await page.getByRole("button", { name: "לדירוג" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "rank");
+
+  // One bottle on the stage, and no empty slots left standing beside it.
+  await expect(stage(page)).toHaveAttribute("data-count", "1");
+  await expect(page.locator(".ob-stage .ob-empty")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
+  await page.getByRole("button", { name: "סיימנו" }).click();
+  await page.getByRole("button", { name: /קדימה/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // It is their app now: the palette moved off the house neutral, and Home lists exactly one key.
+  await expect.poll(() => ground(page)).not.toBe(neutral);
+  await expect(page.getByRole("list", { name: "הבירות שלי, לפי הסדר" }).getByRole("listitem")).toHaveCount(1);
+});
+
+// 0026: where they live and how far they will go. Both optional, both asked for
+// in words rather than taken from the browser without being asked.
+test("the place step asks for a settlement, never an address, and can be skipped", async ({ page }) => {
+  await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "place");
+
+  // A settlement, not a street. And the distances only appear once there is a place
+  // to measure from -- the question is meaningless before that.
+  await expect(page.getByText("רק היישוב. לא צריך כתובת.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "עד 15 ק״מ" })).toHaveCount(0);
+
+  // Skipping is a real choice: the save goes through with no place at all.
+  await page.getByRole("button", { name: "סיימנו" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
+});
+
+test("typing a city offers it, and choosing it brings out the distances", async ({ page }) => {
+  await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+
+  const field = page.getByPlaceholder("תל אביב, חיפה, באר שבע…");
+  await field.fill("תל אביב");
+  // "תל אביב" finds "תל אביב-יפו": the list is searched the way the app searches beers.
+  await page.getByRole("button", { name: "תל אביב-יפו" }).click();
+  await expect(field).toHaveValue("תל אביב-יפו");
+
+  await expect(page.getByRole("heading", { name: "כמה רחוק תיסעו בשביל מבצע?" })).toBeVisible();
+  await page.getByRole("button", { name: "עד 15 ק״מ" }).click();
+  await expect(page.getByRole("button", { name: "עד 15 ק״מ" })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "סיימנו" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
+});
+
+test("a place we do not hold is still a place: the typed name is kept", async ({ page }) => {
+  await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+
+  const field = page.getByPlaceholder("תל אביב, חיפה, באר שבע…");
+  await field.fill("כפר שלא קיים ברשימה");
+  await field.blur();
+  await expect(field).toHaveValue("כפר שלא קיים ברשימה");
+
+  // No coordinates, so no distances to offer -- and nothing pretends otherwise.
+  await expect(page.getByRole("heading", { name: "כמה רחוק תיסעו בשביל מבצע?" })).toBeVisible();
+  await page.getByRole("button", { name: "סיימנו" }).click();
+  await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
+});
+
+test("the browser is never asked for a location until somebody taps for it", async ({ page }) => {
+  let asked = false;
+  await page.exposeFunction("__geoAsked", () => {
+    asked = true;
+  });
+  await page.addInitScript(() => {
+    const real = navigator.geolocation?.getCurrentPosition?.bind(navigator.geolocation);
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (ok: PositionCallback, fail?: PositionErrorCallback, opts?: PositionOptions) => {
+          (window as unknown as { __geoAsked: () => void }).__geoAsked();
+          return real?.(ok, fail, opts);
+        },
+      },
+    });
+  });
+
+  await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click();
+  await expect(page.getByRole("button", { name: "השתמשו במיקום שלי" })).toBeVisible();
+  expect(asked, "the prompt appeared without anyone asking for it").toBe(false);
 });
 
 test("going back keeps the name and the four beers", async ({ page }) => {
@@ -165,7 +270,8 @@ test("going back keeps the name and the four beers", async ({ page }) => {
   await expect(page.locator("button[aria-pressed='true']")).toHaveCount(4);
   // Swapping one out is done here: the newcomer joins the end of the line.
   await pick(page, "קורונה");
-  await expect(page.getByRole("button", { name: "בחרו עוד 1" })).toBeDisabled();
+  // 0024: three is a valid choice, so the button is live rather than counting down to four.
+  await expect(page.getByRole("button", { name: "לדירוג" })).toBeEnabled();
   await pick(page, "קרלסברג");
   await page.getByRole("button", { name: "חזרה" }).click();
   await expect(page.getByPlaceholder("יוני")).toHaveValue("דנה");
@@ -177,6 +283,7 @@ test("going back keeps the name and the four beers", async ({ page }) => {
 test("reduced motion: nothing moves, and the last step is already in its final state", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await toRanking(page);
+  await page.getByRole("button", { name: "ממשיכים" }).click(); // the place step
   await page.getByRole("button", { name: "סיימנו" }).click();
   await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
   // No waiting: the glass is full and the bottle upright as soon as the step is there.
@@ -220,6 +327,11 @@ for (const scheme of ["light", "dark"] as const) {
     await check("pick, four chosen");
     await page.getByRole("button", { name: "לדירוג" }).click();
     await check("rank");
+    await page.getByRole("button", { name: "ממשיכים" }).click();
+    await check("place, nothing entered");
+    await page.getByPlaceholder("תל אביב, חיפה, באר שבע…").fill("חיפה");
+    await page.getByRole("button", { name: "חיפה", exact: true }).click();
+    await check("place, a city and the distances");
     await page.getByRole("button", { name: "סיימנו" }).click();
     await expect(stage(page)).toHaveAttribute("data-scene", "reveal");
     await check("reveal");
@@ -242,6 +354,8 @@ for (const [width, height] of [[360, 640], [412, 915], [1280, 800]] as const) {
     for (const beer of ["גולדסטאר", "היינקן", "מכבי", "קורונה"]) await pick(page, beer);
     await fits("לדירוג", "pick");
     await page.getByRole("button", { name: "לדירוג" }).click();
-    await fits("סיימנו", "rank");
+    await fits("ממשיכים", "rank");
+    await page.getByRole("button", { name: "ממשיכים" }).click();
+    await fits("סיימנו", "place");
   });
 }

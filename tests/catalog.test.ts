@@ -527,6 +527,7 @@ describe("offers_feed — one thing for the app to read while legacy deals still
     await legacy("approved", 8900, w.ids.shufersal);
     await legacy("pending", 5000, w.ids.victory);
 
+    await w.rebuildFeed();
     const { rows } = await w.asPublic(() =>
       w.db.query<Record<string, unknown>>("select * from public.offers_feed order by origin, effective_agorot"),
     );

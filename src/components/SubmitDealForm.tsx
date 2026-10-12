@@ -7,7 +7,6 @@ import { Saving } from "@/components/ui/Price";
 import { Tape } from "@/components/ui/Tape";
 import { submitDeal } from "@/lib/actions/deals";
 import { IDLE } from "@/lib/actions/result";
-import { supabaseBrowser } from "@/lib/supabase/client";
 import { CATEGORY_LABEL, DEAL_CATEGORIES } from "@/lib/categories";
 import { discountPercent, shekelsToAgorot } from "@/lib/money";
 import type { Beer, Store } from "@/lib/db/types";
@@ -53,6 +52,10 @@ export function SubmitDealForm({
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const path = `${userId}/${crypto.randomUUID()}.${extension}`;
 
+    // Loaded only when somebody actually attaches a photo. A static import pulled
+    // supabase-js (postgrest + realtime + storage + functions, ~50 kB gzipped) into
+    // /submit's first load for one storage call most visitors never make.
+    const { supabaseBrowser } = await import("@/lib/supabase/client");
     const supabase = supabaseBrowser();
     const { error } = await supabase.storage
       .from("deal-images")

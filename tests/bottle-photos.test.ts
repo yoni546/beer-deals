@@ -93,6 +93,18 @@ describe("a photo on record replaces the drawn bottle for that beer", () => {
   });
 });
 
+/**
+ * Beers that have an identity but no photograph, each for a reason recorded at
+ * scripts/fetch-bottles.mjs:74-83. They render a drawn stand-in, which works but
+ * reads as a second-class citizen beside 27 photographs.
+ *
+ * This list exists so the set can only ever SHRINK deliberately. Nothing used to
+ * assert photo coverage at all: the floor was ">= 19 entries" while 27 existed, so
+ * eight photos and their manifest entries could be deleted together and CI stayed
+ * green. Adding a photo means removing a line here.
+ */
+const PHOTOLESS = ["bazelet", "desperados", "estrella", "krombacher", "kronenbourg", "miller"];
+
 describe("the real bottle photos on record", () => {
   it("every one has a file, its provenance, and belongs to a beer with an identity", async () => {
     const { existsSync } = await import("node:fs");
@@ -106,6 +118,54 @@ describe("the real bottle photos on record", () => {
       // Small enough to load fast as a background (only favourite #1's is ever requested).
       expect(Number(photo.height), slug).toBeLessThanOrEqual(1600);
     }
+  });
+
+  it("covers every beer with an identity except the ones we have deliberately not found", () => {
+    const manifest = JSON.parse(readFileSync("src/design/bottle-photos.json", "utf8")) as Record<string, unknown>;
+    const themes = readFileSync("src/design/themes.ts", "utf8");
+    const identities = [...themes.matchAll(/\bbeer\("([a-z0-9-]+)"/g)].map((m) => m[1]);
+    expect(identities.length).toBeGreaterThan(20);
+
+    const missing = identities.filter((slug) => !(slug in manifest)).sort();
+    expect(missing).toEqual([...PHOTOLESS].sort());
+  });
+
+  it("records the real pixel size of every file, so a layout can be reserved from it", async () => {
+    const manifest = JSON.parse(readFileSync("src/design/bottle-photos.json", "utf8")) as Record<
+      string,
+      { src: string; width: number; height: number; thumb?: { src: string; width: number; height: number } }
+    >;
+    for (const [slug, photo] of Object.entries(manifest)) {
+      const real = await sharp(join("public", photo.src)).metadata();
+      expect({ slug, w: real.width, h: real.height }).toEqual({ slug, w: photo.width, h: photo.height });
+      if (photo.thumb) {
+        const thumb = await sharp(join("public", photo.thumb.src)).metadata();
+        expect({ slug, w: thumb.width, h: thumb.height }).toEqual({ slug, w: photo.thumb.width, h: photo.thumb.height });
+      }
+    }
+  });
+
+  it("has a small bottle for lists, and it really is small", async () => {
+    const { statSync } = await import("node:fs");
+    const manifest = JSON.parse(readFileSync("src/design/bottle-photos.json", "utf8")) as Record<
+      string,
+      { src: string; thumb?: { src: string; height: number } }
+    >;
+    for (const [slug, photo] of Object.entries(manifest)) {
+      expect(photo.thumb, `${slug} has no thumbnail — run node scripts/make-bottle-thumbs.mjs`).toBeTruthy();
+      expect(photo.thumb!.height, slug).toBe(216); // 3x the 72px Home key
+      // A budget, not a measurement: today's largest is ~5 KB. Home draws four at once.
+      expect(statSync(join("public", photo.thumb!.src)).size, slug).toBeLessThan(12_000);
+      // And the hero asset keeps its own ceiling.
+      expect(statSync(join("public", photo.src)).size, slug).toBeLessThan(120_000);
+    }
+  });
+
+  it("asks for the small bottle at list sizes and the full one behind the counter", () => {
+    const bottle = readFileSync("src/components/ui/Bottle.tsx", "utf8");
+    expect(bottle).toMatch(/height <= 96 && photo\.thumb \? photo\.thumb : photo/);
+    // The backdrop is favourite #1's hero bottle and must never take the thumbnail.
+    expect(bottle).toMatch(/BottleBackdrop[\s\S]*?photo\.src/);
   });
 });
 

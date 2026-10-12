@@ -34,6 +34,9 @@ test.beforeAll(async () => {
       listing("e2e:c:everywhere", branches, 2390),
       `select public.record_branch_scan('e2e-scan', '${rami}', now(), '${JSON.stringify(branches.map((b) => ({ branch_id: b, status: "ok", promo_file: `f-${b}` })))}'::jsonb);`,
       `select public.refresh_promotion_scope('${rami}');`,
+      // The chain offers are stored, not computed per request (0044): without this the
+      // page shows the catalogue as it was before these promotions existed.
+      "select public.refresh_offers_catalog();",
       "commit;",
     ].join("\n"),
   );

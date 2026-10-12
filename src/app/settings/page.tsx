@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Screen, TopBar } from "@/components/Chrome";
+import { CouldNotLoad } from "@/components/CouldNotLoad";
+import { CreditEditor } from "@/components/CreditEditor";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { LocationEditor } from "@/components/LocationEditor";
 import { PushToggle } from "@/components/PushToggle";
 import { Tape } from "@/components/ui/Tape";
 import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
-import { getBeers } from "@/lib/queries";
+import { currentCreditName, myStanding } from "@/lib/contributors";
+import { MyStanding } from "@/components/MyStanding";
+import { WatchlistEditor } from "@/components/WatchlistEditor";
+import { getBeers, getBeersById, getMyWatchlist } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
 import { getViewer } from "@/lib/session";
 
@@ -19,7 +25,27 @@ export const dynamic = "force-dynamic";
  * headed on the counter, so the page reads as a short list of decisions rather than one long form.
  */
 export default async function SettingsPage() {
-  const [viewer, beers] = await Promise.all([getViewer(), getBeers()]);
+  const [viewer, beers, watchlist, allBeers] = await Promise.all([
+    getViewer(),
+    getBeers(),
+    getMyWatchlist(),
+    getBeersById(),
+  ]);
+  // The published name, if they have chosen one (0030). Read here rather than in
+  // getViewer because it belongs to nobody's session: it is a public fact.
+  const creditName = await currentCreditName(viewer.userId);
+  // Where they stand, and what it does (0038). Null until they choose a name: there
+  // is no row before that, and inventing one would be a label nobody asked for.
+  const standing = await myStanding(viewer.userId);
+  if (viewer.degraded && !viewer.isOnboarded) {
+    return (
+      <Screen>
+        <div className="pt-10">
+          <CouldNotLoad what="את ההגדרות שלך" headingLevel={2} />
+        </div>
+      </Screen>
+    );
+  }
   if (!viewer.isOnboarded) redirect("/welcome");
 
   return (
@@ -27,11 +53,47 @@ export default async function SettingsPage() {
       <TopBar title="הגדרות" />
 
       <div className="space-y-8">
-        <Section title="הבירות שלי">
+        <Section id="s-beers" title="הבירות שלי">
           <FavouritesEditor beers={beers} currentName={viewer.profile?.first_name ?? ""} currentFavourites={viewer.favorites} />
         </Section>
 
-        <Section title="התראות" note="שולחים רק על מבצע חזק במיוחד, ורק על הבירה הראשית. לא על שאר הבירות שבחרתם.">
+        <Section id="s-credit" title="הקרדיט שלי" note="השם הזה מוצג על מבצעים שאתם מוצאים. השם ב״אהלן״ נשאר פרטי.">
+          <CreditEditor current={creditName} />
+          {standing && <MyStanding standing={standing} />}
+        </Section>
+
+        <Section
+          id="s-watchlist"
+          title="בירות שאני עוקב אחריהן"
+          note="מעבר לבירה הראשית. אותן הגבלות התראה — אותה הגבלה יומית ואותן שעות שקט."
+        >
+          {/* From every beer, not the list people choose from: a beer an admin
+              switched off (0034) is still followed, and must not vanish from here. */}
+          <WatchlistEditor
+            rows={Object.entries(watchlist)
+              .map(([beerId, watch]) => ({ beer: allBeers[beerId], watch }))
+              .filter((row) => row.beer)
+              .map(({ beer, watch }) => ({
+                beerId: beer.id,
+                slug: beer.slug,
+                nameHe: beer.name_he,
+                maxPriceAgorot: watch.maxPriceAgorot,
+              }))}
+          />
+        </Section>
+
+        <Section id="s-place" title="איפה אני" note="משמש כדי למצוא את הסניף הקרוב אליכם. אפשר להשאיר ריק.">
+          <LocationEditor
+            current={{
+              city: viewer.profile?.home_city ?? "",
+              lat: viewer.profile?.home_lat ?? null,
+              lon: viewer.profile?.home_lon ?? null,
+              radiusKm: viewer.profile?.search_radius_km ?? null,
+            }}
+          />
+        </Section>
+
+        <Section id="s-notifications" title="התראות" note="שולחים רק על מבצע חזק במיוחד, ורק על הבירה הראשית. לא על שאר הבירות שבחרתם.">
           <PushToggle
             vapidPublicKey={publicEnv.vapidPublicKey}
             enabled={viewer.profile?.notifications_enabled ?? false}
@@ -39,7 +101,7 @@ export default async function SettingsPage() {
           />
         </Section>
 
-        <Section title="האפליקציה">
+        <Section id="s-app" title="האפליקציה">
           <div className="space-y-3">
             <InstallPrompt />
             <Tape className="flex min-h-11 items-center justify-between px-4 py-1">
@@ -66,10 +128,18 @@ export default async function SettingsPage() {
   );
 }
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+/**
+ * `id` is a slug, not the Hebrew title.
+ *
+ * It used to be `s-${title}`, and a title like "הבירות שלי" contains a space — so the
+ * id was invalid, and `aria-labelledby`, which is a SPACE-SEPARATED list of IDREFs,
+ * resolved to two tokens that pointed at nothing. Every section on this page was
+ * unnamed to a screen reader navigating by region. axe does not catch it, so a test does.
+ */
+function Section({ id, title, note, children }: { id: string; title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={`s-${title}`}>
-      <h2 id={`s-${title}`} className="mb-2 text-sm font-semibold text-on-ground-2">
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-2 text-sm font-semibold text-on-ground-2">
         {title}
       </h2>
       {children}

@@ -16,6 +16,8 @@ import {
   orderPackGroups,
   newestObservation,
   packClass,
+  parseIntent,
+  orderByIntent,
   parsePack,
   parseSort,
   pickHero,
@@ -39,6 +41,82 @@ function offer(overrides: Partial<Offer> = {}): Offer {
     ...overrides,
   };
 }
+
+describe("what the person is after right now", () => {
+  const near = (score: number | null, km?: number) => ({
+    offer: offer({
+      effective_agorot: 2500,
+      deal_score: score === null ? null : { score, band: score >= 85 ? "amazing" : "fair" },
+    }),
+    km,
+  });
+
+  const build = (rows: ReturnType<typeof near>[]) => ({
+    offers: rows.map((r) => r.offer),
+    distances: Object.fromEntries(
+      rows.filter((r) => r.km !== undefined).map((r) => [r.offer.offer_key, r.km!]),
+    ),
+  });
+
+  it("reads the intent from the URL, and defaults to best value", () => {
+    expect(parseIntent("near")).toBe("near");
+    expect(parseIntent("best")).toBe("best");
+    expect(parseIntent(undefined)).toBe("best");
+    expect(parseIntent("nonsense")).toBe("best");
+  });
+
+  it("'best' puts the strongest score first, whatever the distance", () => {
+    const rows = [near(50, 1), near(94, 40), near(70, 2)];
+    const { offers, unplaceable } = orderByIntent(rows.map((r) => r.offer), "best", build(rows).distances);
+    expect(offers.map((o) => o.deal_score?.score)).toEqual([94, 70, 50]);
+    expect(unplaceable).toBe(0);
+  });
+
+  it("'closest' puts the nearest first, and uses the score only to break a tie", () => {
+    const rows = [near(50, 12), near(94, 3), near(60, 3)];
+    const { offers } = orderByIntent(rows.map((r) => r.offer), "near", build(rows).distances);
+    // 3 km before 12 km; between the two at 3 km, the better deal.
+    expect(offers.map((o) => o.deal_score?.score)).toEqual([94, 60, 50]);
+  });
+
+  it("'closest' LEAVES OUT what it cannot measure, and says how many", () => {
+    // The whole point: an offer with no distance must not be shown at the bottom of a
+    // list labelled by distance. That would be claiming a distance we do not have.
+    const rows = [near(50, 4), near(94), near(60)];
+    const { offers, unplaceable } = orderByIntent(rows.map((r) => r.offer), "near", build(rows).distances);
+    expect(offers).toHaveLength(1);
+    expect(offers[0].deal_score?.score).toBe(50);
+    expect(unplaceable).toBe(2);
+  });
+
+  it("'closest' with nothing placeable returns nothing, not a reordered list", () => {
+    const rows = [near(94), near(60)];
+    const { offers, unplaceable } = orderByIntent(rows.map((r) => r.offer), "near", {});
+    expect(offers).toEqual([]);
+    expect(unplaceable).toBe(2);
+  });
+
+  it("'best' still shows a deal with no score at all — it is a deal, just an unrated one", () => {
+    const rows = [near(null, 5), near(80, 5)];
+    const { offers } = orderByIntent(rows.map((r) => r.offer), "best", build(rows).distances);
+    expect(offers).toHaveLength(2);
+    expect(offers[0].deal_score?.score).toBe(80);
+  });
+
+  it("'best' uses distance only to separate two equally good deals", () => {
+    const rows = [near(80, 30), near(80, 2)];
+    const { offers } = orderByIntent(rows.map((r) => r.offer), "best", build(rows).distances);
+    expect(build(rows).distances[offers[0].offer_key]).toBe(2);
+  });
+
+  it("changes nothing about the offers themselves", () => {
+    const rows = [near(50, 4), near(94, 1)];
+    const before = JSON.stringify(rows.map((r) => r.offer));
+    orderByIntent(rows.map((r) => r.offer), "near", build(rows).distances);
+    orderByIntent(rows.map((r) => r.offer), "best", build(rows).distances);
+    expect(JSON.stringify(rows.map((r) => r.offer))).toBe(before);
+  });
+});
 
 describe("sorting", () => {
   const a = offer({ effective_agorot: 3000, value_pct: 20, unit_price_per_liter_agorot: 1515 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { BeerMark } from "@/components/ui/Bottle";
+import { DealScoreChip } from "@/components/ui/DealScore";
 import { Tape } from "@/components/ui/Tape";
 import type { Hero as HeroPick } from "@/lib/offer-logic";
 import { conditionChips, packText, scopeHe, validUntilHe } from "@/lib/format";
@@ -29,7 +30,11 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
   return (
     <Tape printIn className="relative px-5 py-5" aria-labelledby="hero-title">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-ink-2">{label}</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-ink-2">{label}</p>
+          {/* The headline deal says how good it is, not only how much is off. */}
+          <DealScoreChip score={offer.deal_score} />
+        </div>
         <BeerMark slug={offer.beer_slug} height={56} className="-mt-1 shrink-0" />
       </div>
 
@@ -40,6 +45,12 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
       </h2>
       <p className="mt-0.5 text-sm text-ink-2">
         {packText(offer)} · {offer.store_name}
+        {/* Who found it (0030). On the headline deal above all, because this is the
+            one the app is recommending — and a community that finds the deals should
+            be visible on the thing everybody looks at, not only on the lines below.
+            Absent for a chain feed and for somebody who chose no name; saying
+            "anonymous" would be a label nobody asked for. */}
+        {offer.found_by && <> · נמצא על ידי {offer.found_by}</>}
         {/* Where it runs (0017) — the headline never implies the whole chain without evidence. */}
         {scope && <> · <span data-scope>{scope.label}</span></>}
       </p>
@@ -66,6 +77,21 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
             {chip.label}
           </span>
         ))}
+        {/* What people in the shop say (0031). pickHero already refuses to recommend
+            an offer reported gone — this is for the one hero it cannot refuse: an
+            administrator's weekly pick, which is a deliberate human choice and stays.
+            It does not stay SILENT, though: hatched as well as worded, because
+            unverified data is never marked by colour alone. */}
+        {offer.standing === "ended" && (
+          <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
+            משתמשים מדווחים שהמבצע נגמר
+          </span>
+        )}
+        {offer.standing === "unclear" && (
+          <span className="hatch rounded-full border border-paper-line px-2.5 py-0.5 text-xs font-semibold text-ink">
+            יש דיווחים סותרים
+          </span>
+        )}
       </p>
     </Tape>
   );

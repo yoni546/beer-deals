@@ -1,6 +1,6 @@
 {
   "name": "beer-deals",
-  "version": "0.10.4",
+  "version": "0.38.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,6 +17,8 @@
     "changelog": "node scripts/changelog.mjs",
     "changelog:check": "node scripts/changelog.mjs --check",
     "sql:build": "node scripts/build-combined-sql.mjs",
+    "settlements": "node scripts/build-settlements.mjs --write",
+    "towns:sql": "node scripts/build-town-centres-sql.mjs",
     "sql:check": "node scripts/build-combined-sql.mjs --check",
     "icons": "node scripts/generate-icons.mjs",
     "vapid": "node scripts/generate-vapid.mjs",

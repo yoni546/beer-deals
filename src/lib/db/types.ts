@@ -2,7 +2,15 @@ import type { DealCategory } from "@/lib/categories";
 
 export type DealStatus = "pending" | "approved" | "rejected" | "inactive";
 export type ReportStatus = "open" | "resolved" | "dismissed";
-export type AdminLevel = "admin" | "super_admin";
+/**
+ * The four roles (migration 0040). `user` is the absence of a row, so it is not
+ * in this type: a level exists only for somebody who has one.
+ *
+ *   moderator    reviews deals and reports. Nothing else.
+ *   admin        the catalogue, the weekly pick, coverage, the dashboard.
+ *   super_admin  the owner: grants and revokes, deletes, notification rules.
+ */
+export type AdminLevel = "moderator" | "admin" | "super_admin";
 
 export type Beer = {
   id: string;
@@ -32,7 +40,12 @@ export type Profile = {
   primary_beer_id: string | null;
   notifications_enabled: boolean;
   onboarded_at: string | null;
-  /** A theme slug the person chose in Settings; null = follow favourite #1. */
+  /** Where they said they live, and how far they will go (migration 0026). */
+  home_city: string | null;
+  home_lat: number | null;
+  home_lon: number | null;
+  /** 0 = nationwide. Null = never asked, or declined. */
+  search_radius_km: number | null;
 };
 
 /** A row of public.deals_public — an approved deal with its beer and store. */
@@ -71,6 +84,17 @@ export type AdminDeal = {
   store_id: string;
   beers: Pick<Beer, "id" | "slug" | "name_he"> | null;
   stores: Pick<Store, "id" | "slug" | "name_he"> | null;
+  /** Who submitted it. Null for a chain feed row and for a deal an admin typed in. */
+  created_by: string | null;
+  entered_by_admin: boolean;
+  /**
+   * The name they chose to be credited by (0030), with their standing (0038);
+   * null when they have not chosen a name.
+   *
+   * The standing is CONTEXT for the moderator's judgement and nothing else: it
+   * grants no permission, and it does not move this row up the queue.
+   */
+  contributors: { display_name: string; score: number; trust: "new" | "known" | "trusted" } | null;
 };
 
 export type DealReport = {
@@ -174,6 +198,22 @@ export type PriceProvenance = {
  * an administrator, and the saving is at most 70 %). A null means "do not claim a
  * saving" — show the price alone. Never derive a percentage in the UI.
  */
+/** The bands of the Deal Score (migration 0027, docs/DEAL-SCORE.md). */
+export type ScoreBand = "amazing" | "very_good" | "fair" | "weak";
+
+export type DealScore = {
+  score: number;
+  band: ScoreBand;
+};
+
+/**
+ * What the people who were in the shop say (migration 0031, `offer_standings`).
+ *
+ * 'quiet' never reaches the app: an offer nobody has spoken about carries no
+ * standing at all, so the line says nothing rather than "unconfirmed".
+ */
+export type OfferStanding = "ended" | "still_there" | "unclear";
+
 export type Offer = {
   offer_key: string;
   origin: "catalog" | "legacy";
@@ -191,6 +231,27 @@ export type Offer = {
   pack_quantity: number | null;
   /** From skus (src/lib/offers.ts withPackaging); null for legacy deals and when unknown. */
   packaging?: Packaging | null;
+  /**
+   * How good this deal is (migration 0027). ABSENT, never zero, when there is no
+   * trusted reference price to measure it against — the UI shows no score at all
+   * rather than a number it cannot defend.
+   */
+  deal_score?: DealScore | null;
+  /**
+   * The name the person who submitted this deal chose to be credited by (0030).
+   * Null when nobody submitted it (a chain feed) or when they have not chosen one —
+   * in which case the line says nothing, rather than "anonymous".
+   */
+  found_by?: string | null;
+  /**
+   * What people report about this offer (0031). Null when nobody has said anything —
+   * the overwhelmingly common case, and the line then says nothing at all.
+   *
+   * 'ended' is a LABEL, never a deletion: the offer stays on the screen with what
+   * people said about it, because the chain feed may still be right and a shelf may
+   * be refilled. Only a person takes a deal down.
+   */
+  standing?: OfferStanding | null;
   /** Price of one pack. For a multi-buy this is the per-pack price of the deal. */
   effective_agorot: number;
   unit_price_per_liter_agorot: number | null;

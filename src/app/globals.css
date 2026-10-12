@@ -188,6 +188,13 @@ select,
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+  /* Real depth, not only scale (0.29.0). The two bottles behind the hero were
+     smaller and tilted, which reads as "further away" only because we expect it to;
+     with a perspective they ARE further away, and the parallax you get for free when
+     the viewport changes shape is the whole reason to bother. Long focal length on
+     purpose: a short one distorts the label of the one bottle this app is about. */
+  perspective: 1400px;
+  perspective-origin: 50% 24%;
 }
 /* The composition: ONE hero bottle, centred, large, its label in the open stage at the top of the
    screen (the cap runs off the top edge — a close-up, not a product shot) — and two smaller bottles
@@ -213,13 +220,47 @@ svg.bottle-art {
   opacity: 0.6;
   transform-origin: 50% 100%;
 }
+/* Set back in Z and turned away, so the shoulder of each one catches the light at a
+   different angle from the hero's. The rotate stays: it is what made the arrangement
+   read as three bottles standing rather than one bottle three times. */
 .bottle-side-start {
   left: calc(50% - 11.5rem);
-  transform: rotate(-9deg);
+  transform: translateZ(-160px) rotateY(16deg) rotate(-9deg);
 }
 .bottle-side-end {
   left: calc(50% + 6rem);
-  transform: rotate(9deg);
+  transform: translateZ(-160px) rotateY(-16deg) rotate(9deg);
+}
+
+/* The hero settles once, on arrival: it comes to rest from a few degrees off square,
+   as if it has just been set down. One-shot, transform-only (so it is composited and
+   costs nothing after it ends), and it never runs again — a bottle that keeps moving
+   is a bottle you stop seeing.
+
+   `both` matters: without it the bottle would jump to its un-animated transform for
+   one frame before the animation's first keyframe applies. */
+.bottle-hero {
+  animation: bottle-settle 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-style: preserve-3d;
+}
+/* Except on the one arrival that is already animated. Coming from onboarding, this
+   same element is the view transition's travelling bottle (below) — two animations
+   competing for one transform is how a carefully tuned 780 ms journey turns into a
+   twitch. The reveal script marks that arrival on <html>; the mark survives the
+   transition, where the transition TYPE does not. */
+:root[data-arrived="welcome"] .bottle-hero {
+  animation: none;
+}
+@keyframes bottle-settle {
+  from {
+    /* translateX(-50%) is repeated in both keyframes because an animation on
+       `transform` replaces the property outright — dropping it here would swing the
+       bottle in from half a screen away. */
+    transform: translateX(-50%) translateZ(-90px) rotateY(7deg);
+  }
+  to {
+    transform: translateX(-50%) translateZ(0) rotateY(0deg);
+  }
 }
 .bottle-stage[data-bottle]:not([data-bottle="none"])::after {
   content: "";
@@ -354,6 +395,31 @@ svg.bottle-art {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------- moving between screens */
+
+/* Every tap that changes the address. The App Router renders the new screen in place —
+   no document swap, so no view transition — and PageTransition re-keys the page by its
+   path, which mounts a fresh element and plays this once. Short on purpose: it marks
+   the arrival, it does not make anyone wait for it. A filter on the same screen keeps
+   the same path and therefore does not re-key, so lists update without flashing. The
+   first screen of a document is left alone — including the arrival from onboarding
+   below, where the bottle travels for 780 ms and a fade on top would only blur it.
+   `prefers-reduced-motion` removes it through the blanket rule above. */
+.page-enter {
+  /* No fill mode on purpose. A filling animation keeps a transform applied to the
+     element for the rest of its life, which composites the whole page and turns exact
+     measurements into fractions of a pixel (a 44px tap target measured 43.99999 and an
+     e2e floor test was right to refuse it). Without it, the transform is gone the
+     moment the animation ends. */
+  animation: page-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
   }
 }
 

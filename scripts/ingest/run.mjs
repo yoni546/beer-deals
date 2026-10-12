@@ -8,7 +8,10 @@
  *
  * From a scan it also writes the branch INVENTORY (every branch the Stores files list), each branch's scan
  * outcome (record_branch_scan), closes promotions a branch's newest file no longer lists
- * (close_missing_promotions), and recomputes every chain's promotion scope (refresh_promotion_scope, 0017).
+ * (close_missing_promotions), recomputes every chain's promotion scope (refresh_promotion_scope, 0017),
+ * rescores every deal (refresh_offer_scores, 0027), rebuilds the chain half of the feed
+ * (refresh_offers_catalog, 0044), places any new branch at its town centre
+ * (place_branches_by_town, 0045) and rings the app's cache doorbell.
  * Incremental: branches whose newest files were already imported are not sent again.
  *
  * Safety:
@@ -348,6 +351,70 @@ for (const r of runs.values()) {
     branches: plan.units.filter((u) => u.publisher === r.publisher).map((u) => ({ retailer: u.retailer, store: u.store, rows: u.rows, beer: u.beer, promo: u.promo })),
   };
   await must("finish run", () => db.rpc("finish_ingestion_run", { p_run_id: r.run_id, p_status: "succeeded", p_stats: stats }));
+}
+
+// 10. Score the deals, and tell the app its catalogue moved.
+//
+// The Deal Score reads 180 days of the price ledger (docs/DEAL-SCORE.md), so it is
+// computed here, once, and never on a page. Neither of these is allowed to fail the
+// run: the prices are in and correct either way, they would simply be unscored or
+// briefly stale.
+{
+  // Not `must`: that aborts the run, and a run whose prices are in and correct must
+  // not be undone because a score would not compute.
+  const { data, error } = await db.rpc("refresh_offer_scores");
+  written.scores = error ? { failed: error.message } : data;
+  if (error) console.error(`deal scores: ${error.message}`);
+}
+
+// A branch that appeared in this import has no position yet, and a branch with no
+// position is invisible to "closest to me" (0045). This gives it the centre of its
+// town — recorded as precision=locality, which the screen words as "מרכז העיר" —
+// and never touches a branch that already has a better fix.
+//
+// Not `must`, for the same reason as the scores: the prices are in and correct
+// either way, and an unplaced branch is a state the app already says out loud.
+{
+  const { data, error } = await db.rpc("place_branches_by_town");
+  written.placed_branches = error ? { failed: error.message } : data;
+  if (error) console.error(`place branches: ${error.message}`);
+}
+
+// The chain half of the feed, computed once here instead of on every page (0044).
+// Production measured 15,306 ms for one read of offers_feed, past the 8-second
+// cancellation Supabase applies to anon and authenticated: 18,627 live promotion
+// rows, each probing an index for its reference price, to show 526 offers.
+//
+// Also not `must`, and for a sharper reason than the scores: if this fails the
+// table keeps the PREVIOUS run's rows, so the app serves yesterday's chain offers
+// rather than none. Undoing a correct import over it would be the worse outcome.
+{
+  const { data, error } = await db.rpc("refresh_offers_catalog");
+  written.catalog = error ? { failed: error.message } : data;
+  if (error) console.error(`offers catalog: ${error.message}`);
+}
+
+// The app holds the catalogue and the feeds for five minutes under one cache tag, and
+// an import writes straight to Postgres — so without this it serves the previous
+// catalogue, and the SKU index decides which offers a beer page can find at all.
+//
+// The address and the secret come from the TARGET'S env file, never from the shell:
+// this run proved which project it is talking to from that file, and a cache doorbell
+// read from the environment could point at a different deployment than the data.
+if (env.NEXT_PUBLIC_SITE_URL && env.CRON_SECRET) {
+  try {
+    const response = await fetch(`${env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/api/cache/revalidate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
+    });
+    written.revalidated = response.ok;
+    if (!response.ok) console.error(`cache revalidate: HTTP ${response.status}`);
+  } catch (error) {
+    written.revalidated = false;
+    console.error(`cache revalidate: ${error.message}`);
+  }
+} else {
+  written.revalidated = "skipped (NEXT_PUBLIC_SITE_URL or CRON_SECRET not in the target's env file)";
 }
 
 // Every branch and promotion of a full scan is megabytes: that report stays beside the scan (the committed

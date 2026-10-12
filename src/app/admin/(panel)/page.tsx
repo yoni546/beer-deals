@@ -2,7 +2,9 @@ import Link from "next/link";
 import { AdminSection } from "@/components/admin/AdminUi";
 import { EmptyState } from "@/components/Chrome";
 import { Price } from "@/components/ui/Price";
-import { getAdminOverview, getExpiringOffers } from "@/lib/admin-queries";
+import { Highlights } from "@/components/admin/Highlights";
+import { getAdminOverview, getExpiringOffers, getHighlights } from "@/lib/admin-queries";
+import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -57,17 +59,23 @@ function Tile({
 }
 
 export default async function AdminHomePage() {
-  const [overview, expiring, viewer] = await Promise.all([
+  // A moderator has no dashboard: admin_overview() is management, and the panel
+  // opens on the queue for them — the only screen whose job is theirs.
+  const gate = await getViewer();
+  if (!gate.isAdmin) redirect("/admin/queue");
+
+  const [overview, expiring, viewer, highlights] = await Promise.all([
     getAdminOverview(7),
     getExpiringOffers(7, 8),
     getViewer(),
+    getHighlights(),
   ]);
 
   if (!overview) {
     return <EmptyState>לא הצלחנו לטעון את הנתונים. רעננו את הדף.</EmptyState>;
   }
 
-  const { people, deals, reports, offers, notifications } = overview;
+  const { people, deals, reports, offers, notifications, branches } = overview;
 
   return (
     <div className="space-y-10">
@@ -77,15 +85,17 @@ export default async function AdminHomePage() {
       >
         <div className="grid grid-cols-2 gap-3">
           <Tile
-            label="אנשים שנרשמו"
+            label="מכשירים שסיימו הרשמה"
             value={people.onboarded}
             hint={`מתוך ${people.total} שפתחו את האפליקציה`}
           />
-          <Tile label="נרשמו השבוע" value={people.this_week} hint="פרופילים חדשים" />
+          <Tile label="נפתחו השבוע" value={people.this_week} hint="מכשירים חדשים, לא בהכרח שסיימו" />
+          {/* offers.live ALREADY contains the approved manual deals: offers_feed is
+              catalog UNION ALL deals_public. Adding deals.live counted every one twice. */}
           <Tile
             label="מבצעים באוויר"
-            value={offers.live + deals.live}
-            hint={`${offers.live} מהרשתות · ${deals.live} שנוספו ידנית`}
+            value={offers.live}
+            hint={`${offers.from_chains} מהרשתות · ${deals.live} שנוספו ידנית`}
           />
           <Tile
             label="ממתינים לאישור"
@@ -95,6 +105,10 @@ export default async function AdminHomePage() {
           />
         </div>
       </AdminSection>
+
+      {/* What is big right now (0042). Below the counts, because the counts are
+          the health of the thing and these are its shape. */}
+      {highlights.ok && highlights.data && <Highlights data={highlights.data} />}
 
       <AdminSection title="השבוע האחרון">
         <div className="grid grid-cols-2 gap-3">
@@ -114,11 +128,13 @@ export default async function AdminHomePage() {
         title="מבצעים שעומדים להיגמר"
         note={`בשבוע הקרוב. מבצע בלי תאריך סיום לא נספר כאן — אין לו תאריך לסיים בו.`}
       >
-        {expiring.length === 0 ? (
+        {!expiring.ok ? (
+          <EmptyState>לא הצלחנו לקרוא את רשימת המבצעים שנגמרים. זה לא אומר שאין.</EmptyState>
+        ) : expiring.rows.length === 0 ? (
           <EmptyState>אין מבצעים עם תאריך סיום בשבוע הקרוב.</EmptyState>
         ) : (
           <ul className="divide-y divide-paper-line rounded-2xl border border-paper-line bg-paper">
-            {expiring.map((offer) => (
+            {expiring.rows.map((offer) => (
               <li key={offer.offer_key} className="flex items-baseline gap-2 px-4 py-3">
                 <span className="min-w-0 flex-1 truncate text-sm text-ink">
                   <span className="font-bold">{offer.beer_name}</span>
@@ -132,6 +148,7 @@ export default async function AdminHomePage() {
                   {new Date(offer.valid_to as string).toLocaleDateString("he-IL", {
                     day: "numeric",
                     month: "numeric",
+                    timeZone: "Asia/Jerusalem",
                   })}
                 </span>
               </li>
@@ -140,14 +157,42 @@ export default async function AdminHomePage() {
         )}
       </AdminSection>
 
+      {branches && (
+        <AdminSection
+          title="מיקומי סניפים"
+          note={'"הכי קרוב אליי" עובד רק לסניף שאנחנו יודעים איפה הוא. סניף בלי מיקום לא מוצג כקרוב — לא מנחשים.'}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <Tile
+              label="סניפים עם מיקום"
+              value={branches.located}
+              hint={`מתוך ${branches.total} פעילים`}
+            />
+            <Tile
+              label="ממתינים לאיתור"
+              value={branches.geocodable}
+              attention={branches.geocodable > 0}
+              hint="יש להם כתובת או עיר"
+            />
+            {branches.no_address > 0 && (
+              <Tile
+                label="בלי כתובת כלל"
+                value={branches.no_address}
+                hint="אי אפשר לאתר אותם מהנתונים שיש לנו"
+              />
+            )}
+          </div>
+        </AdminSection>
+      )}
+
       <AdminSection title="התראות">
         <div className="grid grid-cols-2 gap-3">
           <Tile
-            label="ממתינות לשליחה"
+            label="ממתינות לעיבוד"
             value={notifications.pending}
-            hint={notifications.pending === 0 ? "אין תור" : undefined}
+            hint={notifications.pending === 0 ? "אין תור" : "לא כולן יישלחו — חלקן ייפסלו בסינון"}
           />
-          <Tile label="נשלחו אי פעם" value={notifications.sent_ever} />
+          <Tile label="נשלחו אי פעם" value={notifications.sent_ever} hint="בלי התראות בדיקה" />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-ink-2">
           {people.notifiable === 0

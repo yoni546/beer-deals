@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/Chrome";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { OnboardingStage, type Scene } from "@/components/OnboardingStage";
+import { PlacePicker, EMPTY_PLACE, type Place } from "@/components/PlacePicker";
 import { RankedBeers, moveItem } from "@/components/RankedBeers";
 import { BeerMark } from "@/components/ui/Bottle";
 import { ChevronRightIcon } from "@/components/ui/icons";
@@ -14,11 +15,12 @@ import { IDLE } from "@/lib/actions/result";
 import type { Beer } from "@/lib/db/types";
 import { hardNavigate } from "@/lib/navigation";
 
-const SCENES: Scene[] = ["name", "pick", "rank", "reveal"];
+const SCENES: Scene[] = ["name", "pick", "rank", "place", "reveal"];
 
 /**
- * First run, in four short steps under one stage (OnboardingStage — the bottles themselves):
- * a name (optional), four beers, their order, and the moment the app becomes theirs.
+ * First run, in five short steps under one stage (OnboardingStage — the bottles themselves):
+ * a name (optional), one to four beers, their order, where they live and how far they will
+ * travel, and the moment the app becomes theirs.
  *
  * Choosing and ranking are separate on purpose. Choosing is tapping: quick, reachable with a
  * screen reader, and the order of the taps is a first guess at the ranking. Ranking is the same
@@ -38,9 +40,10 @@ const SCENES: Scene[] = ["name", "pick", "rank", "reveal"];
  * the home page a second later.
  */
 export function Onboarding({ beers }: { beers: Beer[] }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [name, setName] = useState("");
   const [picked, setPicked] = useState<Beer[]>([]);
+  const [place, setPlace] = useState<Place>(EMPTY_PLACE);
   const [state, submit, pending] = useActionState(completeOnboarding, IDLE);
   const [motion, setMotion] = useState<"full" | "lite" | "off">("full");
   const [leaving, setLeaving] = useState(false);
@@ -48,7 +51,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
   const primary = picked[0] ?? null;
   // A successful save is the only way onto the last step.
   const saved = state.ok && Boolean(state.message);
-  const visibleStep = saved ? 4 : step;
+  const visibleStep = saved ? 5 : step;
   const scene = SCENES[visibleStep - 1];
 
   // Before anything is saved the server still renders the neutral look, so the preview is local:
@@ -157,11 +160,11 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
     >
       <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center">
         <div>
-          {(scene === "pick" || scene === "rank") && (
+          {(scene === "pick" || scene === "rank" || scene === "place") && (
             <button
               type="button"
               aria-label="חזרה"
-              onClick={() => setStep(scene === "pick" ? 1 : 2)}
+              onClick={() => setStep(scene === "pick" ? 1 : scene === "rank" ? 2 : 3)}
               className="-ms-2 flex h-11 w-11 items-center justify-center rounded-full text-on-ground"
             >
               <ChevronRightIcon />
@@ -226,9 +229,9 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
       {scene === "pick" && (
         <section className="ob-panel flex min-h-0 flex-1 flex-col">
           <h2 ref={heading} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold text-on-ground outline-none">
-            ארבע הבירות שלכם
+            הבירות שלכם
           </h2>
-          <p className="mt-1 mb-3 text-sm text-on-ground-2">בחרו ארבע. את הסדר קובעים מיד אחר כך.</p>
+          <p className="mt-1 mb-3 text-sm text-on-ground-2">בחרו אחת עד ארבע. את הסדר קובעים מיד אחר כך.</p>
 
           <ol aria-label="הבירות שבחרתם" className="sr-only">
             {picked.map((beer) => (
@@ -264,8 +267,9 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             })}
           </ul>
 
-          <button type="button" disabled={picked.length !== 4} onClick={() => setStep(3)} className="btn mt-2 min-h-13 w-full shrink-0 text-base">
-            {picked.length === 4 ? "לדירוג" : `בחרו עוד ${4 - picked.length}`}
+          {/* One beer is enough (0024). Four is the ceiling, not the entry fee. */}
+          <button type="button" disabled={picked.length === 0} onClick={() => setStep(3)} className="btn mt-2 min-h-13 w-full shrink-0 text-base">
+            {picked.length === 0 ? "בחרו בירה אחת לפחות" : "לדירוג"}
           </button>
         </section>
       )}
@@ -281,9 +285,35 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             <RankedBeers beers={picked} onMove={move} />
           </div>
 
-          <form action={submit} className="shrink-0 space-y-2 pt-4">
+          <div className="shrink-0 pt-4">
+            <button type="button" onClick={() => setStep(4)} className="btn min-h-13 w-full text-base">
+              ממשיכים
+            </button>
+          </div>
+        </section>
+      )}
+
+      {scene === "place" && (
+        <section className="ob-panel flex min-h-0 flex-1 flex-col">
+          <h2 ref={heading} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold text-on-ground outline-none">
+            איפה לחפש לכם מבצעים?
+          </h2>
+          <p className="mt-1 mb-3 text-sm text-on-ground-2">
+            כדי שנדע איזה סניף קרוב אליכם. אפשר גם לדלג.
+          </p>
+
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-4">
+            <PlacePicker value={place} onChange={setPlace} />
+          </div>
+
+          {/* One form, one save: the beers and the place go together. */}
+          <form action={submit} className="shrink-0 space-y-2 pt-2">
             <input type="hidden" name="firstName" value={name} />
             <input type="hidden" name="beerIds" value={picked.map((b) => b.id).join(",")} />
+            <input type="hidden" name="homeCity" value={place.city} />
+            <input type="hidden" name="homeLat" value={place.lat ?? ""} />
+            <input type="hidden" name="homeLon" value={place.lon ?? ""} />
+            <input type="hidden" name="radiusKm" value={place.radiusKm ?? ""} />
             {!state.ok && <Notice>{state.error}</Notice>}
             <button type="submit" disabled={pending} className="btn min-h-13 w-full text-base">
               {pending ? "שומרים…" : "סיימנו"}

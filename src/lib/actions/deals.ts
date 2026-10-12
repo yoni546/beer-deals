@@ -1,11 +1,16 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
+import { publicEnv } from "@/lib/env";
+import { FEEDS_TAG } from "@/lib/feeds";
 import { supabaseServer } from "@/lib/supabase/server";
 import { shekelsToAgorot } from "@/lib/money";
 import { DEAL_CATEGORIES } from "@/lib/categories";
 import { describeDbError, type ActionResult } from "@/lib/actions/result";
+
+/** Where an uploaded deal photo legitimately lives — this project's own public bucket. */
+const DEAL_IMAGE_PREFIX = `${publicEnv.supabaseUrl}/storage/v1/object/public/deal-images/`;
 
 const submission = z
   .object({
@@ -15,7 +20,27 @@ const submission = z
     dealPrice: z.string().min(1, "מה המחיר במבצע?"),
     regularPrice: z.string().min(1, "מה המחיר הרגיל?"),
     notes: z.string().max(280).optional(),
-    imageUrl: z.string().optional(),
+    /**
+     * The attached photo, and the only field on this form whose value is later
+     * rendered to a MODERATOR as a link.
+     *
+     * It used to be `z.string().optional()` — anything at all — and
+     * DealActions.tsx put it straight into an href. Any visitor (an anonymous
+     * session is minted automatically) could submit a deal with
+     * `javascript:...` and wait for an admin to click "view the attached photo":
+     * that scheme executes in the current document whatever `target` says, which
+     * is script execution in a super-admin's session, one server-action call away
+     * from grant_admin. `data:text/html` and a convincing look-alike host are the
+     * quieter versions of the same thing.
+     *
+     * So it is pinned to the one place an upload can legitimately be: this
+     * project's own public bucket. Nothing else is a photo of a shelf label.
+     */
+    imageUrl: z
+      .string()
+      .url("קישור התמונה לא תקין.")
+      .refine((value) => value.startsWith(DEAL_IMAGE_PREFIX), "אפשר לצרף רק תמונה שהועלתה דרך האפליקציה.")
+      .optional(),
   })
   .transform((value, ctx) => {
     const deal = shekelsToAgorot(value.dealPrice);
@@ -108,4 +133,39 @@ export async function reportDeal(dealId: string, reason: string): Promise<Action
   if (error && error.code !== "23505") return { ok: false, error: describeDbError(error) };
 
   return { ok: true, message: "תודה, העברנו לבדיקה." };
+}
+
+/**
+ * What somebody saw on the shelf (migration 0031).
+ *
+ * Works on ANY offer, chain feed included, because it is keyed by the offer_key the
+ * feed emits rather than by a foreign key to `deals`. Saying it again replaces what
+ * they said before, including changing their mind — which is the normal case when a
+ * deal comes back.
+ *
+ * It files what they saw. It does not remove anything: `offer_standing` weighs both
+ * directions, and a genuine disagreement goes to a person.
+ */
+export async function reportOffer(
+  offerKey: string,
+  verdict: "ended" | "still_there",
+  seenPriceAgorot?: number,
+): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: "לא הצלחנו לזהות אתכם. רעננו את הדף." };
+
+  const { error } = await supabase.rpc("report_offer", {
+    p_offer_key: offerKey,
+    p_verdict: verdict,
+    p_note: null,
+    p_seen_price: seenPriceAgorot ?? null,
+  });
+  if (error) return { ok: false, error: describeDbError(error) };
+
+  // The lines carry what people said (src/lib/offers.ts withStandings), and that read
+  // is cached for the whole site. Without this, the next person in the aisle would see
+  // the shelf as it was up to five minutes ago -- which is the whole point of asking.
+  revalidateTag(FEEDS_TAG);
+  return { ok: true, message: "נרשם." };
 }

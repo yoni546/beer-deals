@@ -15,11 +15,57 @@ async function post(path: string, body: unknown) {
   return response.json();
 }
 
-/** Fresh database: real migrations + seed, no users, no deals. */
-export const resetDb = () => post("/__test/reset", {});
+/**
+ * Fresh database: real migrations + seed, no users, no deals.
+ *
+ * Also clears the app's shared caches. The catalogue and the feed aggregates are
+ * held under FEEDS_TAG for five minutes, and the app has no way to notice that the
+ * database underneath it was replaced — so without this, one test's SKU index is
+ * served to the next and its deals simply never appear.
+ */
+export async function resetDb() {
+  await post("/__test/reset", {});
+  await revalidateAppCaches();
+}
+
+/**
+ * The same doorbell an ingestion run uses (src/app/api/cache/revalidate/route.ts).
+ *
+ * Exported because a spec that writes to the database BEHIND the app -- seeding
+ * other people's rows, say -- has to ring it for the same reason an import does:
+ * the shared feed reads are cached for five minutes and Postgres cannot tell Next
+ * that they changed.
+ */
+export async function revalidateAppCaches() {
+  const base = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${process.env.E2E_APP_PORT ?? 3200}`;
+  await fetch(`${base}/api/cache/revalidate`, {
+    method: "POST",
+    headers: { Authorization: "Bearer e2e-cron-secret-not-a-real-one" },
+  }).catch(() => undefined);
+}
 
 /** Runs several statements at once (seed files). */
 export const exec = (query: string) => post("/__test/exec", { sql: query });
+
+/**
+ * Rebuild the stored half of the feed, the way an import does.
+ *
+ * Since 0044 the chain offers are a TABLE (`offers_catalog`), computed once per
+ * ingestion run instead of on every page read — that is what took a 15-second feed
+ * read down to 49 ms. The consequence for a test: writing a price no longer changes
+ * what the app shows. Whatever writes prices behind the app has to do what the import
+ * does — rebuild, then ring the cache doorbell.
+ *
+ * Omitting it is not a visible error. The page simply shows no chain offers, which
+ * reads as "the feature is broken": 41 specs failed exactly that way once.
+ */
+export async function rebuildFeed() {
+  // As the service role, the way an import calls it: refresh_offers_catalog() guards
+  // on require_price_writer() (0008), and /__test/exec arrives with no role and no
+  // session. `set local role` is scoped to the transaction, like branch-scope.spec's.
+  await exec("begin; set local role service_role; select public.refresh_offers_catalog(); commit;");
+  await revalidateAppCaches();
+}
 
 /**
  * The invented dev/staging catalogue (supabase/seed/dev-catalog.sql): several
@@ -52,6 +98,9 @@ export async function seedRealCatalog(options: { sample?: string[] } = {}) {
       );
      alter table public.price_observations enable trigger user;`,
   );
+  // Those prices were re-attributed AFTER the seed filled offers_catalog, so the stored
+  // feed still describes the catalogue as it was before. Rebuild it.
+  await rebuildFeed();
 }
 
 export const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>
@@ -70,6 +119,10 @@ export async function addBeerWithoutIdentity() {
        from public.beers where slug = 'goldstar'
      on conflict (slug) do nothing;`,
   );
+  // The list of beers to choose from is one of the cached whole-catalogue reads, and
+  // Postgres cannot tell Next that a row appeared. Without this the onboarding step
+  // offers the catalogue as it was up to five minutes ago -- and this beer is not in it.
+  await revalidateAppCaches();
 }
 
 /** Makes the person onboarded under `firstName` an admin (test database only). */
@@ -116,7 +169,8 @@ export const STANDARD_DEALS: SeedDeal[] = [
 ];
 
 /**
- * Walks the real onboarding UI: name, four beers (chosen in ranked order), the ranking step, submit.
+ * Walks the real onboarding UI: name, one to four beers (chosen in ranked order), the ranking
+ * step, submit. The default picks four; pass fewer to exercise the 0024 minimum.
  * Leaves the page on the final onboarding step; the caller decides what next.
  */
 export async function completeOnboardingSteps(page: Page, name = "בדיקה", beers = ["גולדסטאר", "מכבי", "היינקן", "קורונה"]) {
@@ -127,6 +181,8 @@ export async function completeOnboardingSteps(page: Page, name = "בדיקה", b
     await page.locator("button[aria-pressed]", { hasText: beer }).first().click();
   }
   await page.getByRole("button", { name: "לדירוג" }).click();
+  // The place step (0026). Skipping it is a real choice, so the default walk skips it.
+  await page.getByRole("button", { name: "ממשיכים" }).click();
   await page.getByRole("button", { name: "סיימנו" }).click();
 }
 

@@ -141,6 +141,72 @@ export function sortOffers(offers: Offer[], mode: SortMode, perLiter = false): O
   }
 }
 
+/**
+ * What the person is after RIGHT NOW.
+ *
+ * Deliberately NOT a stored profile preference. The brief is explicit, and it is
+ * right: the same person wants the nearest shop when they need beer this evening and
+ * the best price when they are willing to drive on Friday. It belongs in the URL, like
+ * the sort and the pack filter, so a shared link reproduces what the sender saw — and
+ * so nothing has to guess which mood somebody is in.
+ */
+export type SearchIntent = "best" | "near";
+export const SEARCH_INTENTS: SearchIntent[] = ["best", "near"];
+export const parseIntent = (raw?: string): SearchIntent => (raw === "near" ? "near" : "best");
+
+/** How far each offer is, in km, by offer_key. An ABSENT key means we do not know. */
+export type Distances = Record<string, number>;
+
+/**
+ * The result of ordering by intent, including what had to be left out.
+ *
+ * `unplaceable` is not a detail: under "closest to me" an offer we cannot measure is
+ * not shown at all, because putting it at the bottom of a list labelled by distance
+ * would be claiming a distance we do not have. The caller says so in words instead.
+ */
+export type IntentResult = { offers: Offer[]; unplaceable: number };
+
+const scoreOf = (offer: Offer) => offer.deal_score?.score ?? -1;
+
+/**
+ * Order a list for the chosen intent.
+ *
+ *   best  — the deal score first, then the existing value ordering, then distance.
+ *           Everything is shown: a deal with no score or no distance is still a deal.
+ *   near  — distance first, the score as the tie-breaker, and ONLY offers we can
+ *           actually place. See IntentResult.
+ */
+export function orderByIntent(
+  offers: Offer[],
+  intent: SearchIntent,
+  distances: Distances,
+  mode: SortMode = "value",
+  perLiter = false,
+): IntentResult {
+  const km = (offer: Offer) => distances[offer.offer_key];
+
+  if (intent === "near") {
+    const placeable = offers.filter((offer) => km(offer) !== undefined);
+    const sorted = [...placeable].sort(
+      (a, b) => km(a)! - km(b)! || scoreOf(b) - scoreOf(a) || a.effective_agorot - b.effective_agorot,
+    );
+    return { offers: sorted, unplaceable: offers.length - placeable.length };
+  }
+
+  // Best value. The score leads where there is one; the existing value ordering decides
+  // the rest, so an unscored offer keeps its place rather than sinking to the bottom.
+  const byValue = sortOffers(offers, mode, perLiter);
+  const position = new Map(byValue.map((offer, index) => [offer, index]));
+  const sorted = [...byValue].sort((a, b) => {
+    const [sa, sb] = [scoreOf(a), scoreOf(b)];
+    if (sa !== sb) return sb - sa;
+    const [da, db] = [km(a), km(b)];
+    if (da !== undefined && db !== undefined && da !== db) return da - db;
+    return position.get(a)! - position.get(b)!;
+  });
+  return { offers: sorted, unplaceable: 0 };
+}
+
 export type PackGroup = { key: string; label: string; offers: Offer[] };
 
 /** Offers grouped by pack, so a Goldstar 6×330 is never listed among the 6×500s. */
@@ -302,8 +368,17 @@ export type Hero = { offer: Offer; reason: "value" | "favourite" | "market" };
  * favourite that beats other chains' regular prices; failing that, the best verified
  * saving anywhere; failing that, the cheapest per-litre favourite. Never a price alone
  * with no basis for calling it good — except the last, which is labelled for what it is.
+ *
+ * An offer people report is GONE is never the hero (0031 / 0038). On a line in a list
+ * the label beside it is enough — the person can weigh it. The hero is the one thing
+ * the app puts its name to and the only thing many people will look at, and sending
+ * somebody out on a journey the shelf has already contradicted is the single worst
+ * thing this screen can do. It stays IN the lists, labelled; it just stops being the
+ * recommendation.
  */
-export function pickHero(offers: Offer[], favouriteOrder: string[]): Hero | null {
+export function pickHero(all: Offer[], favouriteOrder: string[]): Hero | null {
+  const offers = all.filter((offer) => offer.standing !== "ended");
+
   const rank = (offer: Offer) => {
     const at = favouriteOrder.indexOf(offer.beer_id);
     return at === -1 ? Number.POSITIVE_INFINITY : at;
@@ -354,4 +429,44 @@ export function sortRegular(prices: RegularPrice[], mode: SortMode, perLiter = f
   const key = (p: RegularPrice) => (perLiter ? p.unit_price_per_liter_agorot : p.price_agorot);
   const dir = mode === "price_desc" ? -1 : 1;
   return [...prices].sort((a, b) => dir * (key(a) - key(b)) || a.store_name.localeCompare(b.store_name, "he"));
+}
+
+/**
+ * Offers on beers somebody is following, and which of them reached their price (0037).
+ *
+ * The gap this fills: a person follows Carlsberg at ₪24.90 and the app says nothing
+ * about it on the one screen they actually open. They find out from a notification —
+ * if notifications are on, which for most people they are not. A promise kept only
+ * through a channel most people never enable is not kept.
+ *
+ * "Reached" is said only where there is a ceiling to reach. A follow with no price
+ * means "the same rules as my number one", which is a statement about notifications
+ * and not a claim about any particular shelf, so those offers are listed without one.
+ *
+ * An offer people report is GONE is dropped from the hit list and stays in the plain
+ * list, labelled. Telling somebody "the price you were waiting for" about a shelf
+ * the shop has already contradicted is the version of this feature that loses trust.
+ */
+export type WatchHit = { offer: Offer; reachedPrice: number | null };
+
+export function watchHits(
+  offers: Offer[],
+  watchlist: Record<string, { maxPriceAgorot: number | null }>,
+): { hits: WatchHit[]; rest: Offer[] } {
+  const hits: WatchHit[] = [];
+  const rest: Offer[] = [];
+
+  for (const offer of offers) {
+    const watch = watchlist[offer.beer_id];
+    if (!watch) continue;
+    const ceiling = watch.maxPriceAgorot;
+    const reached = ceiling !== null && offer.effective_agorot <= ceiling && offer.standing !== "ended";
+    if (reached) hits.push({ offer, reachedPrice: ceiling });
+    else rest.push(offer);
+  }
+
+  // Cheapest first among the hits: of two beers that both reached their price, the one
+  // further under it is the better news.
+  hits.sort((a, b) => a.offer.effective_agorot - b.offer.effective_agorot);
+  return { hits, rest };
 }

@@ -68,10 +68,12 @@ describe("S-9 · a profile owner cannot rewrite the columns the database owns", 
     ]);
   });
 
-  it("rejects a signed-out caller and a wrong-sized list, as before", async () => {
+  it("rejects a signed-out caller and a list outside one-to-four, as before", async () => {
     const { db, alice, beers } = await setup();
     await expect(asUser(db, null, () => db.query("select public.save_preferences('x', $1::uuid[])", [beers.slice(0, 4)]), "anon")).rejects.toThrow();
-    await expect(asUser(db, alice, () => db.query("select public.save_preferences('x', $1::uuid[])", [beers.slice(0, 3)]))).rejects.toMatchObject({ code: "22023" });
+    // 0024: three is now a valid choice; nothing, and more than four, are not.
+    await expect(asUser(db, alice, () => db.query("select public.save_preferences('x', $1::uuid[])", [[]]))).rejects.toMatchObject({ code: "22023" });
+    await expect(asUser(db, alice, () => db.query("select public.save_preferences('x', $1::uuid[])", [beers.slice(0, 5)]))).rejects.toMatchObject({ code: "22023" });
   });
 });
 
