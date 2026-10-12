@@ -9895,9 +9895,19 @@ create index if not exists offers_catalog_beer on public.offers_catalog (beer_sl
 -- policy is `select … using (true)`. Nothing becomes visible that was not.
 grant select on public.offers_catalog to anon, authenticated, service_role;
 
--- A table carries no RLS of its own, so this one is deliberately deny-all to
--- writers: it is filled only by the function below, which runs as the owner.
+-- RLS on, and a READ policy — not a deny-all. Every row here is derived from
+-- tables whose own policy is `select … using (true)`, and the view over it is
+-- security_invoker, so without this the feed would return no chain offers to
+-- anybody. (It did: tests/security-sweep.test.ts caught a sixth table sitting
+-- policy-less among the five deliberate deny-alls, which is exactly the finding
+-- that test exists to make.)
+--
+-- There is no write policy and no write grant, so the only way in is the
+-- function below, which runs as the owner.
 alter table public.offers_catalog enable row level security;
+
+create policy offers_catalog_read on public.offers_catalog
+  for select to anon, authenticated using (true);
 
 comment on table public.offers_catalog is
   'The chain half of offers_feed, computed once per import by refresh_offers_catalog(). '

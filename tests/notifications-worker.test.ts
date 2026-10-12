@@ -371,6 +371,9 @@ describe("a chain promotion seen at several branches (0014)", () => {
       [promo.observationId, branch],
     );
     // The feed now shows the newer branch's row, not the one the event names…
+    // (Rebuilt first: since 0044 the chain half is a table the import fills, and
+    // this test just wrote a price straight into the ledger behind it.)
+    await db.rpc("refresh_offers_catalog");
     const shown = await one<{ offer_key: string }>("select offer_key from public.offers_feed where sku_id = $1", [promo.sku]);
     expect(shown.offer_key).not.toBe(promo.offerKey);
     const sent = okSender();

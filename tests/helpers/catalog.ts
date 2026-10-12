@@ -89,13 +89,27 @@ export async function world() {
     return rows.rows[0];
   }
 
+  /**
+   * Rebuild the stored chain half of the feed (0044).
+   *
+   * In production the import does this at the end of a run, beside
+   * refresh_offer_scores. A test that writes prices and then reads offers_feed
+   * has to do the same, or it is reading the state between an import's write and
+   * its rebuild — a state no page is ever served.
+   */
+  async function rebuildFeed() {
+    await db.exec("begin; set local role service_role;");
+    await db.query("select public.refresh_offers_catalog()");
+    await db.exec("commit;");
+  }
+
   /** A read as an anonymous visitor — what the public site can see. */
   const asPublic = <T>(work: () => Promise<T>) => asUser(db, null, work, "anon");
 
   const offers = async (where = "true", params: unknown[] = []) =>
     (await asPublic(() => db.query<Record<string, unknown>>(`select * from public.offers_ranked where ${where} order by effective_agorot`, params))).rows;
 
-  return { db, admin, visitor, ids, one, sku, source, record, asPublic, offers };
+  return { db, admin, visitor, ids, one, sku, source, record, rebuildFeed, asPublic, offers };
 }
 
 export type Db = PGlite;

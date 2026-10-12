@@ -13,8 +13,15 @@ import { inDays, world, type World } from "./helpers/catalog";
 
 type Score = { offer_key: string; score: number; band: string; basis: Record<string, unknown> };
 
-const refresh = (w: World, as?: string) =>
-  asUser(w.db, as === undefined ? w.admin : as, () => w.db.query<{ n: number }>("select public.refresh_offer_scores() as n"));
+// The score is computed FROM the feed, and since 0044 the feed's chain half is a
+// table the import fills. So the order here is the import's order: rebuild the
+// feed, then score what it says. Scoring first would score the previous rebuild.
+const refresh = async (w: World, as?: string) => {
+  await w.rebuildFeed();
+  return asUser(w.db, as === undefined ? w.admin : as, () =>
+    w.db.query<{ n: number }>("select public.refresh_offer_scores() as n"),
+  );
+};
 
 const scores = async (w: World): Promise<Score[]> =>
   (await w.db.query<Score>("select offer_key, score, band, basis from public.offer_scores order by score desc")).rows;
