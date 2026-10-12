@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.32.3",
+    "date": "2026-10-12",
+    "title_he": "תקלה רגעית כבר לא נראית כמו קטלוג ריק",
+    "highlights_he": [
+      "אם קריאה לשרת נכשלת לרגע, המסך מתאושש בפעם הבאה במקום להיתקע חמש דקות על ״אין כלום״.",
+      "מה שנכשל נרשם בשמו, במקום להיעלם בשקט."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging's preview, with real data behind it: the onboarding screen offered no beers to choose from while the database held 33 active ones.",
+      "Every catalogue reader ended `data ?? []`, which turns a refused or unreachable query into an empty catalogue, and unstable_cache then kept that empty catalogue for the full 300s TTL. While the anon key was broken every read failed and was cached as 'no beers'; fixing the key did not fix the screen, because the failure had been stored as an answer.",
+      "This is the Phase A disease in a corner I had not looked at — a failure wearing the costume of a result — and it survived every test because the tests never had a reader fail.",
+      "rows() throws on error instead of returning []; unstable_cache writes nothing when the reader throws, so the next request asks again. orEmpty() catches at the getter so the screen degrades for ONE request rather than the TTL, and logs feed.read_failed with the feed's name.",
+      "Both live in src/lib/feed-result.ts rather than feeds.ts, which is server-only and cannot be imported by a test — the same reason src/lib/trust.ts sits outside its SQL.",
+      "tests/feed-failures.test.ts separates the three cases that used to look identical: a read that failed, a table that is genuinely empty, and a table with rows.",
+      "npm test: 995 passed, 72 files."
+    ]
+  },
+  {
     "version": "0.32.2",
     "date": "2026-10-12",
     "title_he": "מסך ״לא הצלחנו להתחבר״ אומר למה",

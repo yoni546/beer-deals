@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { cachedFeed, publicReader } from "@/lib/feeds";
+import { cachedFeed, orEmpty, publicReader, rows } from "@/lib/feeds";
 import { note } from "@/lib/log";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { AppSettings, Beer, Store } from "@/lib/db/types";
@@ -36,20 +36,25 @@ const STORE_COLUMNS = "id, slug, name_he, is_active";
  */
 const readBeers = cachedFeed("beers", async (): Promise<Beer[]> => {
   const supabase = publicReader();
-  const [{ data }, { data: categories }] = await Promise.all([
+  const [beers, categories] = await Promise.all([
     supabase.from("beers").select(BEER_COLUMNS).eq("is_active", true).order("sort_order").order("name_he"),
     supabase.from("product_categories").select("slug").eq("in_scope", true),
   ]);
-  const shown = new Set((categories ?? []).map((c: { slug: string }) => c.slug));
-  return ((data ?? []) as unknown as Beer[]).filter((beer) => shown.size === 0 || shown.has(beer.category ?? "beer"));
+  // Throws rather than returning [] on a refusal: see rows() in feeds.ts. An
+  // empty catalogue cached for five minutes is how a fixed key still shows a
+  // screen with nothing on it.
+  const shown = new Set(rows<{ slug: string }>(categories, "product_categories").map((c) => c.slug));
+  return (rows(beers, "beers") as unknown as Beer[]).filter(
+    (beer) => shown.size === 0 || shown.has(beer.category ?? "beer"),
+  );
 });
-export const getBeers = cache(readBeers);
+export const getBeers = cache(() => orEmpty(readBeers, [] as Beer[], "beers"));
 
 const readStores = cachedFeed("stores", async (): Promise<Store[]> => {
-  const { data } = await publicReader().from("stores").select(STORE_COLUMNS).eq("is_active", true).order("name_he");
-  return (data ?? []) as unknown as Store[];
+  const result = await publicReader().from("stores").select(STORE_COLUMNS).eq("is_active", true).order("name_he");
+  return rows(result, "stores") as unknown as Store[];
 });
-export const getStores = cache(readStores);
+export const getStores = cache(() => orEmpty(readStores, [] as Store[], "stores"));
 
 /**
  * One beer or chain by slug, from a cached index rather than its own round trip —
@@ -62,21 +67,21 @@ export const getStores = cache(readStores);
  * rather than turn into a 404 — so these index every row.
  */
 const readBeerIndex = cachedFeed("beers-by-slug", async (): Promise<Record<string, Beer>> => {
-  const { data } = await publicReader().from("beers").select(BEER_COLUMNS);
-  return Object.fromEntries(((data ?? []) as unknown as Beer[]).map((beer) => [beer.slug, beer]));
+  const result = await publicReader().from("beers").select(BEER_COLUMNS);
+  return Object.fromEntries((rows(result, "beers-by-slug") as unknown as Beer[]).map((beer) => [beer.slug, beer]));
 });
 
 const readStoreIndex = cachedFeed("stores-by-slug", async (): Promise<Record<string, Store>> => {
-  const { data } = await publicReader().from("stores").select(STORE_COLUMNS);
-  return Object.fromEntries(((data ?? []) as unknown as Store[]).map((store) => [store.slug, store]));
+  const result = await publicReader().from("stores").select(STORE_COLUMNS);
+  return Object.fromEntries((rows(result, "stores-by-slug") as unknown as Store[]).map((store) => [store.slug, store]));
 });
 
 export const getBeerBySlug = cache(async (slug: string): Promise<Beer | null> => {
-  return (await readBeerIndex())[slug] ?? null;
+  return (await orEmpty(readBeerIndex, {} as Record<string, Beer>, "beers-by-slug"))[slug] ?? null;
 });
 
 export const getStoreBySlug = cache(async (slug: string): Promise<Store | null> => {
-  return (await readStoreIndex())[slug] ?? null;
+  return (await orEmpty(readStoreIndex, {} as Record<string, Store>, "stores-by-slug"))[slug] ?? null;
 });
 
 /**

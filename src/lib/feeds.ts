@@ -32,3 +32,7 @@ export const publicReader = () =>
 
 export const cachedFeed = <A extends unknown[], R>(key: string, read: (...args: A) => Promise<R>) =>
   unstable_cache(read, ["feeds", key], { revalidate: FEEDS_TTL_SECONDS, tags: [FEEDS_TAG] });
+
+// The two decisions about a failed read live in their own module so tests can
+// import them; feeds.ts is server-only.
+export { rows, orEmpty } from "@/lib/feed-result";
