@@ -3,11 +3,16 @@
  *
  * Migration 0026 added latitude/longitude to `branches` and left them empty on
  * purpose: the price-transparency Stores file carries a branch's name, address and
- * city and NEVER a coordinate, so a position has to come from a geocoder. Until one
- * is configured the app says, in words, that it does not know where the branches are
- * — which is the whole reason "closest to me" is honest rather than approximate.
+ * city and NEVER a coordinate, so a position has to come from a geocoder.
  *
- * This fills them in.
+ * SINCE MIGRATION 0045 every branch whose town we recognise already has a position:
+ * the centre of that town, recorded as geocode_precision = 'locality' and worded on
+ * the screen as "מרכז העיר". That is enough to answer "is there a Rami Levy in my
+ * town", and openly not enough to point at the shop's door.
+ *
+ * This is the upgrade from that floor: a real street-level fix. It only ever looks at
+ * branches with NO position, so run it after clearing the town-centre fix from the
+ * rows you want re-done (or before 0045 runs on a fresh import).
  *
  *   node scripts/ingest/geocode.mjs --target staging              # dry run: says what it WOULD write
  *   node scripts/ingest/geocode.mjs --target staging --apply      # writes

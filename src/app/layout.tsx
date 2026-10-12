@@ -10,6 +10,7 @@ import { NewVersion } from "@/components/NewVersion";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 import { NavigationProgress } from "@/components/ui/NavigationProgress";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { TabBar } from "@/components/ui/TabBar";
 
 // Self-hosted at build time by next/font: no request to Google at runtime, no layout
@@ -86,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased" data-theme={preset.beerId}>
         <BottleBackdrop preset={preset} />
         <NavigationProgress />
-        {children}
+        <PageTransition>{children}</PageTransition>
         <TabBar />
         <RegisterServiceWorker />
         {/* A deploy can leave an installed PWA running the previous build (Phase Y).

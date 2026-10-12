@@ -63,9 +63,10 @@ always shares the production address, https://beer-deals.vercel.app.
 - One branch per change; never commit to `main`; open a pull request. CI must be green.
 - `npm run verify` before pushing (typecheck + lint + tests + production build). Stop
   `next dev` before `next build` (both write `.next`).
-- UI changes: run `npm run e2e` (Playwright at 390×844 and 430×932 against a *local fake
+- UI changes — **including a change to a read model the screens depend on**: run `npm run e2e` (Playwright at 390×844 and 430×932 against a *local fake
   Supabase* — see `tests/e2e/`) and attach screenshots to the PR. Fix failing behaviour
-  with a failing test first.
+  with a failing test first. 0.33.0 skipped e2e as a "data-model change" and 41 specs
+  failed on the next run, with the unit suite green throughout.
 - **Production data is real people's data.** Do not point experiments, seeds or imports at
   the production Supabase project. Use the local fake for automated tests and the staging
   project (`docs/STAGING.md`) for anything manual.

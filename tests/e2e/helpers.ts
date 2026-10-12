@@ -48,6 +48,23 @@ export async function revalidateAppCaches() {
 export const exec = (query: string) => post("/__test/exec", { sql: query });
 
 /**
+ * Rebuild the stored half of the feed, the way an import does.
+ *
+ * Since 0044 the chain offers are a TABLE (`offers_catalog`), computed once per
+ * ingestion run instead of on every page read — that is what took a 15-second feed
+ * read down to 49 ms. The consequence for a test: writing a price no longer changes
+ * what the app shows. Whatever writes prices behind the app has to do what the import
+ * does — rebuild, then ring the cache doorbell.
+ *
+ * Omitting it is not a visible error. The page simply shows no chain offers, which
+ * reads as "the feature is broken": 41 specs failed exactly that way once.
+ */
+export async function rebuildFeed() {
+  await exec("select public.refresh_offers_catalog();");
+  await revalidateAppCaches();
+}
+
+/**
  * The invented dev/staging catalogue (supabase/seed/dev-catalog.sql): several
  * packs per beer, regular prices at four chains, plain cuts, a club price and two
  * multi-buys. The same file a developer runs on a staging database.
@@ -78,6 +95,9 @@ export async function seedRealCatalog(options: { sample?: string[] } = {}) {
       );
      alter table public.price_observations enable trigger user;`,
   );
+  // Those prices were re-attributed AFTER the seed filled offers_catalog, so the stored
+  // feed still describes the catalogue as it was before. Rebuild it.
+  await rebuildFeed();
 }
 
 export const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>

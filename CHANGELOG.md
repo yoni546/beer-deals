@@ -6,6 +6,37 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.34.0 — 2026-10-12
+
+**הכי קרוב אליי עובד, והמסכים זזים** · Feature, Design
+
+- כל סניף שאנחנו מכירים את היישוב שלו מופיע עכשו ב‏״הכי קרוב אליי״, לפי מרחק.
+- המרחק נמדד ממרכז היישוב של הסניף — וכתוב לידו ‏״מרכז העיר״, כדי שיהיה ברור מה מדדנו.
+- יישוב שכתבתם בעצמכם מספיק עכשו — לא צריך לבחור אותו מהרשימה.
+- סניף שהיישוב שלו לא מוכר לנו לא מקבל מרחק מומצא — הוא פשוט לא מופיע במסך הזה.
+- מעבר בין מסכים מקבל תנועה קצרה, כדי שיהיה ברור שהגעתם למסך חדש.
+
+Internal:
+
+- The feature shipped in 0026 with branches.latitude/longitude deliberately empty (the Stores file carries name, address and city and never a coordinate), so "הכי קרוב אליי" had nothing to order: 0 of ~1,160 branches placed. The screen said so correctly, and correctly saying nothing is still nothing.
+- Migration 0045 adds public.town_centres (one row per SPELLING, each carrying the town's display name and its approximate centre), norm_place() for comparing two spellings of one place, and place_branches_by_town(), which fills every unplaced branch with its town's centre as geocode_source='israel-cities (town centre)', geocode_precision='locality'.
+- Why this is not the invented coordinate scripts/ingest/lib/geocode/null.mjs exists to refuse: the forbidden thing is a plausible, wrong, UNDETECTABLE pin on a building that is not the shop. A town centre is labelled as a town centre in the row, in the API and on the screen (ScopeLine already prints "(מרכז העיר)" for precision=locality, since 0026 defined it that way).
+- Nominatim is still the better answer and still works: place_branches_by_town() only ever fills a branch with NO position, so a later rooftop fix is never overwritten by a town centre. It is a floor, not a ceiling. (It cannot be run from this container at all: the agent proxy refuses nominatim.openstreetmap.org with 403.)
+- Matching is mechanical only — maqaf/hyphen to space, geresh dropped, קרית unified with קריית, whitespace collapsed — plus a longest-whole-word-prefix pass so "ירושלים תלפיות" lands in Jerusalem. No transliteration, no edit distance. An unrecognised town keeps no position.
+- The other half of the measurement had the same hole: PlacePicker sends a point when the town is PICKED from the list and none when it is TYPED, so somebody who typed חולון had told us exactly where they live and still got "we have your town but not the positions". 0.32.4 fixed the wording; save_location now fills the point from town_centres when the caller supplies none, and a shared GPS position still wins.
+- town_centres is published geography with nothing personal in it and the app already ships the same list to the browser, so: select to anon/authenticated/service_role, RLS on with a read policy, no write grant and no write policy.
+- Two copies of a list is how a list goes wrong: the SQL rows are generated from src/data/israel-cities.ts by scripts/build-town-centres-sql.mjs (npm run towns:sql) and tests/town-centres.test.ts fails if they drift, including a check that Postgres's norm_place() and the generator's normPlace() agree character for character. Adding a town later means a new migration with its row — 0045 is applied and is not edited.
+- scripts/ingest/run.mjs calls place_branches_by_town() beside refresh_offers_catalog(), not under `must`: an unplaced branch is a state the app already says out loud, and the prices are in and correct either way.
+- The migration backfills on apply — both the branches and any profile already holding a town with no point — so applying it is what makes the screen work for the data already there.
+- Coverage is honest about resolution: at town granularity every branch in one town ties, which is the right answer for a 5 km radius and the wrong one for choosing between two shops on the same street. That is what the street-level upgrade is for.
+- Movement between screens: almost every navigation here is a client-side render, so globals.css's cross-document @view-transition never fired for it — the only animated navigation in the product was onboarding → Home, which really is a document load. That is why the app felt static.
+- src/components/ui/PageTransition.tsx re-keys the page by usePathname() and globals.css plays `page-enter` (240ms, rise 0.5rem + fade) on mount. Keyed by the PATH only, so ?intent=near, a sort or a pack chip updates the list in place instead of flashing it.
+- Not Next.js's experimental view-transition support: this project has already been taken down once by an experimental navigation feature (loading.tsx, docs/LESSONS.md), and an ordinary CSS animation on an ordinary element cannot stall a navigation.
+- tests/page-transitions.test.ts holds the parts that are easy to lose: that the layout is actually wrapped (an unwrapped layout animates nothing, silently), that it re-keys by path and not by query, that it stays under 400ms with no delay, and that it animates only transform and opacity.
+- It animates only screens navigated TO: the path the document landed on is remembered (useState(pathname)) and left alone, so a plain page load is not faded in over what the browser already painted, and the onboarding → Home journey keeps its 780ms bottle to itself. No data-arrived rule needed.
+- No animation-fill-mode: a filling animation keeps the transform applied for the element's whole life, which composites the page under it and turns exact measurements into fractions of a pixel — e2e measured the מה חדש link at 43.99999px against a 44px floor and was right to refuse it.
+- e2e found a REAL 0.33.0 regression at the same time, unrelated to this release: 41 specs failed because seedRealCatalog() re-attributes price sources after the seed has filled offers_catalog, leaving the stored feed describing the catalogue as it was. 0.33.0 shipped without an e2e run (it was a data-model change). tests/e2e/helpers.ts now exports rebuildFeed() and calls it there, and branch-scope.spec rebuilds inside its own seeding transaction.
+
 ## 0.33.0 — 2026-10-12
 
 **המסכים נפתחים מהר** · Fix

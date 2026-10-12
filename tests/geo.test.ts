@@ -166,12 +166,15 @@ describe("save_location", () => {
 
   it("takes a city with no point at all — the feature still has to work", async () => {
     const w = await world();
-    await call(w, w.visitor, ["צפת", null, null, 25]);
+    // A village that is not in the town table (src/data/israel-cities.ts, migration
+    // 0045): the name is kept, and no coordinate is invented for it. A town we DO
+    // know gets its centre instead — tests/town-centres.test.ts holds that half.
+    await call(w, w.visitor, ["כפר שאין כזה", null, null, 25]);
     const { rows } = await w.db.query<{ home_city: string; home_lat: number | null }>(
       "select home_city, home_lat from public.profiles where id = $1",
       [w.visitor],
     );
-    expect(rows[0]).toEqual({ home_city: "צפת", home_lat: null });
+    expect(rows[0]).toEqual({ home_city: "כפר שאין כזה", home_lat: null });
   });
 
   it("refuses a radius that is not on offer, and half a coordinate", async () => {

@@ -398,6 +398,31 @@ svg.bottle-art {
   }
 }
 
+/* ------------------------------------------------------- moving between screens */
+
+/* Every tap that changes the address. The App Router renders the new screen in place —
+   no document swap, so no view transition — and PageTransition re-keys the page by its
+   path, which mounts a fresh element and plays this once. Short on purpose: it marks
+   the arrival, it does not make anyone wait for it. A filter on the same screen keeps
+   the same path and therefore does not re-key, so lists update without flashing. The
+   first screen of a document is left alone — including the arrival from onboarding
+   below, where the bottle travels for 780 ms and a fade on top would only blur it.
+   `prefers-reduced-motion` removes it through the blanket rule above. */
+.page-enter {
+  /* No fill mode on purpose. A filling animation keeps a transform applied to the
+     element for the rest of its life, which composites the whole page and turns exact
+     measurements into fractions of a pixel (a 44px tap target measured 43.99999 and an
+     e2e floor test was right to refuse it). Without it, the transform is gone the
+     moment the animation ends. */
+  animation: page-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
 /* ------------------------------------------------------ arriving from onboarding */
 
 /* The first arrival on Home, straight from onboarding: #1's bottle travels from the stage it was

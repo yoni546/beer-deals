@@ -219,3 +219,36 @@ is not guaranteed.
 the daily import of fifteen retailers grows the price ledger — but Supabase
 restricts a project that exceeds it, and the owner should decide between pruning
 old price history and a paid plan before it decides for him.
+
+### 6. The feature that was never going to work on its own (0045)
+
+`branches.latitude` has been there since 0026 and empty since 0026 — 0 rows of
+1,160 — because the Stores file carries a city and never a coordinate, and the
+geocoder in `scripts/ingest/` refuses by default on purpose. So "הכי קרוב אליי"
+has shipped, correctly, as a screen that explains it cannot measure anything.
+
+The owner found it by using the app, which is the only way it was going to be
+found: every test of it asserts the honest refusal, and they all passed.
+
+Migration 0045 places each branch at its town's centre, recorded as
+`geocode_precision = 'locality'` and worded on screen as "מרכז העיר". That is a
+floor, not the answer: a street-level geocode still overrides it, because
+`place_branches_by_town()` only ever fills a branch with no position. The same
+gap existed for the person — a town they TYPED saved no point — and
+`save_location` now fills it from the same table.
+
+Nominatim cannot be run from this container at all: the agent proxy refuses
+`nominatim.openstreetmap.org` with 403. A street-level pass has to be run from
+the owner's own machine.
+
+### 7. 0.33.0 shipped without an e2e run, and e2e was the only thing that knew
+
+41 specs failed on the next run. Not the new work: `seedRealCatalog()`
+re-attributes price sources AFTER the seed has filled `offers_catalog` (0044),
+so the stored feed described a catalogue that no longer existed and every chain
+offer vanished from every screen. `tests/e2e/helpers.ts` now exports
+`rebuildFeed()` and calls it there.
+
+0.33.0 was a data-model change, so `npm run e2e` was skipped under the
+"UI changes" rule in CLAUDE.md. **A change to a read model the screens depend on
+is a UI change.** The unit suite — 1,024 tests — was green throughout.

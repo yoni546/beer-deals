@@ -127,7 +127,7 @@ export default async function AdminCoveragePage() {
       {ok && branches > 0 && (
         <AdminSection
           title="מיקומי סניפים"
-          note="בלי מיקום אין מרחק, ו״הכי קרוב אליי״ אומר את זה במקום לנחש. המיקומים מתווספים דרך scripts/ingest/geocode.mjs (docs/GEOCODING.md)."
+          note="בלי מיקום אין מרחק, ו״הכי קרוב אליי״ אומר את זה במקום לנחש. כל סניף מקבל את מרכז היישוב שלו (0045), ומיקום מדויק יותר מתווסף דרך scripts/ingest/geocode.mjs (docs/GEOCODING.md)."
         >
           <div className="px-4 py-4">
             <p className="text-base text-ink">
@@ -136,7 +136,7 @@ export default async function AdminCoveragePage() {
             </p>
             {located === 0 && (
               <p className="mt-1 text-sm leading-relaxed text-ink-2">
-                אף סניף עוד לא ממוקם, ולכן המסך ״הכי קרוב אליי״ אומר שאין לנו את המיקומים — ולא מציג סדר שאי אפשר להצדיק.
+                אף סניף עוד לא ממוקם, ולכן המסך ״הכי קרוב אליי״ אומר שאין לנו את המיקומים — ולא מציג סדר שאי אפשר להצדיק. הרצת place_branches_by_town() תמקם כל סניף שיש לו יישוב מוכר.
               </p>
             )}
           </div>

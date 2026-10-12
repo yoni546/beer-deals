@@ -6,14 +6,41 @@ get filled, and why nothing fills them by accident.
 
 ---
 
-## Why they are empty
+## What is there today: the town centre (migration 0045)
+
+Every branch whose town we recognise **has** a position: the approximate centre of
+that town, from `src/data/israel-cities.ts`, written by `place_branches_by_town()`
+and recorded as
+
+```
+geocode_source    = 'israel-cities (town centre)'
+geocode_precision = 'locality'
+```
+
+`locality` is defined in 0026 as *the city centre, not the shop*, and the app words it
+that way — the branch list prints `(מרכז העיר)` beside the distance. So this answers
+"is there a Rami Levy in my town, or do I drive to the next one", at the resolution of
+a radius a person picks in 5 km steps, and it does not pretend to point at a door.
+
+This is **not** the invented coordinate the rule below forbids. The forbidden thing is
+a plausible, wrong, *undetectable* pin on a building that is not the shop. A town
+centre is labelled as a town centre in the row, in the API and on the screen.
+
+An import places any new branch automatically (`scripts/ingest/run.mjs`). A branch
+whose town is not in the list keeps **no** position, stays out of "closest to me", and
+is counted on the admin coverage screen.
+
+A real street-level fix is still better, still worth configuring, and overrides this:
+`place_branches_by_town()` only ever fills a branch that has no position at all.
+
+## Why they were empty
 
 The price-transparency Stores file gives a branch's **name, address and city**, and
 never a coordinate. So a position has to come from a geocoder — an external service
 that turns "רחוב דיזנגוף 50, תל אביב" into a point. That needs configuration, and
 until it is configured this repository has no way to know where any branch is.
 
-Rather than approximate, the app says so:
+Before 0045, rather than approximate, the app simply said so:
 
 - A visitor who picks "הכי קרוב אליי" is told we do not know where the branches are,
   and offered "הכי משתלם" instead. It never shows a list in some other order under a

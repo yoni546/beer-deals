@@ -10,7 +10,8 @@
  * outcome (record_branch_scan), closes promotions a branch's newest file no longer lists
  * (close_missing_promotions), recomputes every chain's promotion scope (refresh_promotion_scope, 0017),
  * rescores every deal (refresh_offer_scores, 0027), rebuilds the chain half of the feed
- * (refresh_offers_catalog, 0044) and rings the app's cache doorbell.
+ * (refresh_offers_catalog, 0044), places any new branch at its town centre
+ * (place_branches_by_town, 0045) and rings the app's cache doorbell.
  * Incremental: branches whose newest files were already imported are not sent again.
  *
  * Safety:
@@ -364,6 +365,19 @@ for (const r of runs.values()) {
   const { data, error } = await db.rpc("refresh_offer_scores");
   written.scores = error ? { failed: error.message } : data;
   if (error) console.error(`deal scores: ${error.message}`);
+}
+
+// A branch that appeared in this import has no position yet, and a branch with no
+// position is invisible to "closest to me" (0045). This gives it the centre of its
+// town — recorded as precision=locality, which the screen words as "מרכז העיר" —
+// and never touches a branch that already has a better fix.
+//
+// Not `must`, for the same reason as the scores: the prices are in and correct
+// either way, and an unplaced branch is a state the app already says out loud.
+{
+  const { data, error } = await db.rpc("place_branches_by_town");
+  written.placed_branches = error ? { failed: error.message } : data;
+  if (error) console.error(`place branches: ${error.message}`);
 }
 
 // The chain half of the feed, computed once here instead of on every page (0044).
