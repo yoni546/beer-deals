@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.32.4",
+    "date": "2026-10-12",
+    "title_he": "מי שאמר לנו איפה הוא גר — לא נשאל שוב",
+    "highlights_he": [
+      "הגדרתם יישוב? האפליקציה כבר לא אומרת שלא סיפרתם לה איפה אתם.",
+      "במקום זה היא אומרת את האמת: היישוב אצלנו, המיקומים עוד לא — וזה עלינו."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "Found on staging's preview by the owner, on the first walk-through with real data: he set a town and the screen still said 'you didn't tell us where you are', with a button to a settings page where the town was already filled in.",
+      "distancesFor() tested home_lat/home_lon only. A town is stored as home_city and nothing geocodes it — there is no geocoder for towns any more than for branches — so a person who answered was told they had not.",
+      "New reason `no_home_position`, separate from `no_home`: one is a question for the person, the other is our own gap, and the wording now matches which it is. The same correction in the branches route, where `home: lat !== null` made the branch sheet say the same false thing.",
+      "The decision lives in src/lib/distance-reason.ts rather than distance.ts, which is server-only and cannot be imported by a test — as with trust.ts and feed-result.ts.",
+      "Phase E of the brief says the system must still work when a person only gives a town. It did work; it just blamed them for the part that does not.",
+      "npm test: 997 passed."
+    ]
+  },
+  {
     "version": "0.32.3",
     "date": "2026-10-12",
     "title_he": "תקלה רגעית כבר לא נראית כמו קטלוג ריק",

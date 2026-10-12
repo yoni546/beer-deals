@@ -41,8 +41,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     {
       branches,
       // Why there are no distances, so the sheet can say which of the two it is
-      // rather than showing a list with silent gaps.
-      home: lat !== null,
+      // rather than showing a list with silent gaps. A town counts: somebody who
+      // set one HAS told us where they are, and telling them otherwise is false —
+      // what is missing is a position for it, which is our gap and not theirs.
+      home: lat !== null || Boolean(viewer.profile?.home_city),
       locatable: branches.some((branch) => branch.km !== null),
     },
     { headers: { "cache-control": "no-store" } },

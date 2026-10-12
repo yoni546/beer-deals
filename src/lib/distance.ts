@@ -1,4 +1,5 @@
 import "server-only";
+import { reasonWithoutPosition } from "@/lib/distance-reason";
 
 import { cache } from "react";
 import { attempt, or } from "@/lib/attempt";
@@ -33,7 +34,7 @@ export type NearbyChain = { storeId: string; km: number; branchName: string | nu
 export type Distances =
   | { available: true; byOffer: Record<string, number>; nearestChain: Record<string, NearbyChain> }
   /** We cannot measure anything, and the screen must say which of these is why. */
-  | { available: false; reason: "no_home" | "no_located_branches" };
+  | { available: false; reason: "no_home" | "no_home_position" | "no_located_branches" };
 
 export const NO_DISTANCES: Distances = { available: false, reason: "no_home" };
 
@@ -62,9 +63,14 @@ const nearbyBranches = cache(async (lat: number, lon: number, radiusKm: number):
 
 /** The distances for one page's offers, or the reason there are none. */
 export async function distancesFor(viewer: Viewer, offers: Offer[]): Promise<Distances> {
-  const { home_lat: lat, home_lon: lon, search_radius_km: radius } = viewer.profile ?? {};
+  const { home_city: city, home_lat: lat, home_lon: lon, search_radius_km: radius } = viewer.profile ?? {};
   if (lat === null || lat === undefined || lon === null || lon === undefined) {
-    return { available: false, reason: "no_home" };
+    // Telling somebody who HAS set their town that they never told us is simply
+    // false, and it sends them to a settings screen where the thing is already
+    // filled in. A town without a position is our gap, not theirs: nothing
+    // geocodes it yet (docs/GEOCODING.md), exactly as nothing geocodes the
+    // branches. Say which of the two it is.
+    return { available: false, reason: reasonWithoutPosition(Boolean(city)) };
   }
 
   const branches = or(await attempt("branches.nearby", () => nearbyBranches(lat, lon, radius ?? 0)), []);

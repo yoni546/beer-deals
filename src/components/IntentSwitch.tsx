@@ -53,6 +53,19 @@ export function CannotMeasure({ distances, unplaceable }: { distances: Distances
     );
   }
 
+  if (distances.reason === "no_home_position") {
+    return (
+      <EmptyState title="יש לנו את היישוב שלכם, אבל עוד לא את המיקומים">
+        כדי למדוד מרחק צריך נקודה על המפה — גם ליישוב שלכם וגם לסניפים — ואת אלה עוד לא השלמנו.
+        זה עלינו, לא עליכם, ולא נמציא מרחקים שאין לנו.{" "}
+        <Link href="/?intent=best" className="underline underline-offset-4">
+          בינתיים אפשר לראות את המבצעים הכי משתלמים
+        </Link>
+        .
+      </EmptyState>
+    );
+  }
+
   return (
     <EmptyState title="עוד אין לנו את המיקומים של הסניפים">
       אנחנו יודעים איפה אתם, אבל עוד לא איפה הסניפים — אז אנחנו לא יכולים להגיד מה קרוב, ולא נמציא.{" "}
