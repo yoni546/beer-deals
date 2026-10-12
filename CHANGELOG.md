@@ -6,6 +6,19 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.32.2 — 2026-10-12
+
+**מסך ״לא הצלחנו להתחבר״ אומר למה** · Fix
+
+- בסביבות בדיקה, המסך מראה את מה שהשרת ענה — במקום להשאיר את מי שמתקן לנחש.
+- בייצור המסך נשאר בדיוק כפי שהיה: משפט אחד, בלי פרטים טכניים.
+
+Internal:
+
+- Staging's preview deployment showed the designed 'לא הצלחנו להתחבר' card, which is the screen for an anonymous sign-in that Supabase refused. The reason is in a server log the owner could not find across several attempts, so the screen now carries it — away from production only, guarded before any network call, with the guard asserted by a test.
+- It asks /auth/v1/signup itself rather than reporting what the middleware saw, so the answer belongs to this request, and it prints the HTTP status beside the body: 'refused' and 'unreachable' read identically in a message string and need completely different fixes.
+- Never in production: a stranger reading an error screen should learn nothing about our auth provider. tests/welcome-diagnostic.test.ts asserts the production guard precedes the fetch, that neither returned string can carry the key, and that the status is printed.
+
 ## 0.32.1 — 2026-10-11
 
 **סגירת פרצה שהתגלתה בחזרה הגנרלית** · Fix
