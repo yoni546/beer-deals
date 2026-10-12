@@ -165,3 +165,57 @@ data".
 4. anything on a screen in step 4 that looked wrong.
 
 With those four I can tell whether production is a go, and fix anything that is not.
+
+---
+
+## What this pass actually found (2026-10-11/12)
+
+Written down because none of it was visible from the tests, and all of it will
+be true again on the next environment.
+
+### 1. The platform grants what the schema assumes nobody has
+
+`anon` held SELECT, INSERT, DELETE and TRUNCATE on `admin_actions`. No migration
+grants that; every Supabase project is created with default privileges that hand
+each new table to the API roles. RLS kept the contents unreachable, but TRUNCATE
+ignores RLS, and the two layers this project describes everywhere were one.
+Migration 0043 takes it back and stops the default; `tests/sql/bootstrap.sql`
+now starts from the platform's defaults so the sweep asks the same question of
+every table added from here on.
+
+**Production carries the same hole.** It is older than this branch.
+
+### 2. The SQL editor does not say when a paste arrives short
+
+A 182 KB paste was submitted as its first 4,471 characters, and Postgres blamed
+an unterminated dollar quote at the opening `$$` thousands of characters
+earlier. Two more attempts cut at different points. What settled it was asking
+the owner to paste back what he had: 23% of the file.
+
+The fix was not chunking — the chunks failed too. It was a copy that cannot be
+cut: a page with a copy button per part, and a last line in each part that
+prints its own name, so "no error" can never be mistaken for "it all arrived".
+
+### 3. A masked value copies as bullets
+
+The preview deployment could not sign anyone in. The reason, once the screen was
+made to show it: `character at index 8 has a value of 8226`. 8226 is `•`, and
+`eyJhbGci` is exactly eight characters — the environment variable held Supabase's
+masked *display* of the key, not the key.
+
+Copy a key with the dashboard's copy button. A value that starts right and ends
+in dots is not a short key, it is a different string.
+
+### 4. Deployments from another commit author are blocked on a Hobby plan
+
+Vercel refuses to deploy commits whose author is not the account owner, and says
+so only in the Redeploy dialog: *"Hobby teams do not support collaboration."*
+Pushes from this session carry a different author, so a preview build for them
+is not guaranteed.
+
+### 5. Production's database is over the free-plan limit
+
+`beer tnd beer`: **548.07 MB against a 0.5 GB limit**. Not caused by this work —
+the daily import of fifteen retailers grows the price ledger — but Supabase
+restricts a project that exceeds it, and the owner should decide between pruning
+old price history and a paid plan before it decides for him.
