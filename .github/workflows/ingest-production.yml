@@ -124,6 +124,10 @@ jobs:
             node scripts/ingest/run.mjs --target production --confirm-ref "$CONFIRM_REF"
           fi
 
+      - name: Prune the history nothing reads (migration 0052; never live, held or superseded prices)
+        if: success()
+        run: node scripts/ingest/prune-history.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
+
       - name: Notification baseline (initial population only)
         if: inputs.initial_population
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF" --apply

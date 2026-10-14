@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.38.1 — 2026-10-14 (internal)
+
+**בסיס הנתונים מפסיק לתפוח** · Data
+
+- מחיר שלא השתנה כבר לא נרשם מחדש בכל יום — רק פעם בשבוע, להיסטוריה.
+- מה ששום מסך לא קורא נמחק אוטומטית אחרי כל ייבוא.
+- שום דבר ממה שרואים באפליקציה לא משתנה.
+
+Internal:
+
+- Migration 0052: record_price marks an unchanged price as seen again (observed_at forward, first_observed_at kept) instead of a new row; one sample row a week is still written for the Deal Score history (0027 reads live + superseded over 180 days, needs >= 4). The append-only guard allows exactly that and, inside prune_history only, deleting REJECTED rows.
+- prune_history(kind, apply, batch), service role only: rejected price rows, occurrences not in the latest scan, branch scans > 7 days that are not the latest, superseded/rejected groups. scripts/ingest/prune-history.mjs runs it after every import (both workflows). Staging: 845 MB -> 474 MB after vacuum full; offers_feed 524, canonical 1,028, live 70,430, scores 366 unchanged.
+- Indexes: price_obs_superseded_by, price_obs_rejected, promotion_groups_dead. Rollback: supabase/rollback/0052_prune_history.down.sql (does not restore pruned rows). Production steps: docs/PRUNE-HISTORY.md.
+
 ## 0.38.0 — 2026-10-12
 
 **הכי קרוב — באמת הכי קרוב** · Fix

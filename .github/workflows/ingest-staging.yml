@@ -93,6 +93,10 @@ jobs:
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_ANON_KEY=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nAPP_ENV=staging\n' "$URL" "$ANON" "$KEY" > .env.staging.local
           node scripts/ingest/run.mjs --target staging
 
+      - name: Prune the history nothing reads (migration 0052; never live, held or superseded prices)
+        if: success() && steps.configured.outputs.ok == 'true'
+        run: node scripts/ingest/prune-history.mjs --target staging --apply
+
       - name: Read back what the public sees, per chain (docs/RETAILER-COVERAGE.md)
         if: steps.configured.outputs.ok == 'true'
         run: node scripts/ingest/coverage.mjs

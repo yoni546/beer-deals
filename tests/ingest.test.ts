@@ -441,6 +441,22 @@ describe("the production ingestion workflow", () => {
   });
 });
 
+describe("the daily history prune (0052)", () => {
+  it("runs after a successful write in both import workflows, against that workflow's own target", () => {
+    for (const [file, target] of [["ingest-staging.yml", "--target staging --apply"], ["ingest-production.yml", '--target production --confirm-ref "$CONFIRM_REF" --apply']]) {
+      const yml = readFileSync(join(__dirname, "..", ".github/workflows", file), "utf8");
+      const write = yml.indexOf("run.mjs --target");
+      const prune = yml.indexOf(`prune-history.mjs ${target}`);
+      expect(prune, file).toBeGreaterThan(write);
+      expect(yml.slice(yml.lastIndexOf("- name:", prune), prune), file).toMatch(/if: success\(\)/);
+    }
+    // The script never touches the Deal Score's history or the notification dedupe keys.
+    const src = readFileSync(join(__dirname, "..", "scripts/ingest/prune-history.mjs"), "utf8");
+    expect(src).toContain('const KINDS = ["rejected_prices", "stale_occurrences", "old_branch_scans", "old_groups"]');
+    expect(src).not.toMatch(/notification_events|superseded'|status = 'live'/);
+  });
+});
+
 describe("cases, kegs and crates (0.9.0 audit)", () => {
   const row = (name: string, price: number, quantity = "1.00", unit = "יחידות") => ({ item_code: "7290000000446", item_name: name, manufacturer: "", price, quantity, unit_of_measure: unit, is_weighted: false });
 
