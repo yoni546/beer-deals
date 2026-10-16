@@ -106,6 +106,25 @@ describe("the whole schema, swept", () => {
     ]);
   });
 
+  it("has no function that deletes or updates a whole table without a WHERE clause", async () => {
+    // Supabase runs API requests with pg_safeupdate, which refuses such a statement; PGlite has no
+    // pg_safeupdate, so without this check the failure only shows on a hosted project (0044 → 0053).
+    const db = await freshDatabase();
+    const { rows } = await db.query<{ name: string; body: string }>(
+      `select p.proname as name, p.prosrc as body from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prolang = (select oid from pg_language where lanname = 'plpgsql')`,
+    );
+    const offenders: string[] = [];
+    for (const { name, body } of rows) {
+      const code = body.replace(/--[^\n]*/g, "");
+      for (const m of code.matchAll(/\b(delete\s+from|update)\s+[a-z_.]+(\s+(?!where\b|set\b)[a-z_]+)?\b([\s\S]*?);/gi)) {
+        const doUpdate = /\bdo\s+$/i.test(code.slice(Math.max(0, (m.index ?? 0) - 8), m.index)); // on conflict … do update
+        if (!doUpdate && !/\bwhere\b/i.test(m[3])) offenders.push(`${name}: ${m[0].slice(0, 60)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("lets nobody but an owner hand out privileges", async () => {
     const db = await freshDatabase();
     for (const fn of ["grant_admin(text,public.admin_level)", "revoke_admin(uuid)"]) {

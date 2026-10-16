@@ -31,7 +31,8 @@ In the repository folder, in Git Bash, with the production ref in `$PROD_REF` an
 2. **Backup.** Supabase → Database → Backups: the newest daily backup is completed and under 24 hours old.
    Pruning deletes rows; the backup is the only way back.
 
-3. **Migration.** The dry run must list only `0052_prune_history.sql`:
+3. **Migrations.** The dry run must list only `0052_prune_history.sql` and `0053_offers_catalog_refresh_where.sql`
+   (0053 makes the import refresh the deals table again: since 12.10 it kept that day's rows):
 
    ```bash
    bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push --dry-run

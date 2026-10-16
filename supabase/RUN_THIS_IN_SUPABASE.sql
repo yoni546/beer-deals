@@ -14994,6 +14994,56 @@ $$;
 revoke execute on function public.prune_history(text, boolean, integer) from public, anon, authenticated;
 grant execute on function public.prune_history(text, boolean, integer) to service_role;
 
+-- ======================== 0053_offers_catalog_refresh_where.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0053 · The chain half of the feed is refreshed by the import again
+--
+-- 0044's refresh_offers_catalog() emptied the table with `delete from public.offers_catalog;`. Supabase runs
+-- requests that arrive through its API with pg_safeupdate, which refuses a DELETE without a WHERE clause — so
+-- every import's call failed ("DELETE requires a WHERE clause"), run.mjs logged it and went on (by design: a
+-- failed refresh keeps the previous rows), and the table kept the rows of the one refresh made in the SQL
+-- editor. Measured on staging 2026-10-16: offers_catalog newest observation 2026-10-12, the ledger 2026-10-14.
+-- The tests run on PGlite, which has no pg_safeupdate, and could not see it.
+--
+-- Fixing that showed the second reason: computing the catalogue takes longer than the 8 s an API request gets
+-- (production measured 15.3 s for the same work; staging 30 s under load). service_role has no statement_timeout
+-- of its own, so it inherited the authenticator's 8 s. It gets its own 180 s: only server code holds that key
+-- (the import, the notification worker, admin actions); anon (3 s) and authenticated (8 s) are untouched.
+-- Measured on staging after this migration: refresh_offers_catalog through the API wrote 687 offers (the table had
+-- held 524, from 2026-10-12).
+--
+-- Same function, the same one transaction, with an explicit `where true`. tests/security-sweep.test.ts now
+-- refuses an unqualified DELETE or UPDATE in any function.
+-- Rollback: the 0044 definition, and  alter role service_role reset statement_timeout;
+-- ---------------------------------------------------------------------------
+
+create or replace function public.refresh_offers_catalog()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  written integer;
+begin
+  perform public.require_price_writer();
+
+  -- One transaction: readers keep seeing the previous rows until it commits, and
+  -- a failure leaves the old ones in place rather than an empty feed.
+  -- `where true`: pg_safeupdate (on for every API request) refuses a DELETE without a WHERE clause.
+  delete from public.offers_catalog where true;
+  insert into public.offers_catalog
+  select s.*, now() from public.offers_catalog_source s;
+  get diagnostics written = row_count;
+
+  return written;
+end;
+$$;
+
+alter role service_role set statement_timeout = '180s';
+notify pgrst, 'reload config';
+
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15001,9 +15051,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0052')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0052'), ('0053')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 52 migrations';
+  raise notice 'ledger: recorded 53 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end
