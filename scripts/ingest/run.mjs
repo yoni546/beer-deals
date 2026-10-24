@@ -388,6 +388,19 @@ for (const r of runs.values()) {
 // Also not `must`, and for a sharper reason than the scores: if this fails the
 // table keeps the PREVIOUS run's rows, so the app serves yesterday's chain offers
 // rather than none. Undoing a correct import over it would be the worse outcome.
+// Before the catalogue, because the catalogue reads offers_ranked and that now
+// joins this table instead of recomputing it (0054). The other way round, the
+// catalogue would be built against the PREVIOUS import's market comparison.
+//
+// Not `must`, for the same reason as the catalogue below: a stale comparison
+// costs one "cheaper than the other chains" line, which is far better than
+// undoing a correct import over it.
+{
+  const { error } = await db.rpc("refresh_market_reference");
+  written.marketReference = error ? { failed: error.message } : "refreshed";
+  if (error) console.error(`market reference: ${error.message}`);
+}
+
 {
   const { data, error } = await db.rpc("refresh_offers_catalog");
   written.catalog = error ? { failed: error.message } : data;

@@ -377,6 +377,11 @@ describe("stale or unknown reference prices never produce a fake saving", () => 
     await w.record({ sku: s, store: w.ids.yochananof, kind: "regular", price: 4190 });
     await w.record({ sku: s, store: w.ids.rami, kind: "promotion", promoType: "price_cut", price: 2500 });
 
+    // The comparison is computed once per import rather than once per read (0054),
+    // so it appears when an import finishes — not in the instant between writing a
+    // price and rebuilding, which is a state no page is ever served.
+    await w.rebuildFeed();
+
     // Median of the OTHER chains is 3990; the chain's own missing "before" price is irrelevant.
     expect((await w.offers())[0]).toMatchObject({
       value_pct: null, market_reference_agorot: 3990, market_chains: 3, market_value_pct: 37,

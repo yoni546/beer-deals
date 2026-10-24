@@ -98,6 +98,15 @@ export async function world() {
    * its rebuild — a state no page is ever served.
    */
   async function rebuildFeed() {
+    // The market comparison first, in the order an import does it: offers_ranked
+    // joins it rather than recomputing it per query (0054), and the catalogue is
+    // built FROM offers_ranked — the other way round, the catalogue would carry
+    // the previous comparison. REFRESH cannot run inside a transaction block, so
+    // it sits outside the one below.
+    await db.exec("set role service_role;");
+    await db.query("select public.refresh_market_reference()");
+    await db.exec("reset role;");
+
     await db.exec("begin; set local role service_role;");
     await db.query("select public.refresh_offers_catalog()");
     await db.exec("commit;");
