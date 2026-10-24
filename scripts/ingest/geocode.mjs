@@ -18,6 +18,18 @@
  *   node scripts/ingest/geocode.mjs --target staging --apply      # writes
  *   node scripts/ingest/geocode.mjs --target staging --limit 50   # a slice, to try it out
  *   node scripts/ingest/geocode.mjs --target staging --store rami-levy
+ *   node scripts/ingest/geocode.mjs --target staging --upgrade    # ALSO re-ask for the town-centre ones
+ *
+ * --UPGRADE, and why it does not clear anything first. Every branch we recognise the
+ * town of already holds the town's centre (0045). Without this flag they are skipped
+ * forever, because they are not missing a position — they are holding a bad one, and
+ * on a map a thousand shops stacked on twenty town squares is worse than useless.
+ * The obvious way to re-do them is to blank the column and let the normal pass pick
+ * them up. That trades a coarse position for NO position the moment a lookup fails,
+ * and a failed lookup is the common case, not the rare one. So instead the row is
+ * read with its precision, the geocoder is asked, and the write happens ONLY when the
+ * answer is strictly better than what is already there. A branch can move from the
+ * town square to its door; it can never move back to nothing.
  *
  * DRY RUN IS THE DEFAULT. Nothing is written without --apply.
  *
@@ -39,7 +51,7 @@ import { createClient } from "@supabase/supabase-js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTarget } from "./lib/target.mjs";
-import { insideIsrael, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
+import { insideIsrael, isBetterFix, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const args = process.argv.slice(2);
@@ -50,6 +62,7 @@ const flag = (name) => {
 
 const { target, env, url } = loadTarget(ROOT, args);
 const APPLY = args.includes("--apply");
+const UPGRADE = args.includes("--upgrade");
 const LIMIT = Number(flag("limit") || 0) || null;
 const STORE = flag("store") || null;
 
@@ -74,13 +87,14 @@ if (!provider.configured) {
 }
 if (!APPLY) console.log("DRY RUN — nothing will be written. Add --apply to write.\n");
 
-// Only what is missing. A branch we have already placed is never looked up again.
+// What has no position at all, and — with --upgrade — what only has its town's centre.
+// A branch already placed at street level is never looked up again.
 let query = db
   .from("branches")
-  .select("id, name_he, city, address, store_id, stores(slug, name_he)")
-  .is("latitude", null)
+  .select("id, name_he, city, address, store_id, geocode_precision, stores(slug, name_he)")
   .eq("is_active", true)
   .order("city", { nullsFirst: false });
+query = UPGRADE ? query.or("latitude.is.null,geocode_precision.eq.locality") : query.is("latitude", null);
 if (LIMIT) query = query.limit(LIMIT);
 
 const { data: branches, error } = await query;
@@ -94,7 +108,7 @@ const skippedNoAddress = (branches ?? []).length - (branches ?? []).filter((b) =
 
 console.log(`${todo.length} branches to place${skippedNoAddress ? ` (${skippedNoAddress} have neither an address nor a city)` : ""}\n`);
 
-const tally = { placed: 0, refused: 0, failed: 0, written: 0, byPrecision: {} };
+const tally = { placed: 0, refused: 0, failed: 0, written: 0, kept: 0, byPrecision: {} };
 const examples = [];
 
 for (const branch of todo) {
@@ -110,6 +124,11 @@ for (const branch of todo) {
 
   if (!fix) {
     tally.refused += 1;
+    continue;
+  }
+  // A branch sitting on its town's centre keeps it unless the answer improves on it.
+  if (branch.geocode_precision && !isBetterFix(fix.precision, branch.geocode_precision)) {
+    tally.kept += 1;
     continue;
   }
   if (!insideIsrael(fix.lat, fix.lon) || !PRECISIONS.includes(fix.precision)) {
@@ -157,6 +176,7 @@ console.log(
       placed: tally.placed,
       written: tally.written,
       could_not_place: tally.refused,
+      kept_what_they_had: tally.kept,
       failed: tally.failed,
       precision: tally.byPrecision,
     },
