@@ -257,3 +257,41 @@ describe("the icon set", () => {
     expect(icons).not.toMatch(/<Icon[^>]*\bstrokeWidth=\{0\}/);
   });
 });
+
+/**
+ * One beer, one picture, everywhere (the owner's rule, 2026-10-24).
+ *
+ * There are two ways to put a bottle beside a beer's name. `BeerBottle` asks the
+ * central source — `photoFor(slug)`, src/design/bottle-photos.json — and falls
+ * back to the drawing only when that beer has no approved photo. `BeerMark` IS
+ * that drawing: it never looks at a photo at all.
+ *
+ * Four screens called the drawing directly — the deal list, the deal of the week,
+ * search and onboarding — so Goldstar was a real bottle on Home and an empty
+ * glass one in search. That is the whole of the complaint, and this is the line
+ * that lets it come back: a new screen reaching for `BeerMark` because it is the
+ * one whose name sounds like a small bottle.
+ */
+describe("the same beer shows the same bottle everywhere", () => {
+  const screens = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) => {
+      const path = join(dir, name);
+      return statSync(path).isDirectory() ? screens(path) : path.endsWith(".tsx") ? [path] : [];
+    });
+  const files = screens(join(ROOT, "src"));
+
+  it("has every screen go through BeerBottle, never the drawing directly", () => {
+    const direct = files
+      .filter((f) => !f.endsWith(join("ui", "Bottle.tsx")))
+      .filter((f) => /<BeerMark\b/.test(readFileSync(f, "utf8")))
+      .map((f) => relative(ROOT, f));
+
+    expect(direct).toEqual([]);
+  });
+
+  it("keeps the fallback order: approved photo, then that beer's drawing", () => {
+    const bottle = readFileSync(join(ROOT, "src/components/ui/Bottle.tsx"), "utf8");
+    // BeerBottle asks for the photo first and hands off to the drawing when there is none.
+    expect(bottle).toMatch(/const photo = photoFor\(slug\);\s*\n\s*if \(!photo\) return <BeerMark/);
+  });
+});
