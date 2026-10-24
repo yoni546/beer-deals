@@ -21,7 +21,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
 
   return (
     <article className="px-4 pt-1 pb-3.5">
-      <Link href={`/store/${offer.store_slug}`} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
+      <Link href={`/store/${offer.store_slug}`} className="line">
         <span className="min-w-0">{showStore ? offer.store_name : beers.join(" / ")}</span>
         <span aria-hidden className="leader-fill" />
         <span className="shrink-0 text-sm font-semibold text-ink-2">
@@ -51,7 +51,7 @@ export function GroupOfferLine({ offer, showStore = true, now = Date.now() }: { 
         ]
           .filter(Boolean)
           .map((node, i) => (
-            <span key={i} className="inline-flex items-center gap-2">
+            <span key={i} className="fact">
               {i > 0 && (
                 <span aria-hidden className="text-paper-line">
                   ·

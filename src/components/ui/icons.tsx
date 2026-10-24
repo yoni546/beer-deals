@@ -8,17 +8,24 @@ import type { SVGProps } from "react";
  */
 type IconProps = Omit<SVGProps<SVGSVGElement>, "children"> & { title?: string; size?: number };
 
-function Icon({ title, size = 22, children, ...rest }: IconProps & { children: React.ReactNode }) {
+/**
+ * The stroke (fill none, currentColor, 1.75, round caps) is the class `.ico`, not
+ * eight attributes on every icon. One chain page draws 157 of them, and the
+ * attributes were 108 bytes each — repeated in the markup AND again in the RSC
+ * payload the phone parses, for a drawing that never varies.
+ *
+ * Note that this makes the stroke a CSS declaration, which OUTRANKS an SVG
+ * presentation attribute: an icon that wants to be filled instead of stroked
+ * cannot say so with `fill="currentColor"` any more, because `.ico` would win and
+ * the icon would vanish. `solid` is that icon's way to ask (see GripIcon).
+ */
+function Icon({ title, size = 22, solid = false, className, children, ...rest }: IconProps & { solid?: boolean; children: React.ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      className={[solid ? "ico ico-solid" : "ico", className].filter(Boolean).join(" ")}
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
       aria-label={title}
@@ -123,7 +130,7 @@ export const ArrowDownIcon = (p: IconProps) => (
   </Icon>
 );
 export const GripIcon = (p: IconProps) => (
-  <Icon {...p} strokeWidth={0} fill="currentColor">
+  <Icon {...p} solid>
     {[8, 12, 16].flatMap((y) => [9, 15].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.35" />))}
   </Icon>
 );

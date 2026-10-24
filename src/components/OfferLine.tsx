@@ -140,18 +140,18 @@ export function OfferLine({
   return (
     <article className="px-4 pt-2 pb-3.5">
       {/* A busy chain page renders ~170 of these, i.e. ~340 anchors. */}
-      <Link href={primaryHref} prefetch={false} className="flex min-h-11 items-baseline gap-2 pt-2 text-base leading-snug font-semibold text-ink">
+      <Link href={primaryHref} prefetch={false} className="line-tight">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
         {offer.value_pct !== null && (
-          <Saving pct={offer.value_pct} className="shrink-0 self-center rounded-md bg-deal px-2 py-0.5 text-sm font-bold text-on-deal" />
+          <Saving pct={offer.value_pct} className="saving-badge" />
         )}
         <Price agorot={offer.effective_agorot} size="md" className="shrink-0 text-price" />
       </Link>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
         {facts.map((node, i) => (
-          <span key={i} className="inline-flex items-center gap-2">
+          <span key={i} className="fact">
             {i > 0 && <Dot />}
             {node}
           </span>
@@ -180,7 +180,7 @@ export function OfferLine({
       {/* Every offer, not only the user-submitted ones. Until 0031 the chain feed --
           the bulk of what anybody sees -- had no report path at all. */}
       <details className="group" data-feedback>
-        <summary className="-ms-1 inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1 ps-1 text-xs font-semibold text-ink-2 [&::-webkit-details-marker]:hidden">
+        <summary className="disclose-quiet">
           הייתם שם?
           <span aria-hidden className="transition-transform group-open:rotate-180">
             <ChevronDownIcon size={14} />

@@ -175,6 +175,174 @@ select,
   .tear {
     border-top: 2px dashed var(--paper-line);
   }
+
+  /* ------------------------------------------------- the lines of a receipt
+
+     MEASURED, production, 2026-10-24. One chain page was 514 KB of markup plus
+     a 725 KB RSC payload for the phone to parse, and HALF the markup — 255 KB
+     across 5,452 `class` attributes — was twelve utility strings repeated once
+     per row. 91 distinct strings produced all of it. Nothing was wrong with the
+     utilities; there were simply 214 rows carrying the same ninety characters.
+
+     So the per-row ones are classes, declared here with exactly the properties
+     the utilities generated. They sit in this layer, below Tailwind's
+     utilities, so a caller's `shrink-0` or `mt-4` still wins (see the note on
+     the layer above). This changes no pixel: it changes how many times the
+     browser is told about it. */
+
+  /* name ········ price — a line of the tape. `.line-tight` is the same line
+     with the lower padding closed up, which a deal line uses. */
+  .line,
+  .line-tight {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.375;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .line {
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+  .line-tight {
+    padding-top: 0.5rem;
+  }
+
+  /* The small second row under a line: where it was seen, the deposit, per litre. */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.5rem;
+    row-gap: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--ink-2);
+  }
+  /* One fact, with room for the dot that separates it from the one before. */
+  .fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* A disclosure that opens in place (the branches a deal runs in, a deal's
+     terms). A summary, so it works with no JavaScript; the marker is ours. */
+  .disclose,
+  .disclose-quiet {
+    margin-inline-start: -0.25rem;
+    padding-inline-start: 0.25rem;
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    list-style: none;
+  }
+  .disclose::-webkit-details-marker,
+  .disclose-quiet::-webkit-details-marker {
+    display: none;
+  }
+  .disclose {
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+  }
+  .disclose-quiet {
+    min-width: 2.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  /* A price as a shelf label prints it: ₪24⁹⁰, the agorot raised. */
+  .price {
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+  .price-sm {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  .price-md {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+  .price-lg {
+    font-size: 2.75rem;
+    font-weight: 700;
+  }
+  .price-stack {
+    display: inline-flex;
+    align-items: flex-start;
+  }
+  .price-sign {
+    margin-inline-end: 0.08em;
+    margin-top: 0.12em;
+    font-size: 0.5em;
+    font-weight: 600;
+  }
+  .price-agorot {
+    margin-inline-start: 0.06em;
+    margin-top: 0.06em;
+    font-size: 0.5em;
+    font-weight: 600;
+  }
+
+  /* The verified saving beside a deal's name: −36% on the deal colour. */
+  .saving-badge {
+    flex-shrink: 0;
+    align-self: center;
+    border-radius: 0.375rem;
+    background: var(--deal);
+    padding-inline: 0.5rem;
+    padding-block: 0.125rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    color: var(--on-deal);
+  }
+
+  /* The drawn icon set: one 1.75 px stroke, round caps, no fill (DESIGN.md). Here
+     rather than on each <svg>, because a chain page draws 157 of them.
+     `.ico-solid` is for the one or two that are filled shapes instead — a CSS
+     declaration beats an SVG presentation attribute, so they cannot say it
+     themselves. */
+  .ico {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ico-solid {
+    fill: currentColor;
+    stroke-width: 0;
+  }
+
+  /* An outlined pill button on paper (the two answers to "is it still on?"). */
+  .pill {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    border: 1px solid var(--paper-line);
+    /* What `rounded-full` computes to, exactly — not 9999px, which is the same
+       capsule but a different computed value. */
+    border-radius: calc(infinity * 1px);
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .pill:disabled {
+    opacity: 0.5;
+  }
 }
 
 /* -------------------------------------------------------------- the bottle */
