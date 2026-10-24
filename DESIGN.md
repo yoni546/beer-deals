@@ -101,9 +101,15 @@ component (`src/design/`):
 - **Empty** is blank paper with one dotted line and a next action. **Error** is a paper jam: what
   happened, and a retry.
 - **Stale / unverified / review** is hatched paper plus words ("לא עודכן 9 ימים"), never colour alone.
-- **Motion.** Two authored moments: the print-in of a strip on first paint (whole line-heights, a
-  single overshoot), and the first run's stage (below). Everything else is instant. Fully disabled
+- **Motion.** Four authored moments, and no more: the print-in of a strip on first paint (whole
+  line-heights, a single overshoot); the first run's stage (below); the rise of a screen arriving
+  (`page-enter`, 240 ms, 0.34.0); and the waiting bar, which is a pour — the accent with a head of
+  foam along its top edge (0.12.0). Everything else is instant. Each one is CSS on an element that
+  already exists: no library, no new asset, nothing per-frame on the main thread. Fully disabled
   under `prefers-reduced-motion`.
+
+  Motion here marks an event — something arrived, something is being fetched. It never decorates a
+  resting screen, because a list of prices that moves while you read it is harder to read.
 
 ## Favourite #1 is the app: the bottle on the counter
 

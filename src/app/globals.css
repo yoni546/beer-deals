@@ -551,7 +551,17 @@ svg.bottle-art {
   inset-block: 0;
   left: 0;
   width: 40%;
-  background: var(--accent);
+  /* A pour, not a progress bar: the beer's body with its head of foam along the top.
+     One gradient on an element that already existed — no new element, no new asset,
+     nothing extra on the main thread, and it reads the same whichever way the stripe
+     is travelling. The foam is the accent lightened, so it follows the beer's theme
+     like everything else rather than introducing a colour of its own. */
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--accent) 40%, white) 0 1px,
+      var(--accent) 1px
+    );
   animation: nav-progress 1.1s ease-in-out infinite;
 }
 
