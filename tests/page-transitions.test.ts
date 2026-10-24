@@ -83,3 +83,41 @@ describe("moving between screens", () => {
     expect(read("docs", "LESSONS.md")).toContain("loading.tsx");
   });
 });
+
+/**
+ * The waiting bar is a pour (0.12.0, the owner's request for beer in the motion).
+ *
+ * It is one gradient on an element that already existed: the accent as the beer, a
+ * lightened band along the top as its head of foam. The point of testing it is not
+ * the look — it is the cost. The brief that asked for this also said the animations
+ * must not weigh anything, so the bar must stay a painted gradient and must never
+ * become a stack of elements, an asset, or something that runs per frame.
+ */
+describe("the waiting bar", () => {
+  const css = readFileSync(join(ROOT, "src", "app", "globals.css"), "utf8");
+  const start = css.indexOf(".nav-progress::before");
+  // To the end of that rule, not to the keyframes — those are declared ABOVE it, and
+  // slicing to them silently yields "" and makes every `not.toMatch` below pass.
+  const bar = css.slice(start, css.indexOf("}", start) + 1);
+
+  it("was actually found in the stylesheet", () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(bar.length).toBeGreaterThan(80);
+  });
+
+  it("pours: a body of beer with foam along its top", () => {
+    expect(bar).toMatch(/linear-gradient/);
+    expect(bar).toMatch(/color-mix\(in oklab, var\(--accent\)/);
+  });
+
+  it("takes its colour from the beer's theme, never a colour of its own", () => {
+    // DESIGN.md: a new colour that is not a token is on the list of things not to do.
+    expect(bar).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(bar).not.toMatch(/\brgb\(|\bhsl\(/);
+  });
+
+  it("stays one painted element — no image, no extra layer to composite", () => {
+    expect(bar).not.toMatch(/url\(|background-image:\s*url/);
+    expect(bar).not.toMatch(/box-shadow|filter:/);
+  });
+});
