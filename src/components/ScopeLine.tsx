@@ -53,7 +53,7 @@ export function ScopeLine({ text, promotionId }: { text: ScopeText; promotionId:
 
   return (
     <details className="group/scope w-full" data-scope onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && load()}>
-      <summary className="-ms-1 inline-flex min-h-11 cursor-pointer list-none items-center gap-1 ps-1 font-medium text-ink underline decoration-dotted underline-offset-4 [&::-webkit-details-marker]:hidden">
+      <summary className="disclose">
         {text.label}
         <ChevronDownIcon size={14} className="transition-transform group-open/scope:rotate-180" />
       </summary>

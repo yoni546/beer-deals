@@ -1,10 +1,6 @@
 import { formatPrice } from "@/lib/money";
 
-const SIZE = {
-  sm: "text-[1.25rem] font-semibold",
-  md: "text-[1.75rem] font-bold",
-  lg: "text-[2.75rem] font-bold",
-} as const;
+const SIZE = { sm: "price-sm", md: "price-md", lg: "price-lg" } as const;
 
 /**
  * A price as it is printed on a shelf label: a large shekel figure with the agorot
@@ -24,12 +20,12 @@ export function Price({
   const rest = String(agorot % 100).padStart(2, "0");
 
   return (
-    <span className={`num leading-none tracking-tight ${SIZE[size]} ${className}`}>
+    <span className={`num price ${SIZE[size]} ${className}`}>
       <span className="sr-only">{formatPrice(agorot)}</span>
-      <span aria-hidden className="inline-flex items-start">
-        <span className="me-[0.08em] mt-[0.12em] text-[0.5em] font-semibold">₪</span>
+      <span aria-hidden className="price-stack">
+        <span className="price-sign">₪</span>
         <span>{shekels}</span>
-        <span className="ms-[0.06em] mt-[0.06em] text-[0.5em] font-semibold">{rest}</span>
+        <span className="price-agorot">{rest}</span>
       </span>
     </span>
   );

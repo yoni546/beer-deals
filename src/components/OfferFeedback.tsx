@@ -56,7 +56,7 @@ export function OfferFeedback({ offerKey, seenPriceAgorot }: { offerKey: string;
           type="button"
           disabled={pending}
           onClick={() => say("still_there")}
-          className="inline-flex min-h-11 items-center rounded-full border border-paper-line px-4 text-sm font-semibold text-ink disabled:opacity-50"
+          className="pill"
         >
           המבצע עדיין קיים
         </button>
@@ -64,7 +64,7 @@ export function OfferFeedback({ offerKey, seenPriceAgorot }: { offerKey: string;
           type="button"
           disabled={pending}
           onClick={() => say("ended")}
-          className="inline-flex min-h-11 items-center rounded-full border border-paper-line px-4 text-sm font-semibold text-ink disabled:opacity-50"
+          className="pill"
         >
           המבצע נגמר
         </button>
