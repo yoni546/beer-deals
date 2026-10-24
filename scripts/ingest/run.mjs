@@ -9,9 +9,10 @@
  * From a scan it also writes the branch INVENTORY (every branch the Stores files list), each branch's scan
  * outcome (record_branch_scan), closes promotions a branch's newest file no longer lists
  * (close_missing_promotions), recomputes every chain's promotion scope (refresh_promotion_scope, 0017),
- * rescores every deal (refresh_offer_scores, 0027), rebuilds the chain half of the feed
- * (refresh_offers_catalog, 0044), places any new branch at its town centre
- * (place_branches_by_town, 0045) and rings the app's cache doorbell.
+ * places any new branch at its town centre (place_branches_by_town, 0045), rebuilds the read model in the
+ * order each part reads the one before it — the market comparison (refresh_market_reference, 0054), the
+ * chain half of the feed (refresh_offers_catalog, 0044), then the scores (refresh_offer_scores, 0027) —
+ * and rings the app's cache doorbell.
  * Incremental: branches whose newest files were already imported are not sent again.
  *
  * Safety:
@@ -353,58 +354,52 @@ for (const r of runs.values()) {
   await must("finish run", () => db.rpc("finish_ingestion_run", { p_run_id: r.run_id, p_status: "succeeded", p_stats: stats }));
 }
 
-// 10. Score the deals, and tell the app its catalogue moved.
+// 10. Build the read model, and tell the app its catalogue moved.
 //
-// The Deal Score reads 180 days of the price ledger (docs/DEAL-SCORE.md), so it is
-// computed here, once, and never on a page. Neither of these is allowed to fail the
-// run: the prices are in and correct either way, they would simply be unscored or
-// briefly stale.
-{
-  // Not `must`: that aborts the run, and a run whose prices are in and correct must
-  // not be undone because a score would not compute.
-  const { data, error } = await db.rpc("refresh_offer_scores");
-  written.scores = error ? { failed: error.message } : data;
-  if (error) console.error(`deal scores: ${error.message}`);
-}
+// None of this is allowed to fail the run. The prices are in and correct either
+// way; what a failure costs is a stale read model, and undoing a correct import
+// over an unscored deal would be the worse outcome. It is also why these
+// failures were invisible for twelve days: see 0055 and 0056.
 
 // A branch that appeared in this import has no position yet, and a branch with no
 // position is invisible to "closest to me" (0045). This gives it the centre of its
 // town — recorded as precision=locality, which the screen words as "מרכז העיר" —
 // and never touches a branch that already has a better fix.
-//
-// Not `must`, for the same reason as the scores: the prices are in and correct
-// either way, and an unplaced branch is a state the app already says out loud.
 {
   const { data, error } = await db.rpc("place_branches_by_town");
   written.placed_branches = error ? { failed: error.message } : data;
   if (error) console.error(`place branches: ${error.message}`);
 }
 
-// The chain half of the feed, computed once here instead of on every page (0044).
-// Production measured 15,306 ms for one read of offers_feed, past the 8-second
-// cancellation Supabase applies to anon and authenticated: 18,627 live promotion
-// rows, each probing an index for its reference price, to show 526 offers.
+// The three refreshes, in this order, and timed.
 //
-// Also not `must`, and for a sharper reason than the scores: if this fails the
-// table keeps the PREVIOUS run's rows, so the app serves yesterday's chain offers
-// rather than none. Undoing a correct import over it would be the worse outcome.
-// Before the catalogue, because the catalogue reads offers_ranked and that now
-// joins this table instead of recomputing it (0054). The other way round, the
-// catalogue would be built against the PREVIOUS import's market comparison.
+// WHAT THEY ARE. The market comparison each promotion is measured against
+// (0054); the chain half of the feed, computed here instead of on every page —
+// production measured 15,306 ms for one read of the live version, past the
+// 8-second cancellation Supabase applies to anon (0044); and the Deal Score,
+// which reads 180 days of the price ledger (docs/DEAL-SCORE.md).
 //
-// Not `must`, for the same reason as the catalogue below: a stale comparison
-// costs one "cheaper than the other chains" line, which is far better than
-// undoing a correct import over it.
-{
-  const { error } = await db.rpc("refresh_market_reference");
-  written.marketReference = error ? { failed: error.message } : "refreshed";
-  if (error) console.error(`market reference: ${error.message}`);
-}
-
-{
-  const { data, error } = await db.rpc("refresh_offers_catalog");
-  written.catalog = error ? { failed: error.message } : data;
-  if (error) console.error(`offers catalog: ${error.message}`);
+// ORDER. Each one reads what the one before it wrote: offers_ranked joins the
+// market comparison instead of recomputing it, the catalogue is built from
+// offers_ranked, and the scores are computed from offers_feed, whose chain half
+// IS the catalogue. Run them the other way round — which is how this stood until
+// 2026-10-24 — and every score published is one import behind the prices it
+// claims to describe.
+//
+// TIMED, because the only sign that these had stopped working was one line in a
+// log nobody reads and a date on a screen that stopped moving. A number beside
+// each one says whether its 120-second ceiling (0056) is still enough, while
+// there is room to notice that it is not.
+for (const [label, fn, key] of [
+  ["market reference", "refresh_market_reference", "marketReference"],
+  ["offers catalog", "refresh_offers_catalog", "catalog"],
+  ["deal scores", "refresh_offer_scores", "scores"],
+]) {
+  const started = Date.now();
+  const { data, error } = await db.rpc(fn);
+  const seconds = Math.round((Date.now() - started) / 100) / 10;
+  written[key] = error ? { failed: error.message, seconds } : { rows: data ?? null, seconds };
+  console.log(`${label}: ${error ? `FAILED ${error.message}` : `ok, ${data ?? ""}`} (${seconds}s)`);
 }
 
 // The app holds the catalogue and the feeds for five minutes under one cache tag, and
