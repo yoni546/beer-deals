@@ -1,0 +1,124 @@
+name: Place branches on the map (PRODUCTION)
+
+# Gives branches a real street-level position (scripts/ingest/geocode.mjs --target production).
+#
+# NOT on a schedule, and that is deliberate. This is a one-off catch-up job, run by hand when there
+# are branches worth placing — after a big import, or the first time. Nominatim is a free service
+# run on donated hardware; its usage policy asks for one request a second and no systematic bulk
+# querying, so this must stay an occasional, visible, operator-started run and never a nightly one.
+#
+# WHAT IT FIXES. Migration 0045 gave every branch whose town we recognise the centre of that town,
+# recorded as geocode_precision = 'locality' and worded on screen as "מרכז העיר". That answers "is
+# there a Rami Levy in my town" and openly does not point at the shop's door — on a map it is a
+# thousand shops stacked on twenty town squares. `--upgrade` asks the geocoder about those rows too.
+#
+# NOTHING IS EVER CLEARED. A branch is written only when the answer is strictly better than what it
+# already holds (isBetterFix). A failed lookup — the common case, not the rare one — leaves the
+# town centre exactly where it was. So the worst outcome of a bad run is no change.
+#
+# DRY RUN IS THE DEFAULT. `apply` must be ticked for anything to be written.
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions):
+#   PRODUCTION_SUPABASE_URL                https://<production ref>.supabase.co
+#   PRODUCTION_SUPABASE_SERVICE_ROLE_KEY   the production service-role key — the writer
+#   GEOCODER_CONTACT                       an email address. Nominatim REFUSES to run without one:
+#                                          it is how they reach whoever is making the requests. It
+#                                          travels in the User-Agent header to nominatim.openstreetmap.org
+#                                          and nowhere else.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_ref:
+        description: "The PRODUCTION Supabase project ref (Project Settings → General → Reference ID). Never qpjwnxptitnmtsznjvkw (staging)."
+        required: true
+        type: string
+      apply:
+        description: "Write the positions. Leave OFF for a dry run that only reports what it would do."
+        required: false
+        default: false
+        type: boolean
+      upgrade:
+        description: "Also re-ask for branches that only have their town's centre. A better answer replaces it; a worse one never does."
+        required: false
+        default: true
+        type: boolean
+      limit:
+        description: "Stop after this many branches (e.g. 25, to see what the answers look like). Empty = all of them."
+        required: false
+        default: "25"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geocode-production
+  cancel-in-progress: false
+
+jobs:
+  geocode:
+    name: Look up addresses, write positions
+    runs-on: ubuntu-latest
+    environment: production
+    # One request a second, and roughly 1,100 branches: about twenty minutes, plus room.
+    timeout-minutes: 60
+    env:
+      CONFIRM_REF: ${{ inputs.confirm_ref }}
+    steps:
+      - name: Check the production secrets and the typed project ref
+        env:
+          URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          CONTACT: ${{ secrets.GEOCODER_CONTACT }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::error::PRODUCTION_SUPABASE_URL / PRODUCTION_SUPABASE_SERVICE_ROLE_KEY are not set. Nothing was written."
+            exit 1
+          fi
+          if [ -z "$CONTACT" ]; then
+            echo "::error::GEOCODER_CONTACT is not set. Nominatim requires an identifiable client — an email address they can reach. Add it in Settings → Secrets and variables → Actions. Nothing was written."
+            exit 1
+          fi
+          if [ "$CONFIRM_REF" = "qpjwnxptitnmtsznjvkw" ]; then
+            echo "::error::qpjwnxptitnmtsznjvkw is the STAGING project. Nothing was written."
+            exit 1
+          fi
+          case "$URL" in
+            "https://${CONFIRM_REF}.supabase.co"|"https://${CONFIRM_REF}.supabase.co/") echo "Target: production project ${CONFIRM_REF}" ;;
+            *) echo "::error::The typed ref does not match PRODUCTION_SUPABASE_URL. Nothing was written."; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Look up addresses
+        env:
+          URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          CONTACT: ${{ secrets.GEOCODER_CONTACT }}
+          APPLY: ${{ inputs.apply }}
+          UPGRADE: ${{ inputs.upgrade }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          umask 077
+          # The writer reads credentials and configuration ONLY from this git-ignored file.
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nAPP_ENV=production\nGEOCODER=nominatim\nGEOCODER_CONTACT=%s\n' \
+            "$URL" "$KEY" "$CONTACT" > .env.production.local
+          ARGS="--target production --confirm-ref $CONFIRM_REF"
+          [ "$APPLY" = "true" ] && ARGS="$ARGS --apply"
+          [ "$UPGRADE" = "true" ] && ARGS="$ARGS --upgrade"
+          [ -n "$LIMIT" ] && ARGS="$ARGS --limit $LIMIT"
+          echo "Running: node scripts/ingest/geocode.mjs $ARGS"
+          node scripts/ingest/geocode.mjs $ARGS
+
+      - name: Remove the credentials file
+        if: always()
+        run: rm -f .env.production.local

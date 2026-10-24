@@ -51,3 +51,21 @@ export function insideIsrael(lat, lon) {
 }
 
 export const PRECISIONS = ["rooftop", "street", "locality"];
+
+/**
+ * Is a new answer worth overwriting what the branch already has?
+ *
+ * Only when it is strictly more precise. Every branch whose town we recognise
+ * already sits on that town's centre (0045), so without this an upgrade run would
+ * either skip them all or, worse, replace a coarse position with a coarse position
+ * from a different source and call it progress.
+ *
+ * Unknown precisions are not trusted and never win. A row with no precision at all
+ * has nothing to lose, so anything we know beats it.
+ */
+export function isBetterFix(next, current) {
+  const rank = (p) => PRECISIONS.indexOf(p);
+  if (rank(next) === -1) return false;
+  if (!current || rank(current) === -1) return true;
+  return rank(next) < rank(current);
+}

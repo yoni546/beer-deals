@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { insideIsrael, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
+import { insideIsrael, isBetterFix, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
 import { asUser } from "./helpers/db";
 import { world } from "./helpers/catalog";
 
@@ -145,5 +145,47 @@ describe("the admin can see how big the gap is", () => {
       ),
     );
     expect(rows[0].o.branches).toEqual({ total: 3, located: 1, geocodable: 1, no_address: 1 });
+  });
+});
+
+/**
+ * Upgrading the thousand branches that already sit on their town's centre.
+ *
+ * Migration 0045 gave every branch whose town we recognise the centre of that town.
+ * That answers "is there a Rami Levy in my town" and openly does not point at the
+ * shop's door — and on a map it is a thousand shops stacked on twenty town squares.
+ *
+ * The obvious way to re-do them is to blank the column and let the ordinary pass
+ * pick them up. That trades a coarse position for NO position the moment a lookup
+ * fails, and a failed lookup is the common case here, not the rare one. So nothing
+ * is ever cleared: the row is read with its precision and written only when the new
+ * answer is strictly better. A branch can move from the town square to its door. It
+ * can never move back to nothing.
+ */
+describe("a position is only ever replaced by a better one", () => {
+  it("accepts a sharper fix", () => {
+    expect(isBetterFix("rooftop", "locality")).toBe(true);
+    expect(isBetterFix("street", "locality")).toBe(true);
+    expect(isBetterFix("rooftop", "street")).toBe(true);
+  });
+
+  it("refuses an equal or coarser one — a town centre is not replaced by another town centre", () => {
+    expect(isBetterFix("locality", "locality")).toBe(false);
+    expect(isBetterFix("street", "street")).toBe(false);
+    expect(isBetterFix("locality", "street")).toBe(false);
+    expect(isBetterFix("locality", "rooftop")).toBe(false);
+  });
+
+  it("takes anything it understands for a branch that has no position", () => {
+    expect(isBetterFix("locality", null)).toBe(true);
+    expect(isBetterFix("rooftop", undefined)).toBe(true);
+  });
+
+  it("never trusts a precision it does not know, whatever is already there", () => {
+    expect(isBetterFix("approximate", "locality")).toBe(false);
+    expect(isBetterFix("", null)).toBe(false);
+    expect(isBetterFix(undefined, null)).toBe(false);
+    // …and a row holding an unknown precision has nothing worth keeping.
+    expect(isBetterFix("street", "guessed")).toBe(true);
   });
 });
