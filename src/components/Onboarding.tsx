@@ -6,7 +6,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { OnboardingStage, type Scene } from "@/components/OnboardingStage";
 import { PlacePicker, EMPTY_PLACE, type Place } from "@/components/PlacePicker";
 import { RankedBeers, moveItem } from "@/components/RankedBeers";
-import { BeerMark } from "@/components/ui/Bottle";
+import { BeerBottle } from "@/components/ui/Bottle";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import { getThemeForBeer, themeStyleSheet } from "@/design/themes";
@@ -254,7 +254,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
                       chosen ? "outline-[3px] outline-offset-0 outline-accent [outline-style:solid]" : ""
                     }`}
                   >
-                    <BeerMark slug={beer.slug} height={36} className="shrink-0" />
+                    <BeerBottle slug={beer.slug} height={36} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{beer.name_he}</span>
                     {chosen && (
                       <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-deal text-xs font-bold text-on-deal">
