@@ -63,6 +63,33 @@ export const PRECISIONS = ["rooftop", "street", "locality"];
  * Unknown precisions are not trusted and never win. A row with no precision at all
  * has nothing to lose, so anything we know beats it.
  */
+/**
+ * Some chains write the settlement's NUMBER where its name goes (0047): production
+ * holds "אשקלון, 0", "33 סוקולוב, 2650", "דרך השלום 13, 2500" — a real street, and a
+ * CBS settlement symbol in the city column. A geocoder asked that way has a street
+ * and a number that means nothing to it, which is most of why a dry run over 25
+ * branches placed four.
+ *
+ * 0045's town matching already resolves these through town_centres.code. This is the
+ * same rule for the geocoder: an all-digit city is a symbol and is looked up, leading
+ * zeros ignored on both sides; anything else is already a name. A symbol we do not
+ * know yields "" rather than itself, because sending "2650" to a geocoder is worse
+ * than sending nothing — it is the kind of input that comes back confidently wrong.
+ */
+export function cityResolver(towns) {
+  const byCode = new Map(
+    (towns ?? [])
+      .filter((t) => t && t.code != null && t.name)
+      .map((t) => [String(t.code).replace(/^0+/, ""), t.name]),
+  );
+  return (city) => {
+    const value = String(city ?? "").trim();
+    if (!value) return "";
+    if (!/^\d+$/.test(value)) return value;
+    return byCode.get(value.replace(/^0+/, "")) ?? "";
+  };
+}
+
 export function isBetterFix(next, current) {
   const rank = (p) => PRECISIONS.indexOf(p);
   if (rank(next) === -1) return false;

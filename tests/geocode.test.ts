@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { insideIsrael, isBetterFix, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
+import { cityResolver, insideIsrael, isBetterFix, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
 import { asUser } from "./helpers/db";
 import { world } from "./helpers/catalog";
 
@@ -187,5 +187,48 @@ describe("a position is only ever replaced by a better one", () => {
     expect(isBetterFix(undefined, null)).toBe(false);
     // …and a row holding an unknown precision has nothing worth keeping.
     expect(isBetterFix("street", "guessed")).toBe(true);
+  });
+});
+
+/**
+ * The city column is sometimes a number (0047).
+ *
+ * Production holds "אשקלון, 0", "33 סוקולוב, 2650", "דרך השלום 13, 2500": a real
+ * street address, and a CBS settlement symbol where the town's name should be. A
+ * geocoder asked that way has a street and a number that means nothing to it —
+ * most of why the first dry run over 25 branches placed four, three of them no
+ * nearer than the town. 0045's town matching has resolved these through
+ * town_centres.code since 0047; the geocoder never got the same treatment.
+ */
+describe("a town named by its number", () => {
+  const resolve = cityResolver([
+    { code: "2650", name: "חולון" },
+    { code: "4000", name: "חיפה" },
+    { code: "0472", name: "אבו גוש" },
+  ]);
+
+  it("turns a settlement symbol into the town's name", () => {
+    expect(resolve("2650")).toBe("חולון");
+    expect(resolve("4000")).toBe("חיפה");
+  });
+
+  it("ignores leading zeros on both sides, as place_branches_by_town does", () => {
+    expect(resolve("472")).toBe("אבו גוש");
+    expect(resolve("0472")).toBe("אבו גוש");
+    expect(resolve("00004000")).toBe("חיפה");
+  });
+
+  it("leaves a real name alone", () => {
+    expect(resolve("תל אביב")).toBe("תל אביב");
+    expect(resolve("  פרדס חנה-כרכור ")).toBe("פרדס חנה-כרכור");
+  });
+
+  it("gives nothing for a symbol it does not know, rather than the symbol itself", () => {
+    // "2650" reaching a geocoder is worse than an empty city: it is the kind of
+    // input that comes back confidently wrong, and a wrong pin is invisible.
+    expect(resolve("999999")).toBe("");
+    expect(resolve("0")).toBe("");
+    expect(resolve(null)).toBe("");
+    expect(resolve("")).toBe("");
   });
 });
