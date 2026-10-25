@@ -368,6 +368,17 @@ select,
     font-size: 0.6875rem;
     color: var(--ink-2);
   }
+  /* A point shared by several shops names each one above its own deals. */
+  .map-pop-shop {
+    margin-top: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .map-pop-shop:first-of-type {
+    margin-top: 0.5rem;
+  }
+
   .map-pop-list {
     margin-top: 0.5rem;
     display: grid;

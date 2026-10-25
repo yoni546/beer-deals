@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PinIcon } from "@/components/ui/icons";
 import { redirect } from "next/navigation";
 import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
@@ -257,8 +258,23 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <SortBar path="/" state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
           </div>
 
-          <div className="mb-5">
+          <div className="mb-5 flex items-center gap-3">
             <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
+            {/* The only way into the map, and it is here because this is where the
+                question is already "what is near me". A tab of its own would make a
+                map one of the four things this app is, which it is not: it is one
+                way of reading the answer Home already gives. Shown only when we can
+                place the person — a map with nothing to centre on is a dead link. */}
+            {intent === "near" && distances.available && (
+              <Link
+                href="/map"
+                prefetch={false}
+                className="disclose shrink-0 text-sm"
+              >
+                <PinIcon size={16} />
+                על המפה
+              </Link>
+            )}
           </div>
 
           {intent === "near" ? (
