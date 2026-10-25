@@ -51,7 +51,7 @@ import { createClient } from "@supabase/supabase-js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTarget } from "./lib/target.mjs";
-import { cityResolver, insideIsrael, isBetterFix, normPlace, placeToAsk, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
+import { cityResolver, fixForBranch, insideIsrael, isBetterFix, normPlace, placeToAsk, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const args = process.argv.slice(2);
@@ -117,7 +117,7 @@ const towns = [];
 for (let from = 0; ; from += 1000) {
   const { data, error: townsError } = await db
     .from("town_centres")
-    .select("code, name, norm_name")
+    .select("code, name, norm_name, lat, lon")
     .range(from, from + 999);
   if (townsError) {
     console.error(`Refusing: could not read the settlement list — ${townsError.message}`);
@@ -128,6 +128,9 @@ for (let from = 0; ; from += 1000) {
 }
 console.log(`${towns.length} settlements known`);
 const townFor = cityResolver((towns ?? []).filter((t) => t.code));
+// The town's own centre, by its name — what every street-level answer is checked
+// against, and what we fall back to when there is no usable street answer.
+const centreOf = new Map((towns ?? []).map((t) => [normPlace(t.name), { lat: t.lat, lon: t.lon }]));
 const knownTowns = new Set((towns ?? []).map((t) => t.norm_name ?? normPlace(t.name)));
 const askAbout = (branch) => placeToAsk({ ...branch, name: branch.name_he }, { resolveCity: townFor, knownTowns });
 const cityOf = (branch) => townFor(branch.city);
@@ -142,7 +145,17 @@ if (skippedNoTown) console.log(`${skippedNoTown} skipped: no town we can name, a
 console.log(`${todo.length} branches to place
 `);
 
-const tally = { placed: 0, refused: 0, failed: 0, written: 0, kept: 0, byPrecision: {} };
+const tally = { placed: 0, refused: 0, failed: 0, written: 0, kept: 0, outOfTown: 0, byPrecision: {} };
+
+/** Great-circle kilometres, the same formula public.km_between uses. */
+function kmBetween(aLat, aLon, bLat, bLon) {
+  const R = 6371;
+  const rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(bLat - aLat);
+  const dLon = rad(bLon - aLon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 const examples = [];
 
 for (const branch of todo) {
@@ -157,20 +170,32 @@ for (const branch of todo) {
     continue;
   }
 
-  if (!fix) {
+  if (fix && (!insideIsrael(fix.lat, fix.lon) || !PRECISIONS.includes(fix.precision))) {
+    // A provider that answers out of bounds, or with a precision we do not know, is
+    // not trusted for that row. Better one unplaced branch than one wrong pin.
+    console.error(`! ${where}: refused an implausible answer (${fix.lat}, ${fix.lon}, ${fix.precision})`);
+    fix = null;
+  }
+
+  // THE TOWN DECIDES. A street-level answer is kept only when it lands inside the
+  // town we asked about; otherwise the town's own centre is the answer, which the
+  // screen already words as "מרכז העיר". Asking for "street, town" does not
+  // guarantee an answer in that town, and the street was never what was being
+  // asked for — it only refines a town we are already sure of.
+  const chosen = fixForBranch({ fix, town: centreOf.get(normPlace(ask.city)) ?? null, distanceKm: kmBetween });
+  if (chosen && chosen.rejected !== undefined) {
+    tally.outOfTown += 1;
+    console.error(`! ${where}: the answer was ${chosen.rejected.toFixed(0)} km from ${ask.city} — kept the town centre instead`);
+  }
+  if (!chosen) {
     tally.refused += 1;
     continue;
   }
+  fix = { lat: chosen.lat, lon: chosen.lon, precision: chosen.precision };
+
   // A branch sitting on its town's centre keeps it unless the answer improves on it.
   if (branch.geocode_precision && !isBetterFix(fix.precision, branch.geocode_precision)) {
     tally.kept += 1;
-    continue;
-  }
-  if (!insideIsrael(fix.lat, fix.lon) || !PRECISIONS.includes(fix.precision)) {
-    // A provider that answers out of bounds, or with a precision we do not know, is
-    // not trusted for that row. Better one unplaced branch than one wrong pin.
-    tally.refused += 1;
-    console.error(`! ${where}: refused an implausible answer (${fix.lat}, ${fix.lon}, ${fix.precision})`);
     continue;
   }
 
@@ -187,7 +212,7 @@ for (const branch of todo) {
       latitude: fix.lat,
       longitude: fix.lon,
       geocoded_at: new Date().toISOString(),
-      geocode_source: provider.name,
+      geocode_source: fix.precision === "locality" ? `${provider.name} (town centre)` : provider.name,
       geocode_precision: fix.precision,
     })
     .eq("id", branch.id);
@@ -211,6 +236,7 @@ console.log(
       placed: tally.placed,
       written: tally.written,
       could_not_place: tally.refused,
+      answer_was_in_another_town: tally.outOfTown,
       no_town_to_ask_about: skippedNoTown,
       kept_what_they_had: tally.kept,
       failed: tally.failed,
