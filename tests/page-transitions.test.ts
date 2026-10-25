@@ -121,3 +121,41 @@ describe("the waiting bar", () => {
     expect(bar).not.toMatch(/box-shadow|filter:/);
   });
 });
+
+/**
+ * The trolley that fills while the app opens (0.12.0, the owner's idea).
+ *
+ * The thing worth holding is WHERE it runs. Opening the installed app from the
+ * home screen already shows a blank screen while the OS hands over; filling that
+ * costs nobody anything. A browser tab has no such gap, and an overlay there
+ * would be covering content that was ready — the one thing DESIGN.md says motion
+ * must never do.
+ *
+ * And it must stay script-free. Nothing dismisses it, so nothing can leave it
+ * stuck in front of the app: it animates once and ends invisible and
+ * untouchable. A `useEffect` with a timer would be the obvious way to write
+ * this, and the obvious way to ship a permanent grey screen to somebody whose
+ * JavaScript failed to load.
+ */
+describe("the trolley on opening", () => {
+  const css = readFileSync(join(ROOT, "src", "app", "globals.css"), "utf8");
+  const art = readFileSync(join(ROOT, "src", "components", "LaunchScreen.tsx"), "utf8");
+  const launch = css.slice(css.indexOf(".launch {"), css.indexOf("@keyframes launch-out"));
+
+  it("appears in the installed app and nowhere else", () => {
+    expect(launch).toMatch(/@media \(display-mode: standalone\)/);
+    // Hidden by default, so a browser tab never sees it even for a frame.
+    expect(launch).toMatch(/\.launch \{\s*display: none;\s*\}/);
+  });
+
+  it("ends by itself, with no script to dismiss it", () => {
+    expect(art).not.toMatch(/"use client"|useEffect|useState|setTimeout/);
+    expect(css).toMatch(/@keyframes launch-out[\s\S]*?visibility: hidden/);
+    expect(css).toMatch(/@keyframes launch-out[\s\S]*?pointer-events: none/);
+  });
+
+  it("is drawn, not fetched — no asset to load before the app can open", () => {
+    expect(art).toMatch(/<svg/);
+    expect(art).not.toMatch(/<img|url\(|\.webp|\.png|\.gif|\.mp4/);
+  });
+});

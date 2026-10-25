@@ -308,6 +308,70 @@ select,
     color: var(--on-deal);
   }
 
+  /* -------------------------------------------------------- opening the app
+
+     A trolley with three six-packs dropping into it, in the installed app only.
+     Opening from the home screen already shows a blank screen while the OS
+     hands over; this fills a moment that was empty anyway. In a browser tab
+     there is no such gap, so there is no overlay — covering content that was
+     ready is the one thing motion here must never do.
+
+     It animates once and ends invisible and untouchable. No script dismisses
+     it, so nothing can leave it stuck in front of the app. */
+  .launch {
+    display: none;
+  }
+
+  @media (display-mode: standalone) {
+    .launch {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: grid;
+      place-items: center;
+      background: var(--ground);
+      animation: launch-out 1250ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .launch-art {
+      fill: none;
+      stroke: var(--on-ground);
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.9;
+    }
+    /* Each pack falls from above the basket and settles. Whole pixels, one
+       overshoot — the same hand as the print-in of a strip. */
+    .launch-pack {
+      animation: launch-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    .launch-pack-1 { animation-delay: 120ms; }
+    .launch-pack-2 { animation-delay: 300ms; }
+    .launch-pack-3 { animation-delay: 480ms; }
+  }
+
+  @keyframes launch-drop {
+    from {
+      transform: translateY(-26px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes launch-out {
+    0%, 72% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+
   /* ------------------------------------------------------------------ the map
 
      The one screen with a third party on it. Everything here styles Leaflet's
