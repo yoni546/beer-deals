@@ -51,7 +51,7 @@ import { createClient } from "@supabase/supabase-js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTarget } from "./lib/target.mjs";
-import { insideIsrael, isBetterFix, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
+import { cityResolver, insideIsrael, isBetterFix, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const args = process.argv.slice(2);
@@ -103,8 +103,24 @@ if (error) {
   process.exit(1);
 }
 
-const todo = (branches ?? []).filter((b) => (STORE ? b.stores?.slug === STORE : true)).filter((b) => b.address || b.city);
-const skippedNoAddress = (branches ?? []).length - (branches ?? []).filter((b) => b.address || b.city).length;
+// SOME CHAINS WRITE THE SETTLEMENT'S NUMBER WHERE ITS NAME GOES (0047). Production
+// holds 'אשקלון, 0', '33 סוקולוב, 2650', 'דרך השלום 13, 2500' — a real street and a
+// CBS settlement symbol in the city column. Asked that way, a geocoder has a street
+// and a number that means nothing to it: a dry run over 25 branches placed 4, and
+// three of those only as far as the town. 0045's town matching already resolves these
+// through town_centres.code; the geocoder never got the same treatment.
+const { data: towns, error: townsError } = await db.from("town_centres").select("code, name").not("code", "is", null);
+if (townsError) {
+  console.error(`Refusing: could not read the settlement list — ${townsError.message}`);
+  process.exit(1);
+}
+const townFor = cityResolver(towns);
+const cityOf = (branch) => townFor(branch.city);
+
+const todo = (branches ?? []).filter((b) => (STORE ? b.stores?.slug === STORE : true)).filter((b) => b.address || cityOf(b));
+const skippedNoAddress = (branches ?? []).length - (branches ?? []).filter((b) => b.address || cityOf(b)).length;
+const codesResolved = (branches ?? []).filter((b) => /^\d+$/.test((b.city ?? "").trim()) && cityOf(b)).length;
+if (codesResolved) console.log(`${codesResolved} of them name their town by its CBS symbol; resolved through town_centres (0047)`);
 
 console.log(`${todo.length} branches to place${skippedNoAddress ? ` (${skippedNoAddress} have neither an address nor a city)` : ""}\n`);
 
@@ -112,10 +128,11 @@ const tally = { placed: 0, refused: 0, failed: 0, written: 0, kept: 0, byPrecisi
 const examples = [];
 
 for (const branch of todo) {
-  const where = [branch.address, branch.city].filter(Boolean).join(", ");
+  const city = cityOf(branch);
+  const where = [branch.address, city].filter(Boolean).join(", ");
   let fix = null;
   try {
-    fix = await provider.geocode(branch.address, branch.city);
+    fix = await provider.geocode(branch.address, city);
   } catch (failure) {
     tally.failed += 1;
     console.error(`! ${branch.stores?.name_he ?? "?"} · ${where}: ${failure.message}`);
