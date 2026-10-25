@@ -44,11 +44,29 @@ describe("the map", () => {
     expect(page).toContain("מרכז היישוב");
   });
 
+  it("can be reached, and only from where the question is already \"near me\"", () => {
+    // A screen nothing links to is not shipped. It is deliberately NOT a fifth tab:
+    // a map is one way of reading the answer Home already gives, not one of the four
+    // things this app is.
+    const home = read("src", "app", "page.tsx");
+    expect(home).toMatch(/href="\/map"/);
+    expect(home).toMatch(/intent === "near" && distances\.available/);
+
+    // And nowhere else, so it cannot quietly become navigation.
+    const everywhere = ["src/app", "src/components"].flatMap((dir) => tsx(join(ROOT, dir)))
+      .filter((file) => !file.includes(join("app", "map")) && !file.includes(join("components", "map")))
+      .filter((file) => /href="\/map"/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(ROOT.length + 1));
+    expect(everywhere).toEqual([join("src", "app", "page.tsx")]);
+  });
+
   it("names the tile provider in the attribution, on the map", () => {
     expect(map).toMatch(/attribution:/);
     expect(map).toContain("openstreetmap.org/copyright");
   });
 });
+
+const tsx = (dir: string) => files(dir);
 
 function files(dir: string): string[] {
   const { readdirSync, statSync } = require("node:fs") as typeof import("node:fs");

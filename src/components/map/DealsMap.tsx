@@ -88,20 +88,35 @@ export function DealsMap({ pins, centre, radiusKm }: { pins: MapPin[]; centre: {
       for (const marker of markers.current) marker.remove();
       markers.current = [];
 
+      // ONE MARKER PER POINT, not per branch. Most branches sit on their town's
+      // centre until a geocoder places them properly, which means dozens of them
+      // share one coordinate EXACTLY — and a map that draws them all puts eighty
+      // markers on top of each other and shows you one. Merging what is genuinely
+      // at the same point is the honest drawing of this data: the pin says how
+      // many deals are there, and the popup names each shop.
+      const atPoint = new Map<string, MapPin[]>();
       for (const pin of pins) {
-        // The marker is our own dot, not Leaflet's default image: that one is a PNG
-        // fetched from the library's folder, and it is blue.
+        const key = `${pin.lat},${pin.lon}`;
+        const group = atPoint.get(key);
+        if (group) group.push(pin);
+        else atPoint.set(key, [pin]);
+      }
+
+      for (const group of atPoint.values()) {
+        const deals = group.reduce((total, pin) => total + pin.offers.length, 0);
+        // Our own dot, not Leaflet's default: that one is a PNG fetched from the
+        // library's folder, and it is blue.
         const icon = L.divIcon({
           className: "",
-          html: `<span class="map-pin"><span class="map-pin-count">${pin.offers.length}</span></span>`,
+          html: `<span class="map-pin"><span class="map-pin-count">${deals}</span></span>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14],
           popupAnchor: [0, -14],
         });
 
-        const marker = L.marker([pin.lat, pin.lon], { icon, title: pin.name })
+        const marker = L.marker([group[0].lat, group[0].lon], { icon, title: group[0].name })
           .addTo(instance)
-          .bindPopup(popupHtml(pin), { closeButton: true, maxWidth: 260 });
+          .bindPopup(popupHtml(group), { closeButton: true, maxWidth: 280 });
         markers.current.push(marker);
       }
 
@@ -150,13 +165,57 @@ const PROMO_HE: Record<string, string> = {
  * It is a string because Leaflet owns the popup's DOM. Everything interpolated is
  * escaped: these values come from chain feeds, which are somebody else's data.
  */
-function popupHtml(pin: MapPin): string {
-  const distance = pin.km === null ? "" : `<span class="map-pop-km num">${pin.km < 1 ? `${Math.round(pin.km * 1000)} מ׳` : `${pin.km.toFixed(1)} ק״מ`}</span>`;
-  const whereabouts = pin.precision === "locality" ? '<p class="map-pop-note">מיקום משוער — מרכז היישוב</p>' : "";
+function popupHtml(group: MapPin[]): string {
+  const [first] = group;
+  const distance = first.km === null ? "" : `<span class="map-pop-km num">${first.km < 1 ? `${Math.round(first.km * 1000)} מ׳` : `${first.km.toFixed(1)} ק״מ`}</span>`;
+  const whereabouts = first.precision === "locality" ? '<p class="map-pop-note">מיקום משוער — מרכז היישוב</p>' : "";
 
-  const lines = pin.offers
+  // A point shared by several shops is headed by the place, and each shop names
+  // itself above its own deals. One shop keeps the shorter heading it had.
+  const head = group.length === 1
+    ? `${escapeHtml(first.storeName)}${first.name && first.name !== first.storeName ? ` · ${escapeHtml(first.name)}` : ""}`
+    : `${escapeHtml(first.city ?? "כאן")} · ${group.length} חנויות`;
+
+  // CAPPED, because a town centre can carry eighty shops and four hundred deals
+  // until the branches are placed properly, and a popup is not a page. The best
+  // savings survive the cut; the rest are counted, and the chain pages are where
+  // a whole chain is read anyway.
+  const ranked = group.slice().sort((a, b) => bestOf(b) - bestOf(a));
+  const shown = ranked.slice(0, SHOPS_IN_A_POPUP);
+  const hiddenShops = ranked.length - shown.length;
+  const hiddenDeals = ranked.slice(SHOPS_IN_A_POPUP).reduce((total, pin) => total + pin.offers.length, 0);
+
+  const sections = shown
+    .map((pin) => (group.length === 1 ? "" : `<p class="map-pop-shop">${escapeHtml(pin.storeName)}${pin.name && pin.name !== pin.storeName ? ` · ${escapeHtml(pin.name)}` : ""}</p>`) + offerList(pin))
+    .join("");
+
+  const more = hiddenShops > 0
+    ? `<p class="map-pop-note">ועוד ${hiddenDeals} מבצעים ב־${hiddenShops} חנויות כאן</p>`
+    : "";
+
+  return `<div class="map-pop">
+    <p class="map-pop-head">${head}${distance}</p>
+    ${whereabouts}
+    ${sections}
+    ${more}
+  </div>`;
+}
+
+/** How many shops one pin will name before it starts counting instead. */
+const SHOPS_IN_A_POPUP = 4;
+/** And how many deals under each of them. */
+const DEALS_PER_SHOP = 3;
+
+/** The best verified saving at a shop, for ordering several at one point. */
+const bestOf = (pin: MapPin) => pin.offers.reduce((best, offer) => Math.max(best, offer.value_pct ?? -1), -1);
+
+function offerList(pin: MapPin): string {
+  const best = pin.offers
     .slice()
-    .sort((a, b) => (b.value_pct ?? -1) - (a.value_pct ?? -1) || a.effective_agorot - b.effective_agorot)
+    .sort((a, b) => (b.value_pct ?? -1) - (a.value_pct ?? -1) || a.effective_agorot - b.effective_agorot);
+  const rest = best.length - DEALS_PER_SHOP;
+  const lines = best
+    .slice(0, DEALS_PER_SHOP)
     .map((offer) => {
       const photo = `/bottles/${offer.beer_slug}@216.webp`;
       const saving = offer.value_pct === null ? "" : `<span class="map-pop-save num">−${offer.value_pct}%</span>`;
@@ -172,9 +231,5 @@ function popupHtml(pin: MapPin): string {
     })
     .join("");
 
-  return `<div class="map-pop">
-    <p class="map-pop-head">${escapeHtml(pin.storeName)}${pin.name && pin.name !== pin.storeName ? ` · ${escapeHtml(pin.name)}` : ""}${distance}</p>
-    ${whereabouts}
-    <ul class="map-pop-list">${lines}</ul>
-  </div>`;
+  return `<ul class="map-pop-list">${lines}</ul>${rest > 0 ? `<p class="map-pop-note">ועוד ${rest} בחנות הזו</p>` : ""}`;
 }
