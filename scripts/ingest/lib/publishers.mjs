@@ -15,6 +15,7 @@
  * @typedef {{
  *   source: string, chainCode: string,
  *   platform: "carrefour"|"shufersal"|"cerberus"|"laib"|"bina"|"hatzi-hinam",
+ *   password?: string,   // cerberus only. The one the chain publishes on gov.il, never a secret.
  *   code?: string, host?: string,
  *   retailer: (b: FeedBranch) => string | null,
  *   blocked?: string,
@@ -59,14 +60,20 @@ export const PUBLISHERS = {
   },
   "stop-market": { source: "feed-stop-market", chainCode: "7290639000004", platform: "cerberus", code: "Stop_Market", retailer: () => "stop-market" },
   politzer: { source: "feed-politzer", chainCode: "7291059100008", platform: "cerberus", code: "politzer", retailer: () => "politzer" },
-  // Publishers that exist but cannot be read without credentials we do not have. Never guessed, never forced.
+  // 0.12.0: Super Yuda, which was never actually blocked. Two faults, both ours:
+  // its files live one folder down ("Yuda") and the root reads as an empty
+  // account, and the chain code here had two digits transposed — 7290058148776
+  // for 7290058177776 — so even a correct listing would have matched nothing.
+  // The password is the one the chain publishes by law on gov.il; it is not a
+  // secret and does not belong in a secret store. Verified 2026-10-25: 422 files,
+  // 200 of them promotions, the newest from that morning.
   "super-yuda": {
-    source: "",
-    chainCode: "7290058148776",
+    source: "feed-super-yuda",
+    chainCode: "7290058177776",
     platform: "cerberus",
     code: "yuda_ho",
+    password: "Yud@147",
     retailer: () => "super-yuda",
-    blocked: "Super Yuda's Cerberus account (yuda_ho) requires a password; the public empty-password login is refused. Needs the chain's published credentials.",
   },
   "salach-dabach": {
     source: "",
@@ -74,7 +81,8 @@ export const PUBLISHERS = {
     platform: "cerberus",
     code: "SalachD",
     retailer: () => "salach-dabach",
-    blocked: "Salach Dabach's Cerberus account (SalachD) requires a password; the public empty-password login is refused.",
+    password: "12345",
+    blocked: "Reachable — the published password works and the account lists 57 files (verified 2026-10-25). Still off because this chain has no store row and no feed source yet, which is the owner's call, not a technical one.",
   },
   yellow: {
     source: "",
@@ -82,7 +90,8 @@ export const PUBLISHERS = {
     platform: "cerberus",
     code: "Paz_bo",
     retailer: () => "yellow",
-    blocked: "Paz Yellow's Cerberus account (Paz_bo) requires a password; the public empty-password login is refused.",
+    password: "paz468",
+    blocked: "Reachable — the published password works and the account lists 980 files (verified 2026-10-25). Still off because this chain has no store row and no feed source yet, which is the owner's call, not a technical one.",
   },
 };
 

@@ -15426,6 +15426,40 @@ insert into public.stores (slug, name_he) values
   ('bana',       'בנא משקאות')
 on conflict (slug) do nothing;
 
+-- ======================== 0061_super_yudas_feed.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0061 — Super Yuda has a feed after all
+--
+-- The chain has been listed as blocked since 0.8.0, on the note that its
+-- Cerberus account "requires a password; the public empty-password login is
+-- refused". Both halves of that were wrong, and the owner asking why there were
+-- no Super Yuda deals is what made anybody look.
+--
+--   1. The login was never refused. It answers 302 with or without the password.
+--      What came back was ONE entry at the root — a FOLDER named "Yuda" — and a
+--      listing with no files in it reads exactly like an empty account.
+--      Inside that folder: 422 files, 200 of them promotions, the newest from
+--      that morning (verified 2026-10-25).
+--
+--   2. The chain code here had two digits transposed: 7290058148776 for
+--      7290058177776. So even a correct listing would have matched nothing, and
+--      the first fault hid the second.
+--
+-- The password is the one the chain publishes by law on gov.il, alongside every
+-- other chain's. It is not a secret, it is a published term of access, and it
+-- lives in the publisher config with the username that was already there.
+--
+-- This migration is only the source row the importer writes against — trust 80,
+-- the same as every other chain feed, because it is the same kind of evidence.
+--
+-- Additive and idempotent.
+-- ---------------------------------------------------------------------------
+
+insert into public.sources (slug, name, kind, trust) values
+  ('feed-super-yuda', 'Super Yuda price feed', 'chain_feed', 80)
+on conflict (slug) do nothing;
+
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15433,9 +15467,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0061')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 58 migrations';
+  raise notice 'ledger: recorded 59 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end
