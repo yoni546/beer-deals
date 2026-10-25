@@ -107,13 +107,32 @@ export function normPlace(raw) {
  *   - or the ADDRESS is itself a town we know, which is how rows like
  *     "אור יהודה" with city "0" still place at their town centre.
  * Anything else returns null and is counted, not guessed.
+ *
+ * AND THE BRANCH'S NAME CAN VETO THE SECOND ONE. This cost six real rows on
+ * 2026-10-25, one of them wrong: "סגולה פתח תקווה", city "0", address "סגולה"
+ * was placed 47 km south of Petah Tikva, because סגולה is a neighbourhood there
+ * AND a moshav near Kiryat Gat. The address passing for a town is not evidence
+ * that the branch is in it — an address field can hold a neighbourhood, a mall or
+ * a road, and a one-word match is exactly the confident, undetectable kind of
+ * wrong 0047's own tests already refuse for branch names.
+ *
+ * So when the name mentions a DIFFERENT town we know, the address loses and the
+ * branch is skipped. Note the asymmetry, which is the whole point: a town found
+ * inside a name may only ever REFUSE, never place. False matches then cost us a
+ * missing pin, which is visible, instead of a wrong one, which is not.
  */
-export function placeToAsk({ address, city }, { resolveCity, knownTowns }) {
+export function placeToAsk({ address, city, name }, { resolveCity, knownTowns }) {
   const town = resolveCity(city);
   const street = String(address ?? "").trim();
   if (town) return { address: street, city: town };
-  if (street && knownTowns.has(normPlace(street))) return { address: "", city: street };
-  return null;
+  if (!street || !knownTowns.has(normPlace(street))) return null;
+
+  const asTown = normPlace(street);
+  const haystack = normPlace(name ?? "");
+  for (const known of knownTowns) {
+    if (known !== asTown && known.length > 2 && haystack.includes(known)) return null;
+  }
+  return { address: "", city: street };
 }
 
 export function cityResolver(towns) {

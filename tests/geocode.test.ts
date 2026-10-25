@@ -248,9 +248,9 @@ describe("a town named by its number", () => {
  */
 describe("what we are willing to ask about", () => {
   const resolveCity = cityResolver([{ code: "2650", name: "רמת השרון" }]);
-  const knownTowns = new Set(["אור יהודה", "פרדס חנה כרכור", "רמת השרון"].map(normPlace));
-  const ask = (address: string | null, city: string | null) =>
-    placeToAsk({ address, city }, { resolveCity, knownTowns });
+  const knownTowns = new Set(["אור יהודה", "פרדס חנה כרכור", "רמת השרון", "סגולה", "פתח תקווה", "רחובות"].map(normPlace));
+  const ask = (address: string | null, city: string | null, name: string | null = null) =>
+    placeToAsk({ address, city, name }, { resolveCity, knownTowns });
 
   it("asks with the street and the town when the town is known", () => {
     expect(ask("סוקולוב 33", "2650")).toEqual({ address: "סוקולוב 33", city: "רמת השרון" });
@@ -268,6 +268,31 @@ describe("what we are willing to ask about", () => {
     expect(ask("אור יהודה", "0")).toEqual({ address: "", city: "אור יהודה" });
     // Spelling differences are the database's own rule, not a second one.
     expect(ask("פרדס־חנה  כרכור", "0")).toEqual({ address: "", city: "פרדס־חנה  כרכור" });
+  });
+
+  /**
+   * MEASURED, production, 2026-10-25, and it cost six written rows before the run
+   * was stopped. "סגולה פתח תקווה", city "0", address "סגולה" was placed 47 km
+   * south of Petah Tikva: סגולה is a neighbourhood there AND a moshav near Kiryat
+   * Gat. The address passing for a town is not evidence that the branch is in it.
+   */
+  it("lets the branch's name veto an address that only looks like a town", () => {
+    expect(ask("סגולה", "0", "סגולה פתח תקווה")).toBeNull();
+    // Without the contradiction the same row is still fine.
+    expect(ask("סגולה", "0", "סגולה")).toEqual({ address: "", city: "סגולה" });
+  });
+
+  it("still places the rows that agree with themselves", () => {
+    // Both of these were written that day and both are correct.
+    expect(ask("אור יהודה", "0", "אור יהודה גדול")).toEqual({ address: "", city: "אור יהודה" });
+    expect(ask("רחובות", "0", "מרכז סנטרו רחובות")).toEqual({ address: "", city: "רחובות" });
+  });
+
+  it("only ever REFUSES on a town found inside a name, never places from one", () => {
+    // The asymmetry is the point: a false match costs a missing pin, which is
+    // visible, rather than a wrong one, which is not.
+    expect(ask("קניון איילון", "0", "קניון איילון")).toBeNull();
+    expect(ask(null, "0", "רמי לוי פתח תקווה")).toBeNull();
   });
 
   it("asks about nothing at all when there is nothing to go on", () => {
