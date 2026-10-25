@@ -129,7 +129,7 @@ for (let from = 0; ; from += 1000) {
 console.log(`${towns.length} settlements known`);
 const townFor = cityResolver((towns ?? []).filter((t) => t.code));
 const knownTowns = new Set((towns ?? []).map((t) => t.norm_name ?? normPlace(t.name)));
-const askAbout = (branch) => placeToAsk(branch, { resolveCity: townFor, knownTowns });
+const askAbout = (branch) => placeToAsk({ ...branch, name: branch.name_he }, { resolveCity: townFor, knownTowns });
 const cityOf = (branch) => townFor(branch.city);
 
 const inScope = (branches ?? []).filter((b) => (STORE ? b.stores?.slug === STORE : true));
