@@ -220,3 +220,44 @@ describe("the whole country", () => {
     expect((await byTown(w))[0].deals).toBe(1);
   });
 });
+
+/**
+ * A town pin knows its own name (0065).
+ *
+ * MEASURED minutes after 0064 shipped: thirty of 142 towns came back named "0",
+ * including Beer Sheva, Petah Tikva, Kfar Saba, Netanya, Rishon LeZion and
+ * Ashdod — six of the ten largest. The name came from min(city), and some chains
+ * write "0" where the town's name goes (0047); "0" sorts before every real
+ * value, so one branch filing a zero renamed the whole town to nothing.
+ *
+ * The coordinate is not an approximation of a town — it IS a town_centres row,
+ * copied onto the branch by place_branches_by_town — so the name is a lookup,
+ * not a guess.
+ */
+describe("a town pin knows its own name", () => {
+  it("takes the name from the point when a chain files a zero", async () => {
+    const w = await world();
+    const centre = await w.one<{ name: string; lat: number; lon: number }>(
+      "select name, lat, lon from public.town_centres order by name limit 1",
+    );
+    await promotionAt(w, [
+      { name: "סניף", city: "0", lat: centre.lat, lon: centre.lon },
+      { name: "עוד סניף", city: "0", lat: centre.lat, lon: centre.lon },
+    ]);
+
+    const rows = await w.asPublic(() =>
+      w.db.query<{ town: string | null }>("select * from public.deals_by_town()"),
+    ).then((r) => r.rows);
+    expect(rows[0].town).toBe(centre.name);
+  });
+
+  it("never answers '0', even where the point is not a town centre", async () => {
+    const w = await world();
+    // A street-level fix: no town_centres row sits on this coordinate.
+    await promotionAt(w, [{ name: "סניף", city: "0", lat: 32.0812345, lon: 34.7712345, precision: "rooftop" }]);
+    const rows = await w.asPublic(() =>
+      w.db.query<{ town: string | null }>("select * from public.deals_by_town()"),
+    ).then((r) => r.rows);
+    expect(rows[0].town).toBeNull();
+  });
+});
