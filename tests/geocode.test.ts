@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { cityResolver, insideIsrael, isBetterFix, normPlace, placeToAsk, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
+import { cityResolver, fixForBranch, insideIsrael, isBetterFix, normPlace, placeToAsk, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
 import { asUser } from "./helpers/db";
 import { world } from "./helpers/catalog";
 
@@ -298,5 +298,59 @@ describe("what we are willing to ask about", () => {
   it("asks about nothing at all when there is nothing to go on", () => {
     expect(ask(null, null)).toBeNull();
     expect(ask("", "")).toBeNull();
+  });
+});
+
+/**
+ * The town decides; the street only refines it.
+ *
+ * The owner's rule, 2026-10-25, after a Petah Tikva shop was put 47 km south:
+ * "קודם כל עיר ואז הכתובת בתוך העיר, שהשם של הרחוב לא ישלח אותי לעיר או מושב אחר."
+ * What he needs right is the town — he will find the door himself. The street is
+ * worth having and is never worth being wrong about.
+ *
+ * Asking for "street, town" does NOT guarantee an answer in that town: given a
+ * street it cannot find there, a geocoder returns one it can find elsewhere,
+ * with no sign that it did. So every street-level answer is measured against the
+ * town's own centre, which the database holds for 1,172 settlements.
+ */
+describe("the town decides", () => {
+  // Petah Tikva, and the moshav called Segula 47 km south of it.
+  const petahTikva = { lat: 32.0878, lon: 34.8878 };
+  const km = (aLat: number, aLon: number, bLat: number, bLon: number) => {
+    const R = 6371, rad = (d: number) => (d * Math.PI) / 180;
+    const dLat = rad(bLat - aLat), dLon = rad(bLon - aLon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+  const fixFor = (fix: unknown, town: unknown = petahTikva) =>
+    fixForBranch({ fix, town, distanceKm: km } as Parameters<typeof fixForBranch>[0]);
+
+  it("keeps a street-level answer that lands inside the town", () => {
+    const inTown = { lat: 32.0905, lon: 34.8820, precision: "rooftop" };
+    expect(fixFor(inTown)).toMatchObject({ lat: 32.0905, precision: "rooftop", source: "geocoder" });
+  });
+
+  it("throws away a street-level answer that lands in another town, and keeps the centre", () => {
+    const segulaMoshav = { lat: 31.6697, lon: 34.7791, precision: "street" };
+    const kept = fixFor(segulaMoshav);
+    expect(kept).toMatchObject({ lat: petahTikva.lat, precision: "locality" });
+    expect(kept?.rejected).toBeGreaterThan(40);
+  });
+
+  it("falls back to the town's centre when the geocoder found nothing at all", () => {
+    expect(fixFor(null)).toMatchObject({ lat: petahTikva.lat, precision: "locality" });
+  });
+
+  it("has nothing to offer when we do not know the town either", () => {
+    expect(fixFor(null, null)).toBeNull();
+    // …and with no centre to check against, a street answer is all there is.
+    expect(fixFor({ lat: 31.6, lon: 34.7, precision: "street" }, null)).toMatchObject({ precision: "street" });
+  });
+
+  it("is forgiving enough for a large municipality", () => {
+    // Jerusalem is about 18 km across; a real address at its edge must survive.
+    const edge = { lat: petahTikva.lat + 0.15, lon: petahTikva.lon, precision: "rooftop" };
+    expect(fixFor(edge)).toMatchObject({ precision: "rooftop" });
   });
 });
