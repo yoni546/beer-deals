@@ -51,7 +51,7 @@ import { createClient } from "@supabase/supabase-js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTarget } from "./lib/target.mjs";
-import { cityResolver, insideIsrael, isBetterFix, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
+import { cityResolver, insideIsrael, isBetterFix, normPlace, placeToAsk, PRECISIONS, providerFrom } from "./lib/geocode/index.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const args = process.argv.slice(2);
@@ -109,30 +109,48 @@ if (error) {
 // and a number that means nothing to it: a dry run over 25 branches placed 4, and
 // three of those only as far as the town. 0045's town matching already resolves these
 // through town_centres.code; the geocoder never got the same treatment.
-const { data: towns, error: townsError } = await db.from("town_centres").select("code, name").not("code", "is", null);
-if (townsError) {
-  console.error(`Refusing: could not read the settlement list — ${townsError.message}`);
-  process.exit(1);
+// PAGINATED, because PostgREST caps a response at 1,000 rows and the settlement
+// list is 1,172. Taking the default would have loaded part of the country and
+// then skipped every branch in the towns that fell off the end — silently, since
+// a short answer looks exactly like a complete one.
+const towns = [];
+for (let from = 0; ; from += 1000) {
+  const { data, error: townsError } = await db
+    .from("town_centres")
+    .select("code, name, norm_name")
+    .range(from, from + 999);
+  if (townsError) {
+    console.error(`Refusing: could not read the settlement list — ${townsError.message}`);
+    process.exit(1);
+  }
+  towns.push(...(data ?? []));
+  if (!data || data.length < 1000) break;
 }
-const townFor = cityResolver(towns);
+console.log(`${towns.length} settlements known`);
+const townFor = cityResolver((towns ?? []).filter((t) => t.code));
+const knownTowns = new Set((towns ?? []).map((t) => t.norm_name ?? normPlace(t.name)));
+const askAbout = (branch) => placeToAsk(branch, { resolveCity: townFor, knownTowns });
 const cityOf = (branch) => townFor(branch.city);
 
-const todo = (branches ?? []).filter((b) => (STORE ? b.stores?.slug === STORE : true)).filter((b) => b.address || cityOf(b));
-const skippedNoAddress = (branches ?? []).length - (branches ?? []).filter((b) => b.address || cityOf(b)).length;
-const codesResolved = (branches ?? []).filter((b) => /^\d+$/.test((b.city ?? "").trim()) && cityOf(b)).length;
-if (codesResolved) console.log(`${codesResolved} of them name their town by its CBS symbol; resolved through town_centres (0047)`);
+const inScope = (branches ?? []).filter((b) => (STORE ? b.stores?.slug === STORE : true));
+const todo = inScope.filter((b) => askAbout(b));
+const skippedNoTown = inScope.length - todo.length;
+const codesResolved = inScope.filter((b) => /^\d+$/.test((b.city ?? "").trim()) && cityOf(b)).length;
+if (codesResolved) console.log(`${codesResolved} name their town by its CBS symbol; resolved through town_centres (0047)`);
+if (skippedNoTown) console.log(`${skippedNoTown} skipped: no town we can name, and a street alone is not an address (see placeToAsk)`);
 
-console.log(`${todo.length} branches to place${skippedNoAddress ? ` (${skippedNoAddress} have neither an address nor a city)` : ""}\n`);
+console.log(`${todo.length} branches to place
+`);
 
 const tally = { placed: 0, refused: 0, failed: 0, written: 0, kept: 0, byPrecision: {} };
 const examples = [];
 
 for (const branch of todo) {
-  const city = cityOf(branch);
-  const where = [branch.address, city].filter(Boolean).join(", ");
+  const ask = askAbout(branch);
+  const where = [ask.address, ask.city].filter(Boolean).join(", ");
   let fix = null;
   try {
-    fix = await provider.geocode(branch.address, city);
+    fix = await provider.geocode(ask.address, ask.city);
   } catch (failure) {
     tally.failed += 1;
     console.error(`! ${branch.stores?.name_he ?? "?"} · ${where}: ${failure.message}`);
@@ -193,6 +211,7 @@ console.log(
       placed: tally.placed,
       written: tally.written,
       could_not_place: tally.refused,
+      no_town_to_ask_about: skippedNoTown,
       kept_what_they_had: tally.kept,
       failed: tally.failed,
       precision: tally.byPrecision,

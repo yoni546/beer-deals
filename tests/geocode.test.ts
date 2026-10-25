@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { cityResolver, insideIsrael, isBetterFix, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
+import { cityResolver, insideIsrael, isBetterFix, normPlace, placeToAsk, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
 import { asUser } from "./helpers/db";
 import { world } from "./helpers/catalog";
 
@@ -202,13 +202,13 @@ describe("a position is only ever replaced by a better one", () => {
  */
 describe("a town named by its number", () => {
   const resolve = cityResolver([
-    { code: "2650", name: "חולון" },
+    { code: "2650", name: "רמת השרון" },
     { code: "4000", name: "חיפה" },
     { code: "0472", name: "אבו גוש" },
   ]);
 
   it("turns a settlement symbol into the town's name", () => {
-    expect(resolve("2650")).toBe("חולון");
+    expect(resolve("2650")).toBe("רמת השרון");
     expect(resolve("4000")).toBe("חיפה");
   });
 
@@ -230,5 +230,48 @@ describe("a town named by its number", () => {
     expect(resolve("0")).toBe("");
     expect(resolve(null)).toBe("");
     expect(resolve("")).toBe("");
+  });
+});
+
+/**
+ * A street with no town is not an address.
+ *
+ * The provider is called with limit=1 and countrycodes=il, so "יהודה הלוי 113,
+ * ישראל" returns the first יהודה הלוי in the country and answers with complete
+ * confidence. There is a יהודה הלוי in dozens of towns. That is not a near miss,
+ * it is a pin in another city — and a wrong pin is the failure nobody can see,
+ * which is the whole reason 0026 shipped with no provider configured at all.
+ *
+ * This was reachable: resolving an unknown CBS symbol to "" (the previous commit)
+ * left the street alone in the query. The dry run that found it had already
+ * returned four "rooftop" fixes for addresses whose town we could not name.
+ */
+describe("what we are willing to ask about", () => {
+  const resolveCity = cityResolver([{ code: "2650", name: "רמת השרון" }]);
+  const knownTowns = new Set(["אור יהודה", "פרדס חנה כרכור", "רמת השרון"].map(normPlace));
+  const ask = (address: string | null, city: string | null) =>
+    placeToAsk({ address, city }, { resolveCity, knownTowns });
+
+  it("asks with the street and the town when the town is known", () => {
+    expect(ask("סוקולוב 33", "2650")).toEqual({ address: "סוקולוב 33", city: "רמת השרון" });
+    expect(ask("סוקולוב 33", "רמת השרון")).toEqual({ address: "סוקולוב 33", city: "רמת השרון" });
+  });
+
+  it("refuses a street whose town we cannot name, however good the street looks", () => {
+    // The exact shape that came back as "rooftop" in the dry run.
+    expect(ask("יהודה הלוי 113", "0")).toBeNull();
+    expect(ask("יגאל אלון 57", "999999")).toBeNull();
+    expect(ask("ביאליק 39", null)).toBeNull();
+  });
+
+  it("still places a branch whose ADDRESS is its town — that is how 'אור יהודה, 0' works", () => {
+    expect(ask("אור יהודה", "0")).toEqual({ address: "", city: "אור יהודה" });
+    // Spelling differences are the database's own rule, not a second one.
+    expect(ask("פרדס־חנה  כרכור", "0")).toEqual({ address: "", city: "פרדס־חנה  כרכור" });
+  });
+
+  it("asks about nothing at all when there is nothing to go on", () => {
+    expect(ask(null, null)).toBeNull();
+    expect(ask("", "")).toBeNull();
   });
 });

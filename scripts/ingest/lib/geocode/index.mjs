@@ -76,6 +76,46 @@ export const PRECISIONS = ["rooftop", "street", "locality"];
  * know yields "" rather than itself, because sending "2650" to a geocoder is worse
  * than sending nothing — it is the kind of input that comes back confidently wrong.
  */
+/**
+ * One spelling key for a place name — the same rule as public.norm_place (0045),
+ * so a town this script recognises is exactly a town the database recognises.
+ * Mechanical only: maqaf and hyphens to space, geresh and punctuation dropped,
+ * קרית unified with קריית, whitespace collapsed.
+ */
+export function normPlace(raw) {
+  return String(raw ?? "")
+    .replace(/[־‐‑‒–—―-]/g, " ")
+    .replace(/[׳״'’".,]/g, "")
+    .replace(/קרית(?!י)/g, "קריית")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Where to ask about a branch — or nothing, which means do not ask at all.
+ *
+ * A STREET WITH NO TOWN IS NOT AN ADDRESS. Nominatim is called with limit=1 and
+ * countrycodes=il, so "יהודה הלוי 113, ישראל" returns the first יהודה הלוי in
+ * the country and answers with complete confidence. There is a יהודה הלוי in
+ * dozens of towns. That is not a near miss, it is a pin in another city, and a
+ * wrong pin is the failure nobody can see — the whole reason 0026 shipped with
+ * no provider configured at all.
+ *
+ * So a branch is only asked about when we can name its town:
+ *   - the city column resolves (a name, or a CBS symbol we know — 0047);
+ *   - or the ADDRESS is itself a town we know, which is how rows like
+ *     "אור יהודה" with city "0" still place at their town centre.
+ * Anything else returns null and is counted, not guessed.
+ */
+export function placeToAsk({ address, city }, { resolveCity, knownTowns }) {
+  const town = resolveCity(city);
+  const street = String(address ?? "").trim();
+  if (town) return { address: street, city: town };
+  if (street && knownTowns.has(normPlace(street))) return { address: "", city: street };
+  return null;
+}
+
 export function cityResolver(towns) {
   const byCode = new Map(
     (towns ?? [])
