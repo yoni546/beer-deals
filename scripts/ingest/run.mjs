@@ -391,6 +391,9 @@ for (const r of runs.values()) {
 // each one says whether its 120-second ceiling (0056) is still enough, while
 // there is room to notice that it is not.
 for (const [label, fn, key] of [
+  // Which branches have which promotion (0059) — the map reads this, and it is
+  // first because it is derived from the occurrences this run has just written.
+  ["promotion pins", "refresh_promotion_branches", "pins"],
   ["market reference", "refresh_market_reference", "marketReference"],
   ["offers catalog", "refresh_offers_catalog", "catalog"],
   ["deal scores", "refresh_offer_scores", "scores"],
