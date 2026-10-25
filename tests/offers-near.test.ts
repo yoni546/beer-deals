@@ -167,3 +167,56 @@ describe("the deals around a point", () => {
     expect(rows[0].beer_slug).toBe("goldstar");
   });
 });
+
+/**
+ * The whole country, by town (0064).
+ *
+ * MEASURED against production, after the owner chose "בכל הארץ" and saw only
+ * what was within about forty kilometres of him: offers_near orders by distance
+ * and PostgREST caps any response at 1,000 rows, so "no radius" came back as the
+ * nearest hundred branches around one city. The radius was honoured and the
+ * answer was still wrong.
+ *
+ * One row per POINT rather than per branch, because branches sit at their town's
+ * centre until a geocoder puts them on a street — and a thousand markers on a
+ * phone is not a map.
+ */
+describe("the whole country", () => {
+  const byTown = (w: World) =>
+    w.asPublic(() => w.db.query<{ town: string; branches: number; deals: number; best_value_pct: number | null; latitude: number }>(
+      "select * from public.deals_by_town()",
+    )).then((r) => r.rows);
+
+  it("gives one row per point, with what is there counted", async () => {
+    const w = await world();
+    // Three branches sharing a town centre, and one placed on its own street.
+    await promotionAt(w, [
+      { name: "סניף א", city: "תל אביב", lat: 32.0853, lon: 34.7818, precision: "locality" },
+      { name: "סניף ב", city: "תל אביב", lat: 32.0853, lon: 34.7818, precision: "locality" },
+      { name: "סניף ג", city: "חיפה", lat: 32.7940, lon: 34.9896, precision: "locality" },
+    ]);
+
+    const rows = await byTown(w);
+    expect(rows).toHaveLength(2);
+    const tlv = rows.find((r) => Math.abs(r.latitude - 32.0853) < 0.001)!;
+    expect(tlv.branches).toBe(2);
+    expect(tlv.deals).toBe(2);
+  });
+
+  it("leaves out what it cannot place, exactly as the near view does", async () => {
+    const w = await world();
+    await promotionAt(w, [
+      { name: "יש מיקום", city: "תל אביב", lat: 32.0853, lon: 34.7818 },
+      { name: "אין מיקום", city: "תל אביב" },
+    ]);
+    const rows = await byTown(w);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].branches).toBe(1);
+  });
+
+  it("is readable by a visitor who is not signed in", async () => {
+    const w = await world();
+    await promotionAt(w, [{ name: "סניף", city: "תל אביב", lat: 32.0853, lon: 34.7818 }]);
+    expect((await byTown(w))[0].deals).toBe(1);
+  });
+});

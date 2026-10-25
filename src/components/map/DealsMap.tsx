@@ -176,6 +176,24 @@ const PROMO_HE: Record<string, string> = {
  */
 function popupHtml(group: MapPin[]): string {
   const [first] = group;
+
+  // A COUNTRY PIN IS A TOWN, and carries counts rather than lines: the deals
+  // themselves are a radius away, and shipping every one of them is the thing
+  // that cannot be done (0064). So it says what is there and how to see it.
+  if (first.towns) {
+    const t = first.towns;
+    const best = t.best === null ? "" : `<span class="map-pop-save num">−${t.best}%</span>`;
+    const from = t.cheapest === null ? "" : `<span class="map-pop-price num">מ־${shekels(t.cheapest)}</span>`;
+    return `<div class="map-pop">
+      <p class="map-pop-head">${escapeHtml(first.city ?? "כאן")}</p>
+      <ul class="map-pop-list"><li class="map-pop-row">
+        <span class="map-pop-beer">${t.deals} מבצעים ב־${t.branches} חנויות</span>
+        ${best}${from}
+      </li></ul>
+      <p class="map-pop-note">בחרו מרחק כדי לראות את החנויות עצמן</p>
+    </div>`;
+  }
+
   const distance = first.km === null ? "" : `<span class="map-pop-km num">${first.km < 1 ? `${Math.round(first.km * 1000)} מ׳` : `${first.km.toFixed(1)} ק״מ`}</span>`;
   const whereabouts = first.precision === "locality" ? '<p class="map-pop-note">מיקום משוער — מרכז היישוב</p>' : "";
 

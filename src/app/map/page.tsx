@@ -1,6 +1,6 @@
 import { Screen, TopBar } from "@/components/Chrome";
 import { MapScreen } from "@/components/map/MapScreen";
-import { getMapPins } from "@/lib/map";
+import { getMapPins, getTownPins } from "@/lib/map";
 import { getViewer } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -54,10 +54,16 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
   // them to a settings screen to get there was a wall for no reason. Nothing is
   // drawn until a town is chosen, because there is no "near" without a near.
   const chosen = lat !== null && lon !== null;
-  const centre = chosen ? { lat, lon } : ISRAEL;
+  // "בכל הארץ" is radius 0 — the same reading search_radius_km has everywhere
+  // else. It cannot be served by widening the radius: offers_near orders by
+  // distance and PostgREST caps any answer at 1,000 rows, so "no limit" came
+  // back as the nearest hundred branches around one city. The country is drawn
+  // by town instead (0064), which is also the only readable way to draw it.
+  const countrywide = chosen && radiusKm === 0;
+  const centre = chosen && !countrywide ? { lat, lon } : ISRAEL;
 
-  const pins = chosen ? await getMapPins(lat, lon, radiusKm) : [];
-  const deals = pins.reduce((total, pin) => total + pin.offers.length, 0);
+  const pins = !chosen ? [] : countrywide ? await getTownPins() : await getMapPins(lat, lon, radiusKm);
+  const deals = pins.reduce((total, pin) => total + (pin.towns?.deals ?? pin.offers.length), 0);
   const approximate = pins.filter((pin) => pin.precision === "locality").length;
 
   return (
@@ -69,7 +75,9 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
           sub={
             !chosen
               ? "בחרו יישוב, או שתפו מיקום — ותראו מה יש שם במבצע"
-              : pins.length
+              : countrywide
+                ? `${deals} מבצעים ב־${pins.length} יישובים בכל הארץ`
+                : pins.length
                 ? `${deals} מבצעים ב־${pins.length} סניפים, עד ${radiusKm} ק״מ`
                 : `אין מבצעים בסניפים שאנחנו יודעים למקם, עד ${radiusKm} ק״מ`
           }
@@ -79,7 +87,7 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
       <MapScreen
         pins={pins}
         centre={centre}
-        radiusKm={chosen ? radiusKm : COUNTRY_KM}
+        radiusKm={chosen && !countrywide ? radiusKm : COUNTRY_KM}
         place={{
           city: profile?.home_city ?? "",
           lat: chosen ? lat : null,
@@ -89,7 +97,13 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
       />
 
       {/* What the map cannot say, in words rather than by omission. */}
-      {approximate > 0 && (
+      {countrywide && (
+        <p className="px-4 pt-3 text-xs leading-relaxed text-on-ground-2">
+          בתצוגת כל הארץ כל נקודה היא יישוב, לא סניף. בחרו מרחק כדי לראות את הסניפים עצמם ואת המבצעים שבהם.
+        </p>
+      )}
+
+      {!countrywide && approximate > 0 && (
         <p className="px-4 pt-3 text-xs leading-relaxed text-on-ground-2">
           {approximate === pins.length
             ? "כל הסניפים כאן ממוקמים לפי מרכז היישוב, לא לפי הכתובת המדויקת."
