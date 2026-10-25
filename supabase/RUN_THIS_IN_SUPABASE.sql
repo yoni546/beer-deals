@@ -15250,6 +15250,46 @@ insert into public.sources (slug, name, kind, trust) values
   ('feed-super-yuda', 'Super Yuda price feed', 'chain_feed', 80)
 on conflict (slug) do nothing;
 
+-- ======================== 0062_salach_dabach_and_yellow.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0062 — Salach Dabach and Paz Yellow
+--
+-- Both have been in the publisher list since 0.8.0 marked blocked, on the note
+-- that their accounts "require a password; the public empty-password login is
+-- refused". The password half was true and the conclusion was not: the chains
+-- publish those passwords on gov.il, as the law requires, beside every other
+-- chain's. Nobody had read that page.
+--
+-- VERIFIED 2026-10-25, with the published credentials:
+--
+--   סלח דבאח   57 files   3 Stores lists, 30 promotions
+--   פז ילו    980 files   3 Stores lists, 488 promotions
+--
+-- The owner asked for them "without branches — every deal at every branch".
+-- They do not need that, and it would be worse: both publish a Stores file
+-- every morning, the newest from the day before this was written, so their
+-- deals get the same per-branch evidence as every other chain. A deal that
+-- really is chainwide will be read as chainwide by promotion_scope (0017)
+-- because the branches say so, rather than because we assumed it.
+--
+-- Two stores and two feeds. Nothing else: the importer already knows how to
+-- read this platform, and the chain codes in the publisher config match the
+-- files exactly.
+--
+-- Additive and idempotent.
+-- ---------------------------------------------------------------------------
+
+insert into public.stores (slug, name_he) values
+  ('salach-dabach', 'סלח דבאח'),
+  ('yellow',        'ילו')
+on conflict (slug) do nothing;
+
+insert into public.sources (slug, name, kind, trust) values
+  ('feed-salach-dabach', 'Salach Dabach price feed', 'chain_feed', 80),
+  ('feed-yellow',        'Paz Yellow price feed',    'chain_feed', 80)
+on conflict (slug) do nothing;
+
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15257,9 +15297,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0061')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0061'), ('0062')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 57 migrations';
+  raise notice 'ledger: recorded 58 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end
