@@ -124,7 +124,7 @@ jobs:
             node scripts/ingest/run.mjs --target production --confirm-ref "$CONFIRM_REF"
           fi
 
-      - name: Prune the history nothing reads (migration 0052; never live, held or superseded prices)
+      - name: Prune the history nothing reads (migration 0066; never live, held or superseded prices)
         if: success()
         run: node scripts/ingest/prune-history.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
 

@@ -175,6 +175,379 @@ select,
   .tear {
     border-top: 2px dashed var(--paper-line);
   }
+
+  /* ------------------------------------------------- the lines of a receipt
+
+     MEASURED, production, 2026-10-24. One chain page was 514 KB of markup plus
+     a 725 KB RSC payload for the phone to parse, and HALF the markup — 255 KB
+     across 5,452 `class` attributes — was twelve utility strings repeated once
+     per row. 91 distinct strings produced all of it. Nothing was wrong with the
+     utilities; there were simply 214 rows carrying the same ninety characters.
+
+     So the per-row ones are classes, declared here with exactly the properties
+     the utilities generated. They sit in this layer, below Tailwind's
+     utilities, so a caller's `shrink-0` or `mt-4` still wins (see the note on
+     the layer above). This changes no pixel: it changes how many times the
+     browser is told about it. */
+
+  /* name ········ price — a line of the tape. `.line-tight` is the same line
+     with the lower padding closed up, which a deal line uses. */
+  .line,
+  .line-tight {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.375;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .line {
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+  .line-tight {
+    padding-top: 0.5rem;
+  }
+
+  /* The small second row under a line: where it was seen, the deposit, per litre. */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.5rem;
+    row-gap: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--ink-2);
+  }
+  /* One fact, with room for the dot that separates it from the one before. */
+  .fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* A disclosure that opens in place (the branches a deal runs in, a deal's
+     terms). A summary, so it works with no JavaScript; the marker is ours. */
+  .disclose,
+  .disclose-quiet {
+    margin-inline-start: -0.25rem;
+    padding-inline-start: 0.25rem;
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    list-style: none;
+  }
+  .disclose::-webkit-details-marker,
+  .disclose-quiet::-webkit-details-marker {
+    display: none;
+  }
+  .disclose {
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+  }
+  .disclose-quiet {
+    min-width: 2.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  /* A price as a shelf label prints it: ₪24⁹⁰, the agorot raised. */
+  .price {
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+  .price-sm {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  .price-md {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+  .price-lg {
+    font-size: 2.75rem;
+    font-weight: 700;
+  }
+  .price-stack {
+    display: inline-flex;
+    align-items: flex-start;
+  }
+  .price-sign {
+    margin-inline-end: 0.08em;
+    margin-top: 0.12em;
+    font-size: 0.5em;
+    font-weight: 600;
+  }
+  .price-agorot {
+    margin-inline-start: 0.06em;
+    margin-top: 0.06em;
+    font-size: 0.5em;
+    font-weight: 600;
+  }
+
+  /* The verified saving beside a deal's name: −36% on the deal colour. */
+  .saving-badge {
+    flex-shrink: 0;
+    align-self: center;
+    border-radius: 0.375rem;
+    background: var(--deal);
+    padding-inline: 0.5rem;
+    padding-block: 0.125rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    color: var(--on-deal);
+  }
+
+  /* -------------------------------------------------------- opening the app
+
+     A trolley with three six-packs dropping into it, in the installed app only.
+     Opening from the home screen already shows a blank screen while the OS
+     hands over; this fills a moment that was empty anyway. In a browser tab
+     there is no such gap, so there is no overlay — covering content that was
+     ready is the one thing motion here must never do.
+
+     It animates once and ends invisible and untouchable. No script dismisses
+     it, so nothing can leave it stuck in front of the app. */
+  .launch {
+    display: none;
+  }
+
+  @media (display-mode: standalone) {
+    .launch {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: grid;
+      place-items: center;
+      background: var(--ground);
+      animation: launch-out 1250ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .launch-art {
+      fill: none;
+      stroke: var(--on-ground);
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.9;
+    }
+    /* Each pack falls from above the basket and settles. Whole pixels, one
+       overshoot — the same hand as the print-in of a strip. */
+    .launch-pack {
+      animation: launch-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    .launch-pack-1 { animation-delay: 120ms; }
+    .launch-pack-2 { animation-delay: 300ms; }
+    .launch-pack-3 { animation-delay: 480ms; }
+  }
+
+  @keyframes launch-drop {
+    from {
+      transform: translateY(-26px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes launch-out {
+    0%, 72% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------ the map
+
+     The one screen with a third party on it. Everything here styles Leaflet's
+     own DOM, which is why the selectors are its class names and not ours — the
+     popup's markup belongs to the library.
+
+     The map is a window cut in the counter, not a card: same paper edge as a
+     tape, no shadow of its own, and it keeps the page's own colours around it. */
+  .map-canvas {
+    height: min(58vh, 30rem);
+    width: 100%;
+    background: var(--ground-2);
+    border-block: 1px solid var(--ground-line);
+    z-index: 0; /* Leaflet panes climb to 400+; keep them under the tab bar. */
+  }
+
+  /* Our own marker: a dot in the deal colour with the number of deals in it. The
+     library's default is a blue PNG fetched from its own folder. */
+  .map-pin {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: calc(infinity * 1px);
+    background: var(--deal);
+    color: var(--on-deal);
+    border: 2px solid var(--paper);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    font-weight: 700;
+    font-size: 0.8125rem;
+    line-height: 1;
+  }
+  .map-pin-count {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .map-pop {
+    min-width: 11rem;
+  }
+  .map-pop-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.3;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .map-pop-km {
+    margin-inline-start: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .map-pop-note {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    color: var(--ink-2);
+  }
+  /* A point shared by several shops names each one above its own deals. */
+  .map-pop-shop {
+    margin-top: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .map-pop-shop:first-of-type {
+    margin-top: 0.5rem;
+  }
+
+  .map-pop-list {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.375rem;
+    list-style: none;
+    padding: 0;
+  }
+  .map-pop-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--ink);
+  }
+  .map-pop-row img {
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+  .map-pop-beer {
+    min-width: 0;
+    font-weight: 600;
+  }
+  .map-pop-pack {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--ink-2);
+  }
+  .map-pop-save {
+    border-radius: 0.375rem;
+    background: var(--deal);
+    padding-inline: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--on-deal);
+  }
+  .map-pop-price {
+    margin-inline-start: auto;
+    font-weight: 700;
+  }
+
+  /* Leaflet's own chrome, brought onto the counter. */
+  .leaflet-container {
+    font: inherit;
+    background: var(--ground-2);
+  }
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
+  }
+  .leaflet-popup-content {
+    margin: 0.75rem;
+  }
+  .leaflet-control-attribution {
+    background: color-mix(in oklab, var(--paper) 86%, transparent);
+    color: var(--ink-2);
+    font-size: 0.625rem;
+  }
+  .leaflet-control-attribution a {
+    color: var(--ink);
+  }
+  .leaflet-bar a {
+    background: var(--paper);
+    color: var(--ink);
+    border-bottom-color: var(--paper-line);
+  }
+
+  /* The drawn icon set: one 1.75 px stroke, round caps, no fill (DESIGN.md). Here
+     rather than on each <svg>, because a chain page draws 157 of them.
+     `.ico-solid` is for the one or two that are filled shapes instead — a CSS
+     declaration beats an SVG presentation attribute, so they cannot say it
+     themselves. */
+  .ico {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ico-solid {
+    fill: currentColor;
+    stroke-width: 0;
+  }
+
+  /* An outlined pill button on paper (the two answers to "is it still on?"). */
+  .pill {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    border: 1px solid var(--paper-line);
+    /* What `rounded-full` computes to, exactly — not 9999px, which is the same
+       capsule but a different computed value. */
+    border-radius: calc(infinity * 1px);
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .pill:disabled {
+    opacity: 0.5;
+  }
 }
 
 /* -------------------------------------------------------------- the bottle */
@@ -383,7 +756,17 @@ svg.bottle-art {
   inset-block: 0;
   left: 0;
   width: 40%;
-  background: var(--accent);
+  /* A pour, not a progress bar: the beer's body with its head of foam along the top.
+     One gradient on an element that already existed — no new element, no new asset,
+     nothing extra on the main thread, and it reads the same whichever way the stripe
+     is travelling. The foam is the accent lightened, so it follows the beer's theme
+     like everything else rather than introducing a colour of its own. */
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--accent) 40%, white) 0 1px,
+      var(--accent) 1px
+    );
   animation: nav-progress 1.1s ease-in-out infinite;
 }
 

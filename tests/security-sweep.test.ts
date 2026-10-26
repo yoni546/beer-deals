@@ -108,7 +108,7 @@ describe("the whole schema, swept", () => {
 
   it("has no function that deletes or updates a whole table without a WHERE clause", async () => {
     // Supabase runs API requests with pg_safeupdate, which refuses such a statement; PGlite has no
-    // pg_safeupdate, so without this check the failure only shows on a hosted project (0044 → 0053).
+    // pg_safeupdate, so without this check the failure only shows on a hosted project (0044 → 0055).
     const db = await freshDatabase();
     const { rows } = await db.query<{ name: string; body: string }>(
       `select p.proname as name, p.prosrc as body from pg_proc p join pg_namespace n on n.oid = p.pronamespace

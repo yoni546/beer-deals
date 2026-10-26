@@ -163,8 +163,10 @@ describe("the worker", () => {
     expect(send).toHaveBeenCalledTimes(1);
 
     const payload = JSON.parse(send.mock.calls[0][1]);
-    expect(payload).toMatchObject({ title: "מבצע חדש ברמי לוי", url: "/beer/goldstar", offerKey: promo.offerKey });
-    expect(payload.body).toContain("₪25.00 במקום ₪37.90 · −34%");
+    expect(payload).toMatchObject({ title: "גולדסטאר ₪25.00 ברמי לוי", url: "/beer/goldstar", offerKey: promo.offerKey });
+    // The price moved to the title with the beer and the shop (2026-10-25); the
+    // body keeps the evidence behind it.
+    expect(payload.body).toContain("במקום ₪37.90 · −34%");
     expect(send.mock.calls[0][2]).toEqual({ ttlSeconds: 43200 });
 
     expect(await deliveriesOf(user)).toEqual([expect.objectContaining({ status: "sent", attempts: 1, subscriptions_ok: 1, subscriptions_total: 1 })]);
@@ -342,7 +344,8 @@ describe("the worker", () => {
     await promotion({ multi: true, price: 2000, regular: 3000 }); // 2 for ₪40.00
     const send = okSender();
     await processNotificationEvents({ db, send, now: daytime() });
-    expect(JSON.parse(send.mock.calls[0][1]).body).toContain("2 ב־₪40.00");
+    // The terms ARE the price, so they are in the title with it now (2026-10-25).
+    expect(JSON.parse(send.mock.calls[0][1]).title).toContain("2 ב־₪40.00");
   });
 
   it("closes an event whose offer is no longer live instead of announcing it", async () => {

@@ -5,7 +5,7 @@ import { asUser } from "./helpers/db";
 import { inDays, world, type World } from "./helpers/catalog";
 
 /**
- * Migration 0052: an unchanged price is seen again, not written again (one sample a week is kept for the Deal
+ * Migration 0066: an unchanged price is seen again, not written again (one sample a week is kept for the Deal
  * Score's history), and prune_history() deletes only what nothing reads.
  */
 const at = (base: string, days: number) => new Date(Date.parse(base) + days * 86_400_000).toISOString();
@@ -25,7 +25,7 @@ const ledger = (w: World, sku: string) =>
     [sku],
   );
 
-describe("record_price: unchanged is not new (0052)", () => {
+describe("record_price: unchanged is not new (0066)", () => {
   it("re-reading the same price from a newer file moves observed_at on the same row", async () => {
     const { w, branch, sku } = await setup();
     const p = { sku, store: w.ids.rami, branch, kind: "regular" as const, price: 3490, source: "feed-rami-levy" };
@@ -83,10 +83,10 @@ describe("record_price: unchanged is not new (0052)", () => {
   });
 });
 
-describe("0052 rollback", () => {
+describe("0066 rollback", () => {
   it("puts back a new row per file, the append-only delete refusal, and removes prune_history", async () => {
     const { w, branch, sku } = await setup();
-    await w.db.exec(readFileSync(join(__dirname, "..", "supabase/rollback/0052_prune_history.down.sql"), "utf8"));
+    await w.db.exec(readFileSync(join(__dirname, "..", "supabase/rollback/0066_prune_history.down.sql"), "utf8"));
     const p = { sku, store: w.ids.rami, branch, kind: "regular" as const, price: 3490, source: "feed-rami-levy" };
     await w.record({ ...p, observedAt: START, contentHash: "day0" });
     await w.record({ ...p, observedAt: at(START, 1), contentHash: "day1" });
@@ -97,7 +97,7 @@ describe("0052 rollback", () => {
   });
 });
 
-describe("prune_history (0052)", () => {
+describe("prune_history (0066)", () => {
   const KINDS = ["rejected_prices", "stale_occurrences", "old_branch_scans", "old_groups"];
   const prune = async (w: World, apply: boolean) => {
     const out: Record<string, number> = {};

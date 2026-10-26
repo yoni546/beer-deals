@@ -49,7 +49,22 @@ export function AdminPasswordReset() {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
         }
-        // With a fragment, the client picks the session up by itself on load.
+
+        // Ask the client what session it actually holds, rather than believing
+        // the URL. With a fragment the client picks the session up by itself on
+        // load — but `#type=recovery` is just text anyone can type, and the
+        // check above accepted it on its own. Visiting /admin/reset#type=recovery
+        // therefore reached the set-a-password form with no token behind it.
+        //
+        // Harmless as it stood: the session in that case is the visitor's own
+        // anonymous one, which has no email, so nothing could ever sign in with
+        // the password that got set. An email is the thing that makes a session
+        // a real account, so that is what this waits for.
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user?.email) {
+          throw new Error("no recovered session behind this link");
+        }
+
         setStage("set");
         // Keep the token out of the address bar and out of any screenshot.
         window.history.replaceState({}, "", "/admin/reset");

@@ -7,7 +7,14 @@ import { describe, expect, it } from "vitest";
  * differently on every phone, ignore the theme, and read badly to screen readers.
  * This scans everything the app ships — screens, components, styles, the PWA files and the
  * notification worker — so one cannot come back unnoticed.
+ *
+ * ONE EXCEPTION, and only one: the copyright sign. `\p{Extended_Pictographic}` matches ©
+ * and ®, which are legal marks, not decoration — and a map's tile provider REQUIRES its
+ * credit to read "© OpenStreetMap contributors". Dropping the sign to satisfy a lint would
+ * be failing an attribution obligation to keep a test green. Nothing else is excused: these
+ * two characters are named, not a category.
  */
+const LEGAL_MARKS = /[©®]/gu;
 const ROOT = join(import.meta.dirname, "..");
 const SCANNED = ["src", "public"];
 const EXTENSIONS = /\.(tsx?|css|html|js|json|webmanifest|svg)$/;
@@ -28,7 +35,7 @@ describe("no emoji in anything the app ships", () => {
         readFileSync(file, "utf8")
           .split("\n")
           .forEach((line, index) => {
-            if (/\p{Extended_Pictographic}/u.test(line)) found.push(`${relative(ROOT, file)}:${index + 1}  ${line.trim().slice(0, 80)}`);
+            if (/\p{Extended_Pictographic}/u.test(line.replace(LEGAL_MARKS, ""))) found.push(`${relative(ROOT, file)}:${index + 1}  ${line.trim().slice(0, 80)}`);
           });
       }
     }

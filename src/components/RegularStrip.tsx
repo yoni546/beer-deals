@@ -32,13 +32,13 @@ export function RegularLine({
 
   return (
     <article className="px-4 pt-1 pb-3.5">
-      <Link href={href} prefetch={false} className="flex min-h-11 items-baseline gap-2 pt-3 pb-1 text-base leading-snug font-semibold text-ink">
+      <Link href={href} prefetch={false} className="line">
         <span className="min-w-0">{title}</span>
         <span aria-hidden className="leader-fill" />
         {from && <span className="shrink-0 text-sm font-semibold text-ink-2">החל מ־</span>}
         <Price agorot={price.price_agorot} size="md" className="shrink-0 text-ink" />
       </Link>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-ink-2">
+      <div className="facts">
         {[
           where ? <span key="w">{where}</span> : null,
           deposit ? <span key="d" className="num">{deposit}</span> : null,
@@ -46,7 +46,7 @@ export function RegularLine({
         ]
           .filter(Boolean)
           .map((node, i) => (
-            <span key={i} className="inline-flex items-center gap-2">
+            <span key={i} className="fact">
               {i > 0 && (
                 <span aria-hidden className="text-paper-line">
                   ·

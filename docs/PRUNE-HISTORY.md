@@ -1,6 +1,6 @@
-# Pruning the price history (0.38.1, migration 0052) — production steps for Yoni
+# Pruning the price history (0.38.2, migration 0066) — production steps for Yoni
 
-Production's database is over the free plan's 0.5 GB (548 MB on 2026-10-12). Two causes, both fixed by 0052:
+Production's database is over the free plan's 0.5 GB (548 MB on 2026-10-12). Two causes, both fixed by 0066:
 
 1. Every daily import re-recorded every price and promotion, changed or not (~60,000 rows, ~37 MB a day).
    Now an unchanged price is only marked as seen again; one row a week is still written, for the Deal Score's
@@ -31,8 +31,10 @@ In the repository folder, in Git Bash, with the production ref in `$PROD_REF` an
 2. **Backup.** Supabase → Database → Backups: the newest daily backup is completed and under 24 hours old.
    Pruning deletes rows; the backup is the only way back.
 
-3. **Migrations.** The dry run must list only `0052_prune_history.sql` and `0053_offers_catalog_refresh_where.sql`
-   (0053 makes the import refresh the deals table again: since 12.10 it kept that day's rows):
+3. **Migrations.** The dry run must list `0066_prune_history.sql` and nothing else you do not expect. (Until
+   2026-10-26 this was 0052, with a 0053 for the catalogue refresh; main's 0055/0056 fixed that refresh first, so
+   0053 is gone. Production never had either. If 0061–0063 from the open PRs merged after 0064/0065 were applied,
+   `db push` refuses them as out of order: add `--include-all` once you have read that list.)
 
    ```bash
    bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push --dry-run
@@ -75,7 +77,7 @@ In the repository folder, in Git Bash, with the production ref in `$PROD_REF` an
 From then on the production workflow prunes after every import by itself, and Postgres reuses the freed space
 without another `vacuum full`.
 
-**Rollback** (only with Ori): `supabase/rollback/0052_prune_history.down.sql` puts back a new row per file. It does
+**Rollback** (only with Ori): `supabase/rollback/0066_prune_history.down.sql` puts back a new row per file. It does
 not bring pruned rows back; the backup does.
 
 **Stage 2 (not in this release):** the superseded prices that only repeat the same price (97% of them on staging)

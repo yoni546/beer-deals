@@ -58,11 +58,22 @@ export function buildOfferNotification(
   const verified = offer.value_pct !== null && offer.reference_agorot !== null;
   const price = multi ? `${multi.qty} ב־${formatPrice(multi.total_agorot)}` : formatPrice(offer.effective_agorot);
 
-  const pieces = [
-    `${offer.beer_name} ${packText(offer)}`,
-    // "instead of" only for a plain price with a trusted reference; a multi-buy states its terms.
-    verified && !multi ? `${price} במקום ${formatPrice(offer.reference_agorot!)}` : price,
-  ];
+  // THE TITLE CARRIES THE FACT, not an advertisement.
+  //
+  // It used to read "מבצע חדש ברמי לוי" with the beer and the price in the body.
+  // That is the shape of every promotional push ever sent — a phrase with no
+  // information in it — and on 2026-10-25 Chrome put one of ours behind a
+  // "Possible spam" warning with an Unsubscribe button on it. Whatever its
+  // classifier weighed, a line that says WHICH BEER, HOW MUCH and WHERE is both
+  // the more useful notification and the less dismissible one: somebody reading
+  // only the bold line already knows whether they care.
+  // The body carries the pack and the evidence. It leads with the pack so the
+  // line is never empty: an unverified offer with an unknown scope would
+  // otherwise have nothing left to say, and a notification with a blank body is
+  // both uglier and more suspicious-looking than one with a short true one.
+  const pieces = [packText(offer)];
+  // "instead of" only for a plain price with a trusted reference; a multi-buy states its terms.
+  if (verified && !multi) pieces.push(`במקום ${formatPrice(offer.reference_agorot!)}`);
   if (verified) pieces.push(`−${offer.value_pct}%`);
   const where =
     offer.scope === "chainwide"
@@ -78,7 +89,8 @@ export function buildOfferNotification(
   // No "members only" wording: an offer that is not for everyone is never announced (migration 0014).
 
   return {
-    title: `מבצע חדש ${inChain(offer.store_name)}`,
+    // Short enough to survive a phone's truncation: the beer, the price, the shop.
+    title: `${offer.beer_name} ${price} ${inChain(offer.store_name)}`,
     body: pieces.join(" · "),
     url: buildBeerPath({ beerSlug: offer.beer_slug }),
     tag: `offer:${offer.sku_id ?? offer.beer_id}:${offer.store_slug}`,
@@ -99,8 +111,10 @@ export function buildBeerPath(input: { beerSlug: string }): string {
 /** The text of "send me a test push" (Settings). */
 export function buildTestNotification(): PushMessage {
   return {
-    title: "בדיקת התראה",
-    body: "אם אתם קוראים את זה, התראות עובדות במכשיר הזה.",
+    // Also specific, and also for the classifier's sake: "בדיקת התראה" with a
+    // generic body is the most spam-shaped thing this app ever sends.
+    title: "התראות עובדות במכשיר הזה",
+    body: "זו הבדיקה שביקשתם מההגדרות. מבצע אמיתי ייראה כך, עם הבירה והמחיר בשורה הראשונה.",
     url: "/settings",
     tag: "test",
   };

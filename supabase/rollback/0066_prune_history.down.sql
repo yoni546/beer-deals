@@ -1,7 +1,7 @@
--- Rollback of 0052_prune_history.sql. Puts back the 0014 append-only guard and the 0015 record_price (a new row
+-- Rollback of 0066_prune_history.sql. Puts back the 0014 append-only guard and the 0015 record_price (a new row
 -- for every file), drops prune_history, the superseded_by index and first_observed_at. Rows already pruned are NOT
 -- restored: the backup taken before the first prune is the way back. Then:
---   npx supabase migration repair --status reverted 0052
+--   npx supabase migration repair --status reverted 0066
 
 drop function if exists public.prune_history(text, boolean, integer);
 drop function if exists public.prune_history(boolean, integer);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deletes the history nothing reads (migration 0052, prune_history): rejected price rows, promotion occurrences
+ * Deletes the history nothing reads (migration 0066, prune_history): rejected price rows, promotion occurrences
  * from files that are no longer current, branch scans older than a week, replaced group promotions.
  * Live, held and superseded prices (the Deal Score's 180-day history) and notification events are never touched.
  *
@@ -11,7 +11,7 @@
  * In batches (each call deletes at most --batch rows of each kind, default 5000), until nothing is left.
  * Deleting frees space for reuse inside the database; the size Supabase reports drops only after
  * `vacuum full` (docs/PRUNE-HISTORY.md). Credentials and target checks: lib/target.mjs.
- * If the database does not have 0052 yet, it says so and exits 0 (the daily workflows run this after the
+ * If the database does not have 0066 yet, it says so and exits 0 (the daily workflows run this after the
  * import; a project not yet migrated must not fail its import).
  */
 import { createClient } from "@supabase/supabase-js";
@@ -34,7 +34,7 @@ const KINDS = ["rejected_prices", "stale_occurrences", "old_branch_scans", "old_
 async function call(p_kind, p_apply) {
   const { data, error } = await db.rpc("prune_history", { p_kind, p_apply, p_batch: batch });
   if (error && /prune_history/.test(error.message) && /(not find|does not exist|schema cache)/i.test(error.message)) {
-    console.log("::warning::prune_history is not installed on this database (migration 0052) — nothing pruned.");
+    console.log("::warning::prune_history is not installed on this database (migration 0066) — nothing pruned.");
     process.exit(0);
   }
   if (error) throw new Error(`prune_history(${p_kind}): ${error.message}`);

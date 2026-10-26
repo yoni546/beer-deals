@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
-import { BeerMark } from "@/components/ui/Bottle";
+import { BeerBottle } from "@/components/ui/Bottle";
 import { DealScoreChip } from "@/components/ui/DealScore";
 import { Tape } from "@/components/ui/Tape";
 import type { Hero as HeroPick } from "@/lib/offer-logic";
@@ -35,7 +35,7 @@ export function Hero({ pick, editorial = false, now = Date.now() }: { pick: Hero
           {/* The headline deal says how good it is, not only how much is off. */}
           <DealScoreChip score={offer.deal_score} />
         </div>
-        <BeerMark slug={offer.beer_slug} height={56} className="-mt-1 shrink-0" />
+        <BeerBottle slug={offer.beer_slug} height={56} className="-mt-1 shrink-0" eager />
       </div>
 
       <h2 id="hero-title" className="mt-1 text-[1.75rem] leading-tight font-bold text-ink">

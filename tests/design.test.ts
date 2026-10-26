@@ -229,3 +229,69 @@ describe("theme output", () => {
     expect(preset.backgroundScale).toBeGreaterThan(0.5);
   });
 });
+
+/**
+ * The icon set's stroke is one CSS class, `.ico`, instead of eight attributes on
+ * each of the 157 icons a chain page draws (globals.css, 0.12.0). That saves the
+ * markup AND the RSC payload the phone parses — and it moves the stroke from an
+ * SVG presentation attribute to a CSS declaration, which outranks one.
+ *
+ * So an icon that wants to be a filled shape can no longer say `fill="currentColor"`
+ * on itself: `.ico { fill: none }` would win and the icon would render invisible,
+ * which is the kind of break that looks like nothing at all. `solid` is how it asks.
+ */
+describe("the icon set", () => {
+  const icons = readFileSync(join(ROOT, "src/components/ui/icons.tsx"), "utf8");
+
+  it("declares the stroke once, in CSS, not on every icon", () => {
+    const css = readFileSync(join(ROOT, "src/app/globals.css"), "utf8");
+    expect(css).toMatch(/\.ico\s*\{[^}]*stroke:\s*currentColor/);
+    expect(css).toMatch(/\.ico-solid\s*\{[^}]*fill:\s*currentColor/);
+    // The <svg> itself must not carry them any more, or every icon pays for them twice.
+    expect(icons).not.toMatch(/strokeLinejoin=|strokeLinecap=/);
+  });
+
+  it("has no icon fighting that class with its own fill or stroke attribute", () => {
+    // `fill="currentColor"` on an icon loses to `.ico { fill: none }` and vanishes.
+    expect(icons).not.toMatch(/<Icon[^>]*\bfill=/);
+    expect(icons).not.toMatch(/<Icon[^>]*\bstrokeWidth=\{0\}/);
+  });
+});
+
+/**
+ * One beer, one picture, everywhere (the owner's rule, 2026-10-24).
+ *
+ * There are two ways to put a bottle beside a beer's name. `BeerBottle` asks the
+ * central source — `photoFor(slug)`, src/design/bottle-photos.json — and falls
+ * back to the drawing only when that beer has no approved photo. `BeerMark` IS
+ * that drawing: it never looks at a photo at all.
+ *
+ * Four screens called the drawing directly — the deal list, the deal of the week,
+ * search and onboarding — so Goldstar was a real bottle on Home and an empty
+ * glass one in search. That is the whole of the complaint, and this is the line
+ * that lets it come back: a new screen reaching for `BeerMark` because it is the
+ * one whose name sounds like a small bottle.
+ */
+describe("the same beer shows the same bottle everywhere", () => {
+  const screens = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) => {
+      const path = join(dir, name);
+      return statSync(path).isDirectory() ? screens(path) : path.endsWith(".tsx") ? [path] : [];
+    });
+  const files = screens(join(ROOT, "src"));
+
+  it("has every screen go through BeerBottle, never the drawing directly", () => {
+    const direct = files
+      .filter((f) => !f.endsWith(join("ui", "Bottle.tsx")))
+      .filter((f) => /<BeerMark\b/.test(readFileSync(f, "utf8")))
+      .map((f) => relative(ROOT, f));
+
+    expect(direct).toEqual([]);
+  });
+
+  it("keeps the fallback order: approved photo, then that beer's drawing", () => {
+    const bottle = readFileSync(join(ROOT, "src/components/ui/Bottle.tsx"), "utf8");
+    // BeerBottle asks for the photo first and hands off to the drawing when there is none.
+    expect(bottle).toMatch(/const photo = photoFor\(slug\);\s*\n\s*if \(!photo\) return <BeerMark/);
+  });
+});

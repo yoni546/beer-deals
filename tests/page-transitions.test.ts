@@ -83,3 +83,79 @@ describe("moving between screens", () => {
     expect(read("docs", "LESSONS.md")).toContain("loading.tsx");
   });
 });
+
+/**
+ * The waiting bar is a pour (0.12.0, the owner's request for beer in the motion).
+ *
+ * It is one gradient on an element that already existed: the accent as the beer, a
+ * lightened band along the top as its head of foam. The point of testing it is not
+ * the look — it is the cost. The brief that asked for this also said the animations
+ * must not weigh anything, so the bar must stay a painted gradient and must never
+ * become a stack of elements, an asset, or something that runs per frame.
+ */
+describe("the waiting bar", () => {
+  const css = readFileSync(join(ROOT, "src", "app", "globals.css"), "utf8");
+  const start = css.indexOf(".nav-progress::before");
+  // To the end of that rule, not to the keyframes — those are declared ABOVE it, and
+  // slicing to them silently yields "" and makes every `not.toMatch` below pass.
+  const bar = css.slice(start, css.indexOf("}", start) + 1);
+
+  it("was actually found in the stylesheet", () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(bar.length).toBeGreaterThan(80);
+  });
+
+  it("pours: a body of beer with foam along its top", () => {
+    expect(bar).toMatch(/linear-gradient/);
+    expect(bar).toMatch(/color-mix\(in oklab, var\(--accent\)/);
+  });
+
+  it("takes its colour from the beer's theme, never a colour of its own", () => {
+    // DESIGN.md: a new colour that is not a token is on the list of things not to do.
+    expect(bar).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(bar).not.toMatch(/\brgb\(|\bhsl\(/);
+  });
+
+  it("stays one painted element — no image, no extra layer to composite", () => {
+    expect(bar).not.toMatch(/url\(|background-image:\s*url/);
+    expect(bar).not.toMatch(/box-shadow|filter:/);
+  });
+});
+
+/**
+ * The trolley that fills while the app opens (0.12.0, the owner's idea).
+ *
+ * The thing worth holding is WHERE it runs. Opening the installed app from the
+ * home screen already shows a blank screen while the OS hands over; filling that
+ * costs nobody anything. A browser tab has no such gap, and an overlay there
+ * would be covering content that was ready — the one thing DESIGN.md says motion
+ * must never do.
+ *
+ * And it must stay script-free. Nothing dismisses it, so nothing can leave it
+ * stuck in front of the app: it animates once and ends invisible and
+ * untouchable. A `useEffect` with a timer would be the obvious way to write
+ * this, and the obvious way to ship a permanent grey screen to somebody whose
+ * JavaScript failed to load.
+ */
+describe("the trolley on opening", () => {
+  const css = readFileSync(join(ROOT, "src", "app", "globals.css"), "utf8");
+  const art = readFileSync(join(ROOT, "src", "components", "LaunchScreen.tsx"), "utf8");
+  const launch = css.slice(css.indexOf(".launch {"), css.indexOf("@keyframes launch-out"));
+
+  it("appears in the installed app and nowhere else", () => {
+    expect(launch).toMatch(/@media \(display-mode: standalone\)/);
+    // Hidden by default, so a browser tab never sees it even for a frame.
+    expect(launch).toMatch(/\.launch \{\s*display: none;\s*\}/);
+  });
+
+  it("ends by itself, with no script to dismiss it", () => {
+    expect(art).not.toMatch(/"use client"|useEffect|useState|setTimeout/);
+    expect(css).toMatch(/@keyframes launch-out[\s\S]*?visibility: hidden/);
+    expect(css).toMatch(/@keyframes launch-out[\s\S]*?pointer-events: none/);
+  });
+
+  it("is drawn, not fetched — no asset to load before the app can open", () => {
+    expect(art).toMatch(/<svg/);
+    expect(art).not.toMatch(/<img|url\(|\.webp|\.png|\.gif|\.mp4/);
+  });
+});

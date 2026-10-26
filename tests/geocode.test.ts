@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { insideIsrael, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
+import { cityResolver, fixForBranch, insideIsrael, isBetterFix, normPlace, placeToAsk, providerFrom, PRECISIONS } from "../scripts/ingest/lib/geocode/index.mjs";
 import { asUser } from "./helpers/db";
 import { world } from "./helpers/catalog";
 
@@ -145,5 +145,212 @@ describe("the admin can see how big the gap is", () => {
       ),
     );
     expect(rows[0].o.branches).toEqual({ total: 3, located: 1, geocodable: 1, no_address: 1 });
+  });
+});
+
+/**
+ * Upgrading the thousand branches that already sit on their town's centre.
+ *
+ * Migration 0045 gave every branch whose town we recognise the centre of that town.
+ * That answers "is there a Rami Levy in my town" and openly does not point at the
+ * shop's door — and on a map it is a thousand shops stacked on twenty town squares.
+ *
+ * The obvious way to re-do them is to blank the column and let the ordinary pass
+ * pick them up. That trades a coarse position for NO position the moment a lookup
+ * fails, and a failed lookup is the common case here, not the rare one. So nothing
+ * is ever cleared: the row is read with its precision and written only when the new
+ * answer is strictly better. A branch can move from the town square to its door. It
+ * can never move back to nothing.
+ */
+describe("a position is only ever replaced by a better one", () => {
+  it("accepts a sharper fix", () => {
+    expect(isBetterFix("rooftop", "locality")).toBe(true);
+    expect(isBetterFix("street", "locality")).toBe(true);
+    expect(isBetterFix("rooftop", "street")).toBe(true);
+  });
+
+  it("refuses an equal or coarser one — a town centre is not replaced by another town centre", () => {
+    expect(isBetterFix("locality", "locality")).toBe(false);
+    expect(isBetterFix("street", "street")).toBe(false);
+    expect(isBetterFix("locality", "street")).toBe(false);
+    expect(isBetterFix("locality", "rooftop")).toBe(false);
+  });
+
+  it("takes anything it understands for a branch that has no position", () => {
+    expect(isBetterFix("locality", null)).toBe(true);
+    expect(isBetterFix("rooftop", undefined)).toBe(true);
+  });
+
+  it("never trusts a precision it does not know, whatever is already there", () => {
+    expect(isBetterFix("approximate", "locality")).toBe(false);
+    expect(isBetterFix("", null)).toBe(false);
+    expect(isBetterFix(undefined, null)).toBe(false);
+    // …and a row holding an unknown precision has nothing worth keeping.
+    expect(isBetterFix("street", "guessed")).toBe(true);
+  });
+});
+
+/**
+ * The city column is sometimes a number (0047).
+ *
+ * Production holds "אשקלון, 0", "33 סוקולוב, 2650", "דרך השלום 13, 2500": a real
+ * street address, and a CBS settlement symbol where the town's name should be. A
+ * geocoder asked that way has a street and a number that means nothing to it —
+ * most of why the first dry run over 25 branches placed four, three of them no
+ * nearer than the town. 0045's town matching has resolved these through
+ * town_centres.code since 0047; the geocoder never got the same treatment.
+ */
+describe("a town named by its number", () => {
+  const resolve = cityResolver([
+    { code: "2650", name: "רמת השרון" },
+    { code: "4000", name: "חיפה" },
+    { code: "0472", name: "אבו גוש" },
+  ]);
+
+  it("turns a settlement symbol into the town's name", () => {
+    expect(resolve("2650")).toBe("רמת השרון");
+    expect(resolve("4000")).toBe("חיפה");
+  });
+
+  it("ignores leading zeros on both sides, as place_branches_by_town does", () => {
+    expect(resolve("472")).toBe("אבו גוש");
+    expect(resolve("0472")).toBe("אבו גוש");
+    expect(resolve("00004000")).toBe("חיפה");
+  });
+
+  it("leaves a real name alone", () => {
+    expect(resolve("תל אביב")).toBe("תל אביב");
+    expect(resolve("  פרדס חנה-כרכור ")).toBe("פרדס חנה-כרכור");
+  });
+
+  it("gives nothing for a symbol it does not know, rather than the symbol itself", () => {
+    // "2650" reaching a geocoder is worse than an empty city: it is the kind of
+    // input that comes back confidently wrong, and a wrong pin is invisible.
+    expect(resolve("999999")).toBe("");
+    expect(resolve("0")).toBe("");
+    expect(resolve(null)).toBe("");
+    expect(resolve("")).toBe("");
+  });
+});
+
+/**
+ * A street with no town is not an address.
+ *
+ * The provider is called with limit=1 and countrycodes=il, so "יהודה הלוי 113,
+ * ישראל" returns the first יהודה הלוי in the country and answers with complete
+ * confidence. There is a יהודה הלוי in dozens of towns. That is not a near miss,
+ * it is a pin in another city — and a wrong pin is the failure nobody can see,
+ * which is the whole reason 0026 shipped with no provider configured at all.
+ *
+ * This was reachable: resolving an unknown CBS symbol to "" (the previous commit)
+ * left the street alone in the query. The dry run that found it had already
+ * returned four "rooftop" fixes for addresses whose town we could not name.
+ */
+describe("what we are willing to ask about", () => {
+  const resolveCity = cityResolver([{ code: "2650", name: "רמת השרון" }]);
+  const knownTowns = new Set(["אור יהודה", "פרדס חנה כרכור", "רמת השרון", "סגולה", "פתח תקווה", "רחובות"].map(normPlace));
+  const ask = (address: string | null, city: string | null, name: string | null = null) =>
+    placeToAsk({ address, city, name }, { resolveCity, knownTowns });
+
+  it("asks with the street and the town when the town is known", () => {
+    expect(ask("סוקולוב 33", "2650")).toEqual({ address: "סוקולוב 33", city: "רמת השרון" });
+    expect(ask("סוקולוב 33", "רמת השרון")).toEqual({ address: "סוקולוב 33", city: "רמת השרון" });
+  });
+
+  it("refuses a street whose town we cannot name, however good the street looks", () => {
+    // The exact shape that came back as "rooftop" in the dry run.
+    expect(ask("יהודה הלוי 113", "0")).toBeNull();
+    expect(ask("יגאל אלון 57", "999999")).toBeNull();
+    expect(ask("ביאליק 39", null)).toBeNull();
+  });
+
+  it("still places a branch whose ADDRESS is its town — that is how 'אור יהודה, 0' works", () => {
+    expect(ask("אור יהודה", "0")).toEqual({ address: "", city: "אור יהודה" });
+    // Spelling differences are the database's own rule, not a second one.
+    expect(ask("פרדס־חנה  כרכור", "0")).toEqual({ address: "", city: "פרדס־חנה  כרכור" });
+  });
+
+  /**
+   * MEASURED, production, 2026-10-25, and it cost six written rows before the run
+   * was stopped. "סגולה פתח תקווה", city "0", address "סגולה" was placed 47 km
+   * south of Petah Tikva: סגולה is a neighbourhood there AND a moshav near Kiryat
+   * Gat. The address passing for a town is not evidence that the branch is in it.
+   */
+  it("lets the branch's name veto an address that only looks like a town", () => {
+    expect(ask("סגולה", "0", "סגולה פתח תקווה")).toBeNull();
+    // Without the contradiction the same row is still fine.
+    expect(ask("סגולה", "0", "סגולה")).toEqual({ address: "", city: "סגולה" });
+  });
+
+  it("still places the rows that agree with themselves", () => {
+    // Both of these were written that day and both are correct.
+    expect(ask("אור יהודה", "0", "אור יהודה גדול")).toEqual({ address: "", city: "אור יהודה" });
+    expect(ask("רחובות", "0", "מרכז סנטרו רחובות")).toEqual({ address: "", city: "רחובות" });
+  });
+
+  it("only ever REFUSES on a town found inside a name, never places from one", () => {
+    // The asymmetry is the point: a false match costs a missing pin, which is
+    // visible, rather than a wrong one, which is not.
+    expect(ask("קניון איילון", "0", "קניון איילון")).toBeNull();
+    expect(ask(null, "0", "רמי לוי פתח תקווה")).toBeNull();
+  });
+
+  it("asks about nothing at all when there is nothing to go on", () => {
+    expect(ask(null, null)).toBeNull();
+    expect(ask("", "")).toBeNull();
+  });
+});
+
+/**
+ * The town decides; the street only refines it.
+ *
+ * The owner's rule, 2026-10-25, after a Petah Tikva shop was put 47 km south:
+ * "קודם כל עיר ואז הכתובת בתוך העיר, שהשם של הרחוב לא ישלח אותי לעיר או מושב אחר."
+ * What he needs right is the town — he will find the door himself. The street is
+ * worth having and is never worth being wrong about.
+ *
+ * Asking for "street, town" does NOT guarantee an answer in that town: given a
+ * street it cannot find there, a geocoder returns one it can find elsewhere,
+ * with no sign that it did. So every street-level answer is measured against the
+ * town's own centre, which the database holds for 1,172 settlements.
+ */
+describe("the town decides", () => {
+  // Petah Tikva, and the moshav called Segula 47 km south of it.
+  const petahTikva = { lat: 32.0878, lon: 34.8878 };
+  const km = (aLat: number, aLon: number, bLat: number, bLon: number) => {
+    const R = 6371, rad = (d: number) => (d * Math.PI) / 180;
+    const dLat = rad(bLat - aLat), dLon = rad(bLon - aLon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+  const fixFor = (fix: unknown, town: unknown = petahTikva) =>
+    fixForBranch({ fix, town, distanceKm: km } as Parameters<typeof fixForBranch>[0]);
+
+  it("keeps a street-level answer that lands inside the town", () => {
+    const inTown = { lat: 32.0905, lon: 34.8820, precision: "rooftop" };
+    expect(fixFor(inTown)).toMatchObject({ lat: 32.0905, precision: "rooftop", source: "geocoder" });
+  });
+
+  it("throws away a street-level answer that lands in another town, and keeps the centre", () => {
+    const segulaMoshav = { lat: 31.6697, lon: 34.7791, precision: "street" };
+    const kept = fixFor(segulaMoshav);
+    expect(kept).toMatchObject({ lat: petahTikva.lat, precision: "locality" });
+    expect(kept?.rejected).toBeGreaterThan(40);
+  });
+
+  it("falls back to the town's centre when the geocoder found nothing at all", () => {
+    expect(fixFor(null)).toMatchObject({ lat: petahTikva.lat, precision: "locality" });
+  });
+
+  it("has nothing to offer when we do not know the town either", () => {
+    expect(fixFor(null, null)).toBeNull();
+    // …and with no centre to check against, a street answer is all there is.
+    expect(fixFor({ lat: 31.6, lon: 34.7, precision: "street" }, null)).toMatchObject({ precision: "street" });
+  });
+
+  it("is forgiving enough for a large municipality", () => {
+    // Jerusalem is about 18 km across; a real address at its edge must survive.
+    const edge = { lat: petahTikva.lat + 0.15, lon: petahTikva.lon, precision: "rooftop" };
+    expect(fixFor(edge)).toMatchObject({ precision: "rooftop" });
   });
 });

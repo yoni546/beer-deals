@@ -441,7 +441,7 @@ describe("the production ingestion workflow", () => {
   });
 });
 
-describe("the daily history prune (0052)", () => {
+describe("the daily history prune (0066)", () => {
   it("runs after a successful write in both import workflows, against that workflow's own target", () => {
     for (const [file, target] of [["ingest-staging.yml", "--target staging --apply"], ["ingest-production.yml", '--target production --confirm-ref "$CONFIRM_REF" --apply']]) {
       const yml = readFileSync(join(__dirname, "..", ".github/workflows", file), "utf8");

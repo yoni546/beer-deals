@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PinIcon } from "@/components/ui/icons";
 import { redirect } from "next/navigation";
 import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
@@ -257,8 +258,21 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <SortBar path="/" state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
           </div>
 
-          <div className="mb-5">
+          <div className="mb-5 flex items-center gap-3">
             <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
+            {/* The way into the map. A tab of its own would make a map one of the
+                four things this app is, which it is not: it is one way of reading
+                the answer Home already gives.
+
+                SHOWN TO EVERYONE, including somebody who has never said where they
+                live (the owner's rule, 2026-10-25). It used to appear only when we
+                could place the person, which made the map a reward for filling in
+                a profile — and wanting to see another town's deals is a reason to
+                open a map, not a reason to be turned away from one. */}
+            <Link href="/map" prefetch={false} className="disclose shrink-0 text-sm">
+              <PinIcon size={16} />
+              על המפה
+            </Link>
           </div>
 
           {intent === "near" ? (

@@ -83,7 +83,7 @@ describe("sendTestPush", () => {
     expect(send).toHaveBeenCalledTimes(1);
     const [target, payload, options] = send.mock.calls[0];
     expect(target).toEqual({ endpoint: "https://push.example/1", p256dh: "p", auth: "a" });
-    expect(JSON.parse(payload)).toMatchObject({ title: "בדיקת התראה", url: "/settings", tag: "test" });
+    expect(JSON.parse(payload)).toMatchObject({ title: "התראות עובדות במכשיר הזה", url: "/settings", tag: "test" });
     expect(options).toEqual({ ttlSeconds: 300 });
 
     expect(state.logged).toEqual([expect.objectContaining({ user_id: "user-1", kind: "test", status: "sent", subscriptions_ok: 1, subscriptions_total: 1 })]);

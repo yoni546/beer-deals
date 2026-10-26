@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0052 · Price history that stops growing by itself, and a cleanup of what nothing reads
+-- 0066 · Price history that stops growing by itself, and a cleanup of what nothing reads
 --
 -- Measured on staging (2026-10-14, 2½ weeks of daily full-branch imports): 845 MB, of which the price
 -- ledger is 689 MB / 770,556 rows. Every import re-recorded every price and promotion, changed or not —
@@ -23,7 +23,7 @@
 --    partial indexes on what is pruned.
 --
 -- Deleting frees space for reuse; the size Supabase reports drops only after `vacuum full` on the table
--- (docs/PRUNE-HISTORY.md). Rollback: supabase/rollback/0052_prune_history.down.sql (the deleted rows are not
+-- (docs/PRUNE-HISTORY.md). Rollback: supabase/rollback/0066_prune_history.down.sql (the deleted rows are not
 -- restored by it — the backup taken before the first prune is the way back).
 -- ---------------------------------------------------------------------------
 
@@ -188,7 +188,7 @@ begin
   -- are "the newest".
   perform pg_advisory_xact_lock(hashtext(p_sku_id::text || p_store_id::text));
 
-  -- 0052 · UNCHANGED IS NOT NEW. The same price, for the same pack, at the same branch, under the same identity
+  -- 0066 · UNCHANGED IS NOT NEW. The same price, for the same pack, at the same branch, under the same identity
   -- and terms, re-read from a newer file, does not add a row: the live row is marked as seen again (observed_at
   -- moves forward, so close_missing_promotions keeps it and the 14-day windows still see it). One row per WEEK is
   -- still written for an unchanged price, so the Deal Score's history (0027: live + superseded rows over 180 days,

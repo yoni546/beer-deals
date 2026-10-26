@@ -116,6 +116,17 @@ export function slim(prices, promos) {
   };
 }
 
+// A cold start has to work. The manifest line below already copes with the file
+// being absent, but nothing created the directory it lives in: every run until
+// now inherited it from the restored Actions cache, so the first run after that
+// cache expires died writing the manifest back —
+//
+//   ENOENT: no such file or directory, open '.ingest-cache/manifest.json'
+//
+// which is how a nine-day gap in production data began. The scan is meant to
+// work from nothing; now it does.
+mkdirSync(CACHE, { recursive: true });
+
 const manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {};
 const wanted = (flag("publishers") || Object.keys(PUBLISHERS).join(",")).split(",").filter(Boolean);
 const started = Date.now();

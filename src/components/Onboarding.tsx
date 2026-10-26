@@ -6,7 +6,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { OnboardingStage, type Scene } from "@/components/OnboardingStage";
 import { PlacePicker, EMPTY_PLACE, type Place } from "@/components/PlacePicker";
 import { RankedBeers, moveItem } from "@/components/RankedBeers";
-import { BeerMark } from "@/components/ui/Bottle";
+import { BeerBottle } from "@/components/ui/Bottle";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import { getThemeForBeer, themeStyleSheet } from "@/design/themes";
@@ -153,8 +153,12 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
 
   return (
     <main
-      // Choosing and ranking scroll their own list, so the stage and the button stay where they are.
-      className={`ob mx-auto flex w-full max-w-[30rem] flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${scene === "pick" || scene === "rank" ? "h-dvh" : "min-h-dvh"}`}
+      // Ranking is four rows and fits, so it keeps the stage and the button still.
+      // CHOOSING DOES NOT FIT and must not try: locking this screen to the viewport
+      // put 39 beers in a box 344px tall — 42% of the screen, eight of them visible —
+      // inside a page that could not move. A swipe anywhere but that strip did
+      // nothing at all, which is exactly what "the page doesn't scroll" means.
+      className={`ob mx-auto flex w-full max-w-[30rem] flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${scene === "rank" ? "h-dvh" : "min-h-dvh"}`}
       data-motion={motion}
       ref={root}
     >
@@ -227,7 +231,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
       )}
 
       {scene === "pick" && (
-        <section className="ob-panel flex min-h-0 flex-1 flex-col">
+        <section className="ob-panel flex flex-1 flex-col">
           <h2 ref={heading} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold text-on-ground outline-none">
             הבירות שלכם
           </h2>
@@ -239,8 +243,9 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             ))}
           </ol>
 
-          {/* Full-bleed, so the strips' shadows are not cut off at the sides of the scrolling box. */}
-          <ul className="ob-scroll -mx-5 grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto overscroll-contain px-5 pt-1 pb-8">
+          {/* Full-bleed, so the strips' shadows are not cut off at the sides.
+              The PAGE scrolls this, not a box inside it: see the note on <main>. */}
+          <ul className="ob-scroll -mx-5 grid auto-rows-min grid-cols-2 gap-2 px-5 pt-1 pb-4">
             {beers.map((beer) => {
               const rank = picked.findIndex((b) => b.id === beer.id);
               const chosen = rank !== -1;
@@ -254,7 +259,7 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
                       chosen ? "outline-[3px] outline-offset-0 outline-accent [outline-style:solid]" : ""
                     }`}
                   >
-                    <BeerMark slug={beer.slug} height={36} className="shrink-0" />
+                    <BeerBottle slug={beer.slug} height={36} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{beer.name_he}</span>
                     {chosen && (
                       <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-deal text-xs font-bold text-on-deal">
@@ -267,8 +272,15 @@ export function Onboarding({ beers }: { beers: Beer[] }) {
             })}
           </ul>
 
-          {/* One beer is enough (0024). Four is the ceiling, not the entry fee. */}
-          <button type="button" disabled={picked.length === 0} onClick={() => setStep(3)} className="btn mt-2 min-h-13 w-full shrink-0 text-base">
+          {/* One beer is enough (0024). Four is the ceiling, not the entry fee.
+              Sticky, because the page scrolls now: the way on must not be something
+              you have to scroll to the end of 39 beers to find. */}
+          <button
+            type="button"
+            disabled={picked.length === 0}
+            onClick={() => setStep(3)}
+            className="btn sticky bottom-[calc(0.75rem+env(safe-area-inset-bottom))] mt-2 min-h-13 w-full shrink-0 text-base"
+          >
             {picked.length === 0 ? "בחרו בירה אחת לפחות" : "לדירוג"}
           </button>
         </section>

@@ -14627,10 +14627,957 @@ begin
 end
 $$;
 
--- ======================== 0052_prune_history.sql ========================
+-- ======================== 0054_market_reference_precomputed.sql ========================
 
 -- ---------------------------------------------------------------------------
--- 0052 · Price history that stops growing by itself, and a cleanup of what nothing reads
+-- 0054 · The market comparison is computed once per import, not once per read.
+--
+-- WHY. The notification worker has failed every hour since 2026-10-17 — 100
+-- consecutive runs, zero successes — with
+--
+--   offers unavailable: canceling statement due to statement timeout
+--
+-- It reads one row: `offers_ranked where observation_id = <one id>`. Measured on
+-- production 2026-10-23, EXPLAIN (ANALYZE) on exactly that query:
+--
+--   Execution Time: 7900 ms          for ONE row
+--     store_min  GroupAggregate      3662 ms over 52,254 rows
+--     market     GroupAggregate      7850 ms over 14,614 rows
+--
+-- Both aggregates run over the whole dataset before the `observation_id` filter
+-- is applied, because `as materialized` is an optimisation fence: the planner
+-- cannot push the outer filter into them. Asking for one row costs the same as
+-- asking for all of them.
+--
+-- 0018 introduced those CTEs to stop the same work happening once per ROW, and
+-- that was right at staging's scale (~10,600 promotions). Production now holds
+-- more, and "once per query" is still an aggregate over everything. 0022 then
+-- fixed the reference-price probe, which was the other half; this is the half
+-- that was left.
+--
+-- WHAT. The quantity does not change between imports — it changes when prices
+-- change, which is when an import runs. So it becomes a materialized view,
+-- refreshed at the end of ingestion and indexed, and the read turns from
+-- "aggregate fifty thousand rows" into an index lookup.
+--
+-- offers_ranked keeps every column, name, type and meaning. Only the speed
+-- changes.
+--
+-- Rollback: the 0022 definition of offers_ranked, then
+-- `drop materialized view public.market_reference`.
+-- ---------------------------------------------------------------------------
+
+-- --------------------------------------------------------------------------
+-- The precomputed comparison: exactly the store_min + market pair from 0022,
+-- lifted out of the query.
+-- --------------------------------------------------------------------------
+
+drop materialized view if exists public.market_reference;
+
+create materialized view public.market_reference as
+with store_min as (
+  -- one number per chain: its lowest current regular price for this pack
+  select r.sku_id, r.store_id, min(r.price_agorot) as price_agorot
+    from public.regular_prices_current r
+    join public.sources src on src.id = r.source_id and src.kind in ('chain_feed', 'admin')
+   where r.observed_at >= now() - interval '14 days'
+   group by r.sku_id, r.store_id
+)
+-- for a pack at a chain: the median of the OTHER chains' numbers, when there are at least two
+select p.sku_id,
+       p.store_id,
+       (percentile_cont(0.5) within group (order by m.price_agorot))::integer as median_agorot,
+       count(*)::integer                                                      as chains
+  from (select distinct sku_id, store_id from public.promotions_current) p
+  join store_min m on m.sku_id = p.sku_id and m.store_id <> p.store_id
+ group by p.sku_id, p.store_id
+having count(*) >= 2;
+
+-- Unique, because REFRESH ... CONCURRENTLY requires one, and concurrently is
+-- what keeps the site readable while an import rebuilds the comparison.
+create unique index market_reference_key on public.market_reference (sku_id, store_id);
+
+-- offers_ranked runs as the caller (security_invoker), so the caller must be
+-- able to read what it joins. Without this an anonymous visitor gets
+-- "permission denied for materialized view market_reference".
+--
+-- What it exposes: a median of public shelf prices per pack and chain. No user
+-- data, and nothing not already derivable from the price feeds.
+grant select on public.market_reference to anon, authenticated, service_role;
+
+-- --------------------------------------------------------------------------
+-- offers_ranked: the same view, with the two CTEs replaced by a join.
+-- --------------------------------------------------------------------------
+
+create or replace view public.offers_ranked
+with (security_invoker = on)
+as
+select
+  o.id                                   as observation_id,
+  o.sku_id,
+  s.beer_id,
+  be.slug                                as beer_slug,
+  be.name_he                             as beer_name,
+  be.name_en                             as beer_name_en,
+  s.variant,
+  s.category,
+  br.slug                                as brand_slug,
+  s.container,
+  s.volume_ml,
+  s.pack_quantity,
+  s.total_volume_ml,
+  s.display_he                           as sku_name,
+  o.store_id,
+  st.slug                                as store_slug,
+  st.name_he                             as store_name,
+  o.branch_id,
+  o.identity_key,
+  o.promo_type,
+  o.conditions,
+  o.deposit_agorot,
+  o.deposit_included,
+  o.valid_from,
+  o.valid_to,
+  o.observed_at,
+  (psrc.slug = 'sample-data')            as is_sample,
+  o.price_agorot                         as effective_agorot,
+  round(o.price_agorot::numeric * 1000 / s.total_volume_ml)::integer as unit_price_per_liter_agorot,
+  ref.price_agorot                       as reference_agorot,
+  ref.observed_at                        as reference_observed_at,
+  ref.trust                              as reference_trust,
+  case when pct.raw between 1 and 70 then pct.raw end as value_pct,
+  coalesce(pct.raw > 70, false)          as needs_review,
+  mk.median_agorot                       as market_reference_agorot,
+  mk.chains                              as market_chains,
+  case when mk.median_agorot > o.price_agorot
+       then round((mk.median_agorot - o.price_agorot) * 100.0 / mk.median_agorot)::integer
+  end                                    as market_value_pct
+from public.promotions_current o
+join public.skus   s  on s.id  = o.sku_id
+join public.product_categories pc on pc.slug = s.category and pc.in_scope
+join public.beers  be on be.id = s.beer_id
+join public.brands br on br.id = be.brand_id
+join public.stores st on st.id = o.store_id
+join public.sources psrc on psrc.id = o.source_id
+left join lateral (
+  -- The reference is the same pack at the same chain (same branch first), with the deposit
+  -- treated the same way on both sides: a deposit difference is never a "saving".
+  -- 0022: the same row as 0018's single query — this branch's newest regular price, else the chain-wide
+  -- (branch-less) one — found by two one-row probes of price_obs_live_regular instead of reading every
+  -- branch's price of the pack and sorting them.
+  select r.price_agorot
+         + case when coalesce(r.deposit_included, false) = coalesce(o.deposit_included, false) then 0
+                when coalesce(r.deposit_included, false) then -coalesce(r.deposit_agorot, 0)
+                else coalesce(r.deposit_agorot, 0) end as price_agorot,
+         r.observed_at,
+         case src.kind when 'chain_feed' then 'feed' when 'admin' then 'moderated' else 'unverified' end as trust
+    from (
+    (select r.id, 0 as prio
+       from public.price_observations r
+      where r.kind = 'regular' and r.status = 'live'
+        and r.sku_id = o.sku_id and r.store_id = o.store_id and r.branch_id = o.branch_id
+        and r.observed_at >= now() - interval '14 days'
+      order by r.observed_at desc, r.id desc
+      limit 1)
+      union all
+    (select r.id, 1 as prio
+       from public.price_observations r
+      where r.kind = 'regular' and r.status = 'live'
+        and r.sku_id = o.sku_id and r.store_id = o.store_id and r.branch_id is null
+        and r.observed_at >= now() - interval '14 days'
+      order by r.observed_at desc, r.id desc
+      limit 1)
+      order by prio
+      limit 1
+    ) pick
+    join public.price_observations r on r.id = pick.id
+    join public.sources src on src.id = r.source_id
+) ref on true
+left join lateral (
+  select round((ref.price_agorot - o.price_agorot) * 100.0 / ref.price_agorot)::integer as raw
+   where ref.trust in ('feed', 'moderated') and ref.price_agorot > o.price_agorot
+) pct on true
+left join public.market_reference mk on mk.sku_id = o.sku_id and mk.store_id = o.store_id;
+
+-- --------------------------------------------------------------------------
+-- Refreshing it.
+--
+-- CONCURRENTLY so readers are never blocked: the site stays up while an import
+-- rebuilds the comparison. It needs the unique index above and cannot run
+-- inside a transaction block, so the caller invokes it on its own.
+--
+-- Safe to call when nothing has changed; it recomputes the same rows.
+-- --------------------------------------------------------------------------
+
+create or replace function public.refresh_market_reference()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- The same gate as refresh_offers_catalog (0044): rebuilding the comparison is
+  -- part of the price write path, and an importer is exactly who may do it.
+  perform public.require_price_writer();
+
+  refresh materialized view concurrently public.market_reference;
+end;
+$$;
+
+revoke all on function public.refresh_market_reference() from public, anon;
+grant execute on function public.refresh_market_reference() to authenticated, service_role;
+
+-- ======================== 0055_catalog_refresh_needs_a_where.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0055 — the catalogue rebuild says WHERE, so it is allowed to run
+--
+-- MEASURED, production, 2026-10-24. The import succeeded — 797 branches, 32,971
+-- regular prices, 14,085 promotions, 0 errors — and the app still said the
+-- prices were eight days old, because `offers_feed` showed what it showed on
+-- 2026-10-12. Two lines in the run's log, and nowhere else:
+--
+--   deal scores:    canceling statement due to statement timeout
+--   offers catalog: DELETE requires a WHERE clause
+--
+-- WHAT THAT MESSAGE IS. Supabase runs the `safeupdate` guard on the role behind
+-- the API, so an UPDATE or DELETE arriving through PostgREST without a filter is
+-- refused rather than run — the protection against a forgotten filter emptying a
+-- table. 0044's rebuild clears the whole table on purpose:
+--
+--   delete from public.offers_catalog;
+--
+-- and the guard cannot tell that apart from the accident it exists to stop. It
+-- is in force for the whole session, inside a SECURITY DEFINER function as much
+-- as outside one, so the function could never run through `db.rpc(...)`.
+--
+-- WHY NOBODY SAW IT FOR TWELVE DAYS. The table was filled once, by hand, in the
+-- SQL editor the day 0044 was written — where the guard is off. Every import
+-- since has written its prices correctly and then failed, in one line, to
+-- publish them. The run still exits zero, because this step is deliberately not
+-- a `must`: a refresh that fails should not throw away an import's prices. So
+-- the only visible symptom was the one the owner reported, in the app: the
+-- prices had stopped moving.
+--
+-- THE FIX, which is one predicate. `offer_key is not null` is true of every row
+-- the rebuild inserts — it is `'obs:' || observation_id` — and the column is
+-- nullable (0044 builds the table with CREATE TABLE AS, which does not carry a
+-- NOT NULL across), so the planner keeps the qualifier instead of folding it
+-- away, and the guard sees a filtered DELETE. Same rows deleted, same single
+-- transaction, same behaviour on failure.
+--
+-- `where true` would read better and would not work: Postgres constant-folds it
+-- out of the plan and the guard sees an unqualified DELETE again.
+--
+-- The scores timeout is the other half of the same stall and is not this file's
+-- business: 0054 moves the market comparison out of the per-row path.
+--
+-- Nothing else changes. One function redefined, body identical but for the
+-- WHERE; safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.refresh_offers_catalog()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  written integer;
+begin
+  perform public.require_price_writer();
+
+  -- One transaction: readers keep seeing the previous rows until it commits, and
+  -- a failure leaves the old ones in place rather than an empty feed.
+  --
+  -- The WHERE is not a filter, it is a password: see the note at the top. Every
+  -- row has an offer_key, so this clears the table, which is what a rebuild is.
+  delete from public.offers_catalog where offer_key is not null;
+  insert into public.offers_catalog
+  select s.*, now() from public.offers_catalog_source s;
+  get diagnostics written = row_count;
+
+  return written;
+end;
+$$;
+
+revoke execute on function public.refresh_offers_catalog() from public, anon;
+grant execute on function public.refresh_offers_catalog() to authenticated, service_role;
+
+-- ======================== 0056_refreshes_get_time_to_run.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0056 — the three end-of-import refreshes get long enough to finish
+--
+-- MEASURED, production, 2026-10-24, the run straight after 0055 removed the
+-- DELETE refusal. The refusal is gone and all three refreshes now report the
+-- same thing in its place:
+--
+--   deal scores:      canceling statement due to statement timeout
+--   market reference: canceling statement due to statement timeout
+--   offers catalog:   canceling statement due to statement timeout
+--
+-- WHAT IS CANCELLING THEM. Supabase sets a short statement_timeout on the roles
+-- behind the API so that no one request can hold the free tier's single small
+-- instance. For a page read that is exactly right, and nothing here changes it.
+-- These three are not page reads: they are the end of an import, computing the
+-- read model for some 14,000 offers out of 180 days of a price ledger. They are
+-- the one thing in this system that is SUPPOSED to take tens of seconds, they
+-- run once a day, and nobody is waiting on them.
+--
+-- ON THE ROLE, NOT ON THE FUNCTION, and the difference is not cosmetic.
+-- Postgres arms the statement_timeout timer when a top-level statement STARTS;
+-- raising the GUC part-way through that statement — which is what a function's
+-- own `SET` does, applied as the function is entered — does not re-arm a timer
+-- that is already counting. A setting attached to the role is applied by
+-- PostgREST before the statement begins, which is early enough to matter. So
+-- the ceiling goes on service_role, the role the import writes as.
+--
+-- WHAT THAT WIDENS. service_role is the server-side key only: the import, the
+-- notification worker, the cache doorbell. It is never in a browser and never
+-- reachable by anon or authenticated, whose timeouts are untouched — a slow page
+-- query is still cancelled in seconds, exactly as before. What this allows is
+-- for our own maintenance to take a minute when it needs one.
+--
+-- WHY 120 SECONDS. Long enough for the measurements we have — the feed query the
+-- catalogue is built from was 15.3 s in production before 0044, and the market
+-- comparison about 12 s as one set-based pass — with room for the data to grow,
+-- and short enough that a refresh which has genuinely gone wrong still gives up.
+-- Supabase's HTTP gateway gives up before that anyway, near 100 s, and when it
+-- does the client disconnects and Postgres cancels the query: 120 s is an honest
+-- ceiling, not a promise that anything may run that long.
+--
+-- An import does not fail when a refresh fails. All three are deliberately not
+-- `must` (scripts/ingest/run.mjs §10): the prices are in and correct either way,
+-- and undoing a correct import over an unscored deal would be the worse outcome.
+-- Which is also why these failures were invisible for twelve days — and why
+-- run.mjs now records how long each one took, so the next import says whether
+-- 120 s was enough instead of leaving the question open.
+--
+-- One setting. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+alter role service_role set statement_timeout = '120s';
+
+comment on function public.refresh_market_reference() is
+  'Recomputes the cross-chain price comparison (0054). An end-of-import job, not '
+  'a page read: it runs under service_role''s longer statement_timeout (0056).';
+
+-- ======================== 0057_offers_near_a_point.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0057 — the deals around a point, each at the branch it is actually at
+--
+-- The owner asked for a map (2026-10-24). Migration 0039 explained why there was
+-- not one, and named the condition for building it: "the day
+-- scripts/ingest/geocode.mjs runs, this screen starts answering properly with no
+-- further change." The geocoder is configured now, so this is that day's SQL.
+--
+-- THE UNIT IS A BRANCH, NOT A CHAIN. `offers_catalog` holds one row per deal per
+-- chain — the cheapest observation of it — and that row names a single branch,
+-- the one the price was seen at. A map drawn from that would show one pin per
+-- deal, at one shop, for a deal running in forty. `promotion_branches` (0017) is
+-- the list of branches a promotion was actually observed at, so the map is built
+-- from the join of the two: every branch that has the deal, with the deal.
+--
+-- DISTANCE IS NULL, NEVER ZERO. A branch we cannot place has no distance, and
+-- `km_between` returns null for it. It is not 0 km, it is not the city centre
+-- pretending to be a shop, and such a branch is simply not returned here —
+-- because a map can only draw what it can put somewhere, and a pin in the wrong
+-- place is the one failure this product cannot absorb (0026, 0039). A deal in a
+-- branch we cannot place is still reachable everywhere else in the app; it is
+-- the map alone that has nothing to say about it.
+--
+-- THE RADIUS IS DONE IN SQL, not in the browser. The brief is explicit that the
+-- map must not fetch the whole country to show one neighbourhood (§9). 1,124
+-- branches is small enough that a filter over them is cheap, and the limit is a
+-- backstop rather than a budget.
+--
+-- NOT SECURITY DEFINER, for the same reasons 0039 gave: every table it reads —
+-- offers_catalog (0044), promotion_branches (0017), branches (0008) — is already
+-- world-readable by policy, and where a shop is, is public information. Passing
+-- a point in is geography, not identity: nothing about the asker is stored, and
+-- this function has nowhere to store it.
+--
+-- Additive: one function. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.offers_near(
+  p_lat       double precision,
+  p_lon       double precision,
+  p_radius_km double precision default 15,
+  p_limit     integer default 400
+)
+returns table (
+  branch_id     uuid,
+  branch_name   text,
+  branch_city   text,
+  latitude      double precision,
+  longitude     double precision,
+  geo_precision text,
+  km            double precision,
+  offer_key     text,
+  store_slug    text,
+  store_name    text,
+  beer_slug     text,
+  beer_name     text,
+  pack_label    text,
+  effective_agorot integer,
+  value_pct     integer,
+  promo_type    public.promo_type,
+  valid_to      timestamptz,
+  observed_at   timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  select b.id,
+         b.name_he,
+         b.city,
+         b.latitude,
+         b.longitude,
+         b.geocode_precision,
+         public.km_between(p_lat, p_lon, b.latitude, b.longitude) as km,
+         c.offer_key,
+         c.store_slug,
+         c.store_name,
+         c.beer_slug,
+         c.beer_name,
+         c.pack_label,
+         c.effective_agorot,
+         c.value_pct,
+         c.promo_type,
+         c.valid_to,
+         c.observed_at
+    from public.offers_catalog c
+    join public.promotion_branches pb on pb.promotion_id = c.promotion_id
+    join public.branches b on b.id = pb.branch_id
+   where c.promotion_id is not null
+     and b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+     -- A point is required. Without one there is no "near", and returning the
+     -- whole country unordered would be the bug this function exists to prevent.
+     and p_lat is not null
+     and p_lon is not null
+     -- 0 means "no limit", the same reading profiles.search_radius_km already has
+     -- in distance.ts, so the two cannot drift apart.
+     and (coalesce(p_radius_km, 0) = 0
+          or public.km_between(p_lat, p_lon, b.latitude, b.longitude) <= p_radius_km)
+   -- Nearest first, and within one branch the best saving first, so a pin that
+   -- shows a single deal shows that branch's best one.
+   order by km asc, c.value_pct desc nulls last, c.effective_agorot asc
+   limit greatest(coalesce(p_limit, 400), 1);
+$$;
+
+comment on function public.offers_near(double precision, double precision, double precision, integer) is
+  'Live chain deals at branches within p_radius_km of a point, nearest first. One row '
+  'per branch per deal. Branches with no position are omitted: a map can only draw '
+  'what it can place, and a pin in the wrong place is worse than no pin (0057).';
+
+grant execute on function public.offers_near(double precision, double precision, double precision, integer)
+  to anon, authenticated, service_role;
+
+-- ======================== 0058_offers_near_starts_from_the_branches.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0058 — the map's query starts from the branches near you, not from every
+--        promotion in the country
+--
+-- MEASURED, production, 2026-10-25, the moment 0057 was applied. The function
+-- exists and answers with a timeout:
+--
+--   offers_near(32.0853, 34.7818, 15, 400)  →  57014, statement timeout
+--
+-- Taken apart over REST, the cost is in exactly one place:
+--
+--   offers_catalog                 542 rows   0.5 s
+--   branches with a position     1,016 rows   0.3 s
+--   promotion_branches                        TIMES OUT on its own
+--
+-- WHAT promotion_branches COSTS. It is a view (0017) over every promotion
+-- occurrence ever recorded, with a DISTINCT ON per (promotion, branch) and a
+-- correlated subquery per row to find each chain's newest scan. Asked for its
+-- whole self it is not cheap, and 0057 joined the whole of it to the catalogue
+-- and only then narrowed to the branches in range. The narrowing has to come
+-- first: there are a thousand branches and a handful are near any point.
+--
+-- SO THE QUERY IS INVERTED. `here` is the branches inside the radius — one scan
+-- of a small table — and the view is reached with a branch_id already in hand,
+-- which it can push into its own scan because branch_id is part of its DISTINCT
+-- ON key. A cheap bounding box runs before the trigonometry; `km_between` then
+-- answers exactly, once per branch instead of twice per row.
+--
+-- AND TWO INDEXES IT HAD NO WAY TO USE. promotion_occurrences was indexed on
+-- (store_id, canonical_key) only — the chain page's question. "Which promotions
+-- does THIS branch have" had no index at all and meant a sequential scan.
+-- branch_scans had (store_id, scanned_at) for the same reason.
+--
+-- Nothing about the ANSWER changes: same rows, same order, same refusals. A
+-- branch we cannot place is still absent, no point still means no rows, and
+-- radius 0 still means no limit — the bounding box is skipped in that case
+-- rather than being built from an infinite side.
+--
+-- Additive: two indexes and one function redefined. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+-- "Which promotions does this branch have", which nothing indexed before.
+create index if not exists promotion_occurrences_branch
+  on public.promotion_occurrences (branch_id);
+
+-- The view's other join: this branch's row in a scan, by the file it names.
+create index if not exists branch_scans_branch_file
+  on public.branch_scans (branch_id, promo_file);
+
+create or replace function public.offers_near(
+  p_lat       double precision,
+  p_lon       double precision,
+  p_radius_km double precision default 15,
+  p_limit     integer default 400
+)
+returns table (
+  branch_id     uuid,
+  branch_name   text,
+  branch_city   text,
+  latitude      double precision,
+  longitude     double precision,
+  geo_precision text,
+  km            double precision,
+  offer_key     text,
+  store_slug    text,
+  store_name    text,
+  beer_slug     text,
+  beer_name     text,
+  pack_label    text,
+  effective_agorot integer,
+  value_pct     integer,
+  promo_type    public.promo_type,
+  valid_to      timestamptz,
+  observed_at   timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  with here as materialized (
+    select b.id, b.name_he, b.city, b.latitude, b.longitude, b.geocode_precision,
+           public.km_between(p_lat, p_lon, b.latitude, b.longitude) as km
+      from public.branches b
+     where b.is_active
+       and b.latitude is not null
+       and b.longitude is not null
+       -- A point is required. Without one there is no "near", and returning the
+       -- whole country unordered would be the bug this function exists to prevent.
+       and p_lat is not null
+       and p_lon is not null
+       -- A box before the trigonometry, and only when there is a radius to box.
+       -- One degree of latitude is ~111 km; of longitude, ~111 km × cos(lat).
+       and (coalesce(p_radius_km, 0) = 0 or (
+             b.latitude between p_lat - (p_radius_km / 111.0) and p_lat + (p_radius_km / 111.0)
+         and b.longitude between p_lon - (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+                            and p_lon + (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+       ))
+  )
+  select h.id,
+         h.name_he,
+         h.city,
+         h.latitude,
+         h.longitude,
+         h.geocode_precision,
+         h.km,
+         c.offer_key,
+         c.store_slug,
+         c.store_name,
+         c.beer_slug,
+         c.beer_name,
+         c.pack_label,
+         c.effective_agorot,
+         c.value_pct,
+         c.promo_type,
+         c.valid_to,
+         c.observed_at
+    from here h
+    join public.promotion_branches pb on pb.branch_id = h.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where coalesce(p_radius_km, 0) = 0 or h.km <= p_radius_km
+   -- Nearest first, and within one branch the best saving first, so a pin that
+   -- shows a single deal shows that branch's best one.
+   order by h.km asc, c.value_pct desc nulls last, c.effective_agorot asc
+   limit greatest(coalesce(p_limit, 400), 1);
+$$;
+
+comment on function public.offers_near(double precision, double precision, double precision, integer) is
+  'Live chain deals at branches within p_radius_km of a point, nearest first. One row '
+  'per branch per deal. Starts from the branches in range, because promotion_branches '
+  'is expensive asked for its whole self (0058). Branches with no position are omitted: '
+  'a map can only draw what it can place, and a pin in the wrong place is worse than none.';
+
+grant execute on function public.offers_near(double precision, double precision, double precision, integer)
+  to anon, authenticated, service_role;
+
+-- ======================== 0059_which_branches_have_a_promotion.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0059 — which branches have a promotion, computed once per import
+--
+-- MEASURED, production, 2026-10-25. 0058 inverted the map's query to start from
+-- the branches in range, and it still times out at the 3-second ceiling anon
+-- reads under:
+--
+--   offers_near(32.0853, 34.7818, 15)   →  57014, after 3.9 s
+--
+-- WHY INVERTING IT WAS NOT ENOUGH, which is the useful part. Taken apart over
+-- REST:
+--
+--   promotion_occurrences                        225,419 rows
+--   promotion_branches filtered to ONE branch     28 rows, 0.40 s  ← fast
+--   promotion_branches joined to a set of them               times out
+--
+-- A constant filter is fast because it is pushed into the view. A JOIN predicate
+-- is not, and cannot be: `promotion_branches` is a DISTINCT ON over every
+-- occurrence ever recorded, and Postgres cannot pull a DISTINCT ON subquery up
+-- into the outer query, so it has no way to parameterise it per branch. It
+-- evaluates the whole thing — a sort of 225,419 rows — and only then joins. No
+-- index fixes that, because nothing is being looked up.
+--
+-- SO IT IS A TABLE NOW, which is exactly what 0044 did to the feed for exactly
+-- this reason: the expensive half is computed at the end of an import instead of
+-- on every read. The pairs are small — one row per (promotion, branch) actually
+-- observed, against a quarter of a million occurrences — and a plain index
+-- answers "which promotions does this branch have" in microseconds.
+--
+-- STALENESS, SAID PLAINLY. Between imports this is as old as the last one, which
+-- is already true of every price in the app. The view it is built from stays,
+-- and stays the definition: this table is only its answer, cached.
+--
+-- The delete says WHERE on purpose. An unqualified one is refused through
+-- PostgREST by Supabase's safeupdate guard, which cost this project twelve days
+-- of silently unpublished prices (0055).
+--
+-- Filled at the end of this file, so the map works the moment this is pasted
+-- rather than at the next import.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.promotion_branch_pins (
+  promotion_id bigint not null,
+  branch_id    uuid   not null,
+  observed_at  timestamptz,
+  primary key (branch_id, promotion_id)
+);
+
+comment on table public.promotion_branch_pins is
+  'Which branches a promotion was observed at — promotion_branches (0017), computed '
+  'once per import instead of per read. The view is still the definition; this is its '
+  'answer. Never written by hand: refresh_promotion_branches() rebuilds it (0059).';
+
+create index if not exists promotion_branch_pins_promotion
+  on public.promotion_branch_pins (promotion_id);
+
+-- Public, like everything it is derived from: where a shop is and what it is
+-- selling are both already world-readable by policy.
+grant select on public.promotion_branch_pins to anon, authenticated, service_role;
+
+alter table public.promotion_branch_pins enable row level security;
+
+drop policy if exists promotion_branch_pins_read on public.promotion_branch_pins;
+create policy promotion_branch_pins_read on public.promotion_branch_pins
+  for select to anon, authenticated using (true);
+
+-- ---------------------------------------------------------------------------
+-- Rebuild it. Same guard as the prices it is derived from (0008): whoever may
+-- write a price may write what we computed from it.
+-- ---------------------------------------------------------------------------
+create or replace function public.refresh_promotion_branches()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  written integer;
+begin
+  perform public.require_price_writer();
+
+  -- One transaction: readers keep seeing the previous pairs until it commits, and
+  -- a failure leaves the old ones rather than an empty map.
+  --
+  -- The WHERE is not a filter, it is a password — see 0055. Every row has a
+  -- branch_id, so this clears the table, which is what a rebuild is.
+  delete from public.promotion_branch_pins where branch_id is not null;
+  insert into public.promotion_branch_pins (promotion_id, branch_id, observed_at)
+  select pb.promotion_id, pb.branch_id, pb.observed_at
+    from public.promotion_branches pb;
+  get diagnostics written = row_count;
+
+  return written;
+end;
+$$;
+
+revoke execute on function public.refresh_promotion_branches() from public, anon;
+grant execute on function public.refresh_promotion_branches() to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- The map's query, now reading the table.
+-- ---------------------------------------------------------------------------
+create or replace function public.offers_near(
+  p_lat       double precision,
+  p_lon       double precision,
+  p_radius_km double precision default 15,
+  p_limit     integer default 400
+)
+returns table (
+  branch_id     uuid,
+  branch_name   text,
+  branch_city   text,
+  latitude      double precision,
+  longitude     double precision,
+  geo_precision text,
+  km            double precision,
+  offer_key     text,
+  store_slug    text,
+  store_name    text,
+  beer_slug     text,
+  beer_name     text,
+  pack_label    text,
+  effective_agorot integer,
+  value_pct     integer,
+  promo_type    public.promo_type,
+  valid_to      timestamptz,
+  observed_at   timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  with here as materialized (
+    select b.id, b.name_he, b.city, b.latitude, b.longitude, b.geocode_precision,
+           public.km_between(p_lat, p_lon, b.latitude, b.longitude) as km
+      from public.branches b
+     where b.is_active
+       and b.latitude is not null
+       and b.longitude is not null
+       -- A point is required. Without one there is no "near", and returning the
+       -- whole country unordered would be the bug this function exists to prevent.
+       and p_lat is not null
+       and p_lon is not null
+       -- A box before the trigonometry, and only when there is a radius to box.
+       and (coalesce(p_radius_km, 0) = 0 or (
+             b.latitude between p_lat - (p_radius_km / 111.0) and p_lat + (p_radius_km / 111.0)
+         and b.longitude between p_lon - (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+                            and p_lon + (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+       ))
+  )
+  select h.id, h.name_he, h.city, h.latitude, h.longitude, h.geocode_precision, h.km,
+         c.offer_key, c.store_slug, c.store_name, c.beer_slug, c.beer_name, c.pack_label,
+         c.effective_agorot, c.value_pct, c.promo_type, c.valid_to, c.observed_at
+    from here h
+    join public.promotion_branch_pins pb on pb.branch_id = h.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where coalesce(p_radius_km, 0) = 0 or h.km <= p_radius_km
+   order by h.km asc, c.value_pct desc nulls last, c.effective_agorot asc
+   limit greatest(coalesce(p_limit, 400), 1);
+$$;
+
+grant execute on function public.offers_near(double precision, double precision, double precision, integer)
+  to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Fill it once, now, so the map answers the moment this is pasted. Idempotent:
+-- the delete runs first, and running this file twice simply rebuilds it.
+-- ---------------------------------------------------------------------------
+delete from public.promotion_branch_pins where branch_id is not null;
+insert into public.promotion_branch_pins (promotion_id, branch_id, observed_at)
+select pb.promotion_id, pb.branch_id, pb.observed_at from public.promotion_branches pb;
+
+-- ======================== 0060_three_drinks_shops.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0060 — three drinks shops, filled in by hand
+--
+-- The owner asked for יין בעיר, הרמיטאז׳ and בנא משקאות, 2026-10-25, knowing
+-- what it means: none of the three publishes a price file, so nothing imports
+-- them and nobody should expect them to fill themselves.
+--
+-- WHY THEY ARE DIFFERENT FROM EVERY OTHER SHOP HERE. The nineteen chains above
+-- are in the price-transparency programme: the law requires them to publish a
+-- file, the importer reads it every morning, and a price arrives with a scan, a
+-- branch and an observation behind it. These three are drinks shops below that
+-- threshold. Their deals will come from the admin screen, which is the same
+-- path a person's own submission takes — and they carry the same trust marks as
+-- any hand-entered price, because that is what they are.
+--
+-- SO THEY WILL LOOK EMPTY UNTIL SOMEBODY TYPES, and that is correct rather than
+-- broken. A chain with no live deal already shows as having none; these simply
+-- start there. Nothing in the app needs to know they are special: a store is a
+-- store, and the honesty is in where its prices came from, which the app
+-- already says on every line.
+--
+-- The names are the owner's, with one guess flagged: he wrote "הרימטג", which
+-- is almost certainly הרמיטאז׳. If it is a different shop, change the name here
+-- — the slug is what everything else holds on to.
+--
+-- Additive, and idempotent: a slug that is already there is left alone.
+-- ---------------------------------------------------------------------------
+
+insert into public.stores (slug, name_he) values
+  ('yain-bair',  'יין בעיר'),
+  ('hermitage',  'הרמיטאז׳'),
+  ('bana',       'בנא משקאות')
+on conflict (slug) do nothing;
+
+-- ======================== 0064_deals_by_town.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0064 — the whole country, by town
+--
+-- MEASURED, production, 2026-10-25, after the owner chose "בכל הארץ" and saw
+-- only what was within about forty kilometres of him:
+--
+--   offers_near(TLV, radius 0, limit 400)     400 rows,  86 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 5000)  1,000 rows, 103 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 30000) 1,000 rows, 103 branches, none > 40 km
+--
+-- PostgREST caps a response at 1,000 rows whatever the function says, and
+-- offers_near orders by distance — so "no limit" could only ever mean "the
+-- nearest thousand rows", which is a hundred branches around one city. The
+-- radius was being honoured and the answer was still wrong.
+--
+-- ONE ROW PER BRANCH WOULD NOT FIX IT EITHER: a thousand branches carry deals,
+-- which is the cap again, and a thousand markers on a phone is not a map, it is
+-- a smear. The unit for a country is a TOWN.
+--
+-- GROUPED BY THE POINT, not by the name. Branches are placed at their town's
+-- centre until a geocoder puts them on their street (0045), so the branches of
+-- one town share a coordinate exactly — and grouping by that coordinate is both
+-- simpler than normalising names and honest about what the map can actually
+-- draw. When a branch does get a street-level fix it becomes its own pin, which
+-- is the right behaviour: it is no longer "somewhere in that town".
+--
+-- Public and not SECURITY DEFINER, for the reasons 0057 gives: everything it
+-- reads is world-readable, and where a shop is, is public information.
+--
+-- Additive: one function. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- One name for the point. Several branches share it; they also share a town,
+    -- so any of their city values will do, and the app resolves a CBS symbol to
+    -- its name before it reaches a screen (0047).
+    min(b.city)                                   as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                 as branches,
+    count(*)::integer                             as deals,
+    max(c.value_pct)::integer                     as best_value_pct,
+    min(c.effective_agorot)::integer              as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude
+   -- Busiest first, so a cap — if one is ever needed — keeps what matters.
+   order by count(*) desc
+   limit 400;
+$$;
+
+comment on function public.deals_by_town() is
+  'Every place in the country that has a live chain deal, one row per POINT: the '
+  'towns, because branches sit at their town centre until they are geocoded and a '
+  'thousand markers is not a map (0064). offers_near is still the answer for "near me".';
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
+-- ======================== 0065_a_town_knows_its_own_name.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0065 — a town pin knows its own name
+--
+-- MEASURED, production, minutes after 0064 shipped. The country view works —
+-- 142 towns, 16,864 deals, 789 shops, 1.16 s — and thirty of those towns come
+-- back named "0", including six of the ten largest:
+--
+--   580 deals at 31.2457, 34.7925      574 at 32.0878, 34.8860
+--   501 at 32.1773, 34.9075            487 at 32.3286, 34.8566
+--
+-- Those are Beer Sheva, Petah Tikva, Kfar Saba, Netanya, Rishon LeZion and
+-- Ashdod. On the screen they would have read "כאן".
+--
+-- WHY. The name came from `min(b.city)`, and some chains write "0" where the
+-- town's name goes (0047). "0" sorts before every real value, so one branch
+-- filing a zero renamed the whole town to nothing.
+--
+-- THE POINT ALREADY KNOWS. These coordinates are not approximations of a town —
+-- they ARE town_centres rows, copied onto the branches by place_branches_by_town
+-- (0045). So the name is a lookup on the coordinate, which is exact rather than
+-- a guess, and it names all thirty. The city column stays as the fallback for a
+-- branch that has a real street-level fix and so is not on a town's centre at
+-- all; "0" is excluded there too, since it is not a name.
+--
+-- Nothing else changes: same rows, same counts, same order.
+--
+-- One function replaced. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- The town centre this point IS, else whatever the chains called it, and
+    -- never "0" — which is a symbol some of them write instead of a name.
+    coalesce(tc.name, min(nullif(btrim(b.city), '0')))  as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                       as branches,
+    count(*)::integer                                   as deals,
+    max(c.value_pct)::integer                           as best_value_pct,
+    min(c.effective_agorot)::integer                    as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+    left join public.town_centres tc
+      on tc.lat = b.latitude and tc.lon = b.longitude
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude, tc.name
+   order by count(*) desc
+   limit 400;
+$$;
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
+-- ======================== 0066_prune_history.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0066 · Price history that stops growing by itself, and a cleanup of what nothing reads
 --
 -- Measured on staging (2026-10-14, 2½ weeks of daily full-branch imports): 845 MB, of which the price
 -- ledger is 689 MB / 770,556 rows. Every import re-recorded every price and promotion, changed or not —
@@ -14654,7 +15601,7 @@ $$;
 --    partial indexes on what is pruned.
 --
 -- Deleting frees space for reuse; the size Supabase reports drops only after `vacuum full` on the table
--- (docs/PRUNE-HISTORY.md). Rollback: supabase/rollback/0052_prune_history.down.sql (the deleted rows are not
+-- (docs/PRUNE-HISTORY.md). Rollback: supabase/rollback/0066_prune_history.down.sql (the deleted rows are not
 -- restored by it — the backup taken before the first prune is the way back).
 -- ---------------------------------------------------------------------------
 
@@ -14819,7 +15766,7 @@ begin
   -- are "the newest".
   perform pg_advisory_xact_lock(hashtext(p_sku_id::text || p_store_id::text));
 
-  -- 0052 · UNCHANGED IS NOT NEW. The same price, for the same pack, at the same branch, under the same identity
+  -- 0066 · UNCHANGED IS NOT NEW. The same price, for the same pack, at the same branch, under the same identity
   -- and terms, re-read from a newer file, does not add a row: the live row is marked as seen again (observed_at
   -- moves forward, so close_missing_promotions keeps it and the 14-day windows still see it). One row per WEEK is
   -- still written for an unchanged price, so the Deal Score's history (0027: live + superseded rows over 180 days,
@@ -14994,56 +15941,6 @@ $$;
 revoke execute on function public.prune_history(text, boolean, integer) from public, anon, authenticated;
 grant execute on function public.prune_history(text, boolean, integer) to service_role;
 
--- ======================== 0053_offers_catalog_refresh_where.sql ========================
-
--- ---------------------------------------------------------------------------
--- 0053 · The chain half of the feed is refreshed by the import again
---
--- 0044's refresh_offers_catalog() emptied the table with `delete from public.offers_catalog;`. Supabase runs
--- requests that arrive through its API with pg_safeupdate, which refuses a DELETE without a WHERE clause — so
--- every import's call failed ("DELETE requires a WHERE clause"), run.mjs logged it and went on (by design: a
--- failed refresh keeps the previous rows), and the table kept the rows of the one refresh made in the SQL
--- editor. Measured on staging 2026-10-16: offers_catalog newest observation 2026-10-12, the ledger 2026-10-14.
--- The tests run on PGlite, which has no pg_safeupdate, and could not see it.
---
--- Fixing that showed the second reason: computing the catalogue takes longer than the 8 s an API request gets
--- (production measured 15.3 s for the same work; staging 30 s under load). service_role has no statement_timeout
--- of its own, so it inherited the authenticator's 8 s. It gets its own 180 s: only server code holds that key
--- (the import, the notification worker, admin actions); anon (3 s) and authenticated (8 s) are untouched.
--- Measured on staging after this migration: refresh_offers_catalog through the API wrote 687 offers (the table had
--- held 524, from 2026-10-12).
---
--- Same function, the same one transaction, with an explicit `where true`. tests/security-sweep.test.ts now
--- refuses an unqualified DELETE or UPDATE in any function.
--- Rollback: the 0044 definition, and  alter role service_role reset statement_timeout;
--- ---------------------------------------------------------------------------
-
-create or replace function public.refresh_offers_catalog()
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  written integer;
-begin
-  perform public.require_price_writer();
-
-  -- One transaction: readers keep seeing the previous rows until it commits, and
-  -- a failure leaves the old ones in place rather than an empty feed.
-  -- `where true`: pg_safeupdate (on for every API request) refuses a DELETE without a WHERE clause.
-  delete from public.offers_catalog where true;
-  insert into public.offers_catalog
-  select s.*, now() from public.offers_catalog_source s;
-  get diagnostics written = row_count;
-
-  return written;
-end;
-$$;
-
-alter role service_role set statement_timeout = '180s';
-notify pgrst, 'reload config';
-
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15051,9 +15948,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0052'), ('0053')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0064'), ('0065'), ('0066')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 53 migrations';
+  raise notice 'ledger: recorded 61 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end

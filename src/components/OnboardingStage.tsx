@@ -68,6 +68,21 @@ export function OnboardingStage({ scene, picked, onMove }: { scene: Scene; picke
   // How many bottles the line actually holds. Drives the re-centring in onboarding.css.
   const count = Math.min(Math.max(picked.length, 1), 4);
 
+  // WHERE THE NEXT BEER WOULD STAND -- one place, not three.
+  //
+  // 0024 says one beer is enough and four is the ceiling, not the entry fee, and the
+  // button on this step says so too ("בחרו בירה אחת לפחות"). The stage used to argue
+  // with both: it drew three empty outlines and all four numbered badges from the
+  // start, which reads as four places waiting to be filled. The owner read it exactly
+  // that way and reported having to choose four (2026-10-26).
+  //
+  // So the line now grows with the choosing: what has been picked, plus a single faint
+  // place after it saying another one may be added. At four there is no empty place,
+  // because there is no more room -- which is how the ceiling should be stated.
+  const nextPlace = scene === "pick" && picked.length < 4 ? Math.max(picked.length, 1) : -1;
+  // Positions the line is actually using, so it stays centred as it grows.
+  const places = nextPlace >= 0 ? nextPlace + 1 : count;
+
   return (
     <div
       ref={stage}
@@ -76,21 +91,21 @@ export function OnboardingStage({ scene, picked, onMove }: { scene: Scene; picke
       data-scene={scene}
       data-beer={primary?.slug ?? "house"}
       data-bottle={kind}
-      data-count={count}
+      data-count={places}
       style={{ "--pour": pour.beer, "--foam": pour.foam } as React.CSSProperties}
     >
       {[0, 1, 2, 3].map((rank) => {
         const beer = picked[rank];
         if (beer) return <StageBottle key={beer.id} slug={beer.slug} rank={rank} dragging={dragging === beer.id} handlers={dragHandlers(beer, rank)} />;
         if (rank === 0) return <StageBottle key="blank" slug={null} rank={0} />;
-        // Empty slots belong to "pick", where they say how many more may be chosen. Once the
-        // person has moved on, a line of one, two or three beers is the finished line, not a
-        // line with gaps in it (0024).
-        return scene === "pick" ? <EmptySlot key={`empty-${rank}`} rank={rank} /> : null;
+        // The one empty place, where the next beer would go. Once the person has moved on,
+        // a line of one, two or three beers is the finished line, not a line with gaps in
+        // it (0024).
+        return rank === nextPlace ? <EmptySlot key={`empty-${rank}`} rank={rank} /> : null;
       })}
 
       {[0, 1, 2, 3]
-        .filter((rank) => scene === "pick" || rank < count)
+        .filter((rank) => rank < places)
         .map((rank) => (
           <span key={rank} data-rank={rank} className={`ob-badge num ${rank === 0 ? "bg-deal text-on-deal" : "text-on-ground-2 ring-1 ring-ground-line"}`}>
             {rank + 1}
