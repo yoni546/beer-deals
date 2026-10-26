@@ -260,21 +260,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
           <div className="mb-5 flex items-center gap-3">
             <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
-            {/* The only way into the map, and it is here because this is where the
-                question is already "what is near me". A tab of its own would make a
-                map one of the four things this app is, which it is not: it is one
-                way of reading the answer Home already gives. Shown only when we can
-                place the person — a map with nothing to centre on is a dead link. */}
-            {intent === "near" && distances.available && (
-              <Link
-                href="/map"
-                prefetch={false}
-                className="disclose shrink-0 text-sm"
-              >
-                <PinIcon size={16} />
-                על המפה
-              </Link>
-            )}
+            {/* The way into the map. A tab of its own would make a map one of the
+                four things this app is, which it is not: it is one way of reading
+                the answer Home already gives.
+
+                SHOWN TO EVERYONE, including somebody who has never said where they
+                live (the owner's rule, 2026-10-25). It used to appear only when we
+                could place the person, which made the map a reward for filling in
+                a profile — and wanting to see another town's deals is a reason to
+                open a map, not a reason to be turned away from one. */}
+            <Link href="/map" prefetch={false} className="disclose shrink-0 text-sm">
+              <PinIcon size={16} />
+              על המפה
+            </Link>
           </div>
 
           {intent === "near" ? (

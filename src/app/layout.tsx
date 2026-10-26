@@ -5,6 +5,7 @@ import { getViewer } from "@/lib/session";
 import { publicEnv } from "@/lib/env";
 import { chromeColors, getThemeForBeer, themeStyleSheet } from "@/design/themes";
 import { BottleBackdrop } from "@/components/ui/Bottle";
+import { LaunchScreen } from "@/components/LaunchScreen";
 import packageJson from "../../package.json";
 import { NewVersion } from "@/components/NewVersion";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
@@ -85,6 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content={chrome.dark} />
       </head>
       <body className="antialiased" data-theme={preset.beerId}>
+        <LaunchScreen />
         <BottleBackdrop preset={preset} />
         <NavigationProgress />
         <PageTransition>{children}</PageTransition>

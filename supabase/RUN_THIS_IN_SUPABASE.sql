@@ -15486,6 +15486,154 @@ select v.slug, v.name_he, v.name_en, v.base, v.surface, v.accent, v.ink, v.sort_
   join public.brands br on br.slug = v.slug
 on conflict (slug) do nothing;
 
+-- ======================== 0064_deals_by_town.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0064 — the whole country, by town
+--
+-- MEASURED, production, 2026-10-25, after the owner chose "בכל הארץ" and saw
+-- only what was within about forty kilometres of him:
+--
+--   offers_near(TLV, radius 0, limit 400)     400 rows,  86 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 5000)  1,000 rows, 103 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 30000) 1,000 rows, 103 branches, none > 40 km
+--
+-- PostgREST caps a response at 1,000 rows whatever the function says, and
+-- offers_near orders by distance — so "no limit" could only ever mean "the
+-- nearest thousand rows", which is a hundred branches around one city. The
+-- radius was being honoured and the answer was still wrong.
+--
+-- ONE ROW PER BRANCH WOULD NOT FIX IT EITHER: a thousand branches carry deals,
+-- which is the cap again, and a thousand markers on a phone is not a map, it is
+-- a smear. The unit for a country is a TOWN.
+--
+-- GROUPED BY THE POINT, not by the name. Branches are placed at their town's
+-- centre until a geocoder puts them on their street (0045), so the branches of
+-- one town share a coordinate exactly — and grouping by that coordinate is both
+-- simpler than normalising names and honest about what the map can actually
+-- draw. When a branch does get a street-level fix it becomes its own pin, which
+-- is the right behaviour: it is no longer "somewhere in that town".
+--
+-- Public and not SECURITY DEFINER, for the reasons 0057 gives: everything it
+-- reads is world-readable, and where a shop is, is public information.
+--
+-- Additive: one function. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- One name for the point. Several branches share it; they also share a town,
+    -- so any of their city values will do, and the app resolves a CBS symbol to
+    -- its name before it reaches a screen (0047).
+    min(b.city)                                   as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                 as branches,
+    count(*)::integer                             as deals,
+    max(c.value_pct)::integer                     as best_value_pct,
+    min(c.effective_agorot)::integer              as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude
+   -- Busiest first, so a cap — if one is ever needed — keeps what matters.
+   order by count(*) desc
+   limit 400;
+$$;
+
+comment on function public.deals_by_town() is
+  'Every place in the country that has a live chain deal, one row per POINT: the '
+  'towns, because branches sit at their town centre until they are geocoded and a '
+  'thousand markers is not a map (0064). offers_near is still the answer for "near me".';
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
+-- ======================== 0065_a_town_knows_its_own_name.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0065 — a town pin knows its own name
+--
+-- MEASURED, production, minutes after 0064 shipped. The country view works —
+-- 142 towns, 16,864 deals, 789 shops, 1.16 s — and thirty of those towns come
+-- back named "0", including six of the ten largest:
+--
+--   580 deals at 31.2457, 34.7925      574 at 32.0878, 34.8860
+--   501 at 32.1773, 34.9075            487 at 32.3286, 34.8566
+--
+-- Those are Beer Sheva, Petah Tikva, Kfar Saba, Netanya, Rishon LeZion and
+-- Ashdod. On the screen they would have read "כאן".
+--
+-- WHY. The name came from `min(b.city)`, and some chains write "0" where the
+-- town's name goes (0047). "0" sorts before every real value, so one branch
+-- filing a zero renamed the whole town to nothing.
+--
+-- THE POINT ALREADY KNOWS. These coordinates are not approximations of a town —
+-- they ARE town_centres rows, copied onto the branches by place_branches_by_town
+-- (0045). So the name is a lookup on the coordinate, which is exact rather than
+-- a guess, and it names all thirty. The city column stays as the fallback for a
+-- branch that has a real street-level fix and so is not on a town's centre at
+-- all; "0" is excluded there too, since it is not a name.
+--
+-- Nothing else changes: same rows, same counts, same order.
+--
+-- One function replaced. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- The town centre this point IS, else whatever the chains called it, and
+    -- never "0" — which is a symbol some of them write instead of a name.
+    coalesce(tc.name, min(nullif(btrim(b.city), '0')))  as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                       as branches,
+    count(*)::integer                                   as deals,
+    max(c.value_pct)::integer                           as best_value_pct,
+    min(c.effective_agorot)::integer                    as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+    left join public.town_centres tc
+      on tc.lat = b.latitude and tc.lon = b.longitude
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude, tc.name
+   order by count(*) desc
+   limit 400;
+$$;
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15493,9 +15641,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0063')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0063'), ('0064'), ('0065')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 59 migrations';
+  raise notice 'ledger: recorded 61 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end
