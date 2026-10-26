@@ -29,15 +29,28 @@
   height: calc(var(--floor) + 2.25rem);
   flex-shrink: 0;
 }
-.ob-stage[data-scene="pick"],
 .ob-stage[data-scene="rank"] {
   --stage: 0.76;
 }
+/* CHOOSING GETS THE SCREEN, because there are thirty-nine beers under it and the
+   stage is four empty outlines. At 0.76 the stage took 388px of an 812px phone and
+   the list got 344 — 42%, eight beers visible, and a swipe outside that strip did
+   nothing at all, which is what the owner reported as "the page doesn't scroll".
+   The list keeps its own scroll (the page itself must not: with every row in the
+   layout at once, axe's target-size cannot vouch for the ones below the fold, and
+   it is right not to). So the honest fix is to stop spending the screen on
+   decoration while somebody is reading a list. */
+.ob-stage[data-scene="pick"] {
+  --stage: 0.42;
+}
 /* A short phone gives the line less room, so the list under it keeps all four rows in view. */
 @media (max-height: 700px) {
-  .ob-stage[data-scene="pick"],
   .ob-stage[data-scene="rank"] {
     --stage: 0.58;
+    --k: 0.76;
+  }
+  .ob-stage[data-scene="pick"] {
+    --stage: 0.34;
     --k: 0.76;
   }
 }
