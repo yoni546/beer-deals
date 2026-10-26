@@ -16,24 +16,44 @@ function offer(overrides: Partial<Offer> = {}): Offer {
   };
 }
 
+/**
+ * REWRITTEN 2026-10-25. The title used to be "מבצע חדש ברמי לוי" and the facts
+ * lived in the body. That is the shape of every promotional push ever sent — a
+ * phrase with no information in it — and Chrome put one of ours behind a
+ * "Possible spam" warning with an Unsubscribe button on it.
+ *
+ * The title now says WHICH BEER, HOW MUCH and WHERE, short enough to survive a
+ * phone truncating it; the body carries the pack and the evidence. Whatever
+ * Chrome's classifier weighed, somebody reading only the bold line now already
+ * knows whether they care, which is the better notification either way.
+ */
 describe("the notification text (audit §13.3)", () => {
-  it("names the chain, the pack, the price, and the saving — and where it came from", () => {
+  it("says which beer, how much and where — in the title", () => {
     const message = buildOfferNotification(offer());
-    expect(message.title).toBe("מבצע חדש ברמי לוי");
-    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · ₪25.00 במקום ₪37.90 · −34%");
+    expect(message.title).toBe("גולדסטאר ₪25.00 ברמי לוי");
+    expect(message.body).toBe("שישייה · 6×330 מ״ל · פחית · במקום ₪37.90 · −34%");
   });
 
   it("says nothing about a saving it cannot vouch for", () => {
     const message = buildOfferNotification(offer({ value_pct: null, reference_agorot: null, reference_trust: null }));
-    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · ₪25.00");
+    expect(message.body).toBe("שישייה · 6×330 מ״ל · פחית");
     expect(message.body).not.toMatch(/במקום|%/);
+    // And the price is still stated, in the title.
+    expect(message.title).toContain("₪25.00");
+  });
+
+  it("never sends an empty body — the pack is always there to say", () => {
+    const bare = buildOfferNotification(offer({ value_pct: null, reference_agorot: null, reference_trust: null, scope: undefined }));
+    expect(bare.body.trim().length).toBeGreaterThan(0);
   });
 
   it("states a multi-buy's terms instead of an 'instead of' price", () => {
     const message = buildOfferNotification(
       offer({ effective_agorot: 4000, promo_type: "multi_buy", conditions: { multi_buy: { qty: 2, total_agorot: 8000 } }, value_pct: 20, reference_agorot: 4990 }),
     );
-    expect(message.body).toBe("גולדסטאר שישייה · 6×330 מ״ל · פחית · 2 ב־₪80.00 · −20%");
+    // The terms are the PRICE, so they belong in the title with it.
+    expect(message.title).toBe("גולדסטאר 2 ב־₪80.00 ברמי לוי");
+    expect(message.body).toBe("שישייה · 6×330 מ״ל · פחית · −20%");
     expect(message.body).not.toContain("במקום");
   });
 
@@ -43,13 +63,14 @@ describe("the notification text (audit §13.3)", () => {
   });
 
   it("puts the chain after ב, with a maqaf for a Latin name", () => {
-    expect(buildOfferNotification(offer({ store_name: "יוחננוף" })).title).toBe("מבצע חדש ביוחננוף");
-    expect(buildOfferNotification(offer({ store_name: "AM:PM" })).title).toBe("מבצע חדש ב־AM:PM");
+    expect(buildOfferNotification(offer({ store_name: "יוחננוף" })).title).toBe("גולדסטאר ₪25.00 ביוחננוף");
+    expect(buildOfferNotification(offer({ store_name: "AM:PM" })).title).toBe("גולדסטאר ₪25.00 ב־AM:PM");
   });
 
   it("handles a legacy deal that only knows a category, not a volume", () => {
     const message = buildOfferNotification(offer({ origin: "legacy", sku_id: null, volume_ml: null, pack_quantity: null, container: null, pack_label: "שישייה" }));
-    expect(message.body).toBe("גולדסטאר שישייה · ₪25.00 במקום ₪37.90 · −34%");
+    expect(message.title).toBe("גולדסטאר ₪25.00 ברמי לוי");
+    expect(message.body).toBe("שישייה · במקום ₪37.90 · −34%");
   });
 
   it("opens the beer's page by slug, and collapses repeats per pack and chain", () => {
