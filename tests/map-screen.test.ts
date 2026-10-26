@@ -44,13 +44,18 @@ describe("the map", () => {
     expect(page).toContain("מרכז היישוב");
   });
 
-  it("can be reached, and only from where the question is already \"near me\"", () => {
+  it("can be reached by anyone, from one place", () => {
     // A screen nothing links to is not shipped. It is deliberately NOT a fifth tab:
     // a map is one way of reading the answer Home already gives, not one of the four
     // things this app is.
     const home = read("src", "app", "page.tsx");
     expect(home).toMatch(/href="\/map"/);
-    expect(home).toMatch(/intent === "near" && distances\.available/);
+    // 2026-10-25: NOT behind a location. The map used to appear only for somebody
+    // we could already place, which made it a reward for filling in a profile.
+    expect(home).not.toMatch(/distances\.available && [\s\S]{0,80}href="\/map"/);
+    const page = read("src", "app", "map", "page.tsx");
+    expect(page).toMatch(/const chosen = lat !== null/);
+    expect(page).not.toMatch(/EmptyState/);
 
     // And nowhere else, so it cannot quietly become navigation.
     const everywhere = ["src/app", "src/components"].flatMap((dir) => tsx(join(ROOT, dir)))

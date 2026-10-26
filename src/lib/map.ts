@@ -44,6 +44,8 @@ export type MapPin = {
   storeSlug: string;
   storeName: string;
   offers: MapOffer[];
+  /** Set only on a country-view pin, where there are counts instead of lines. */
+  towns?: { branches: number; deals: number; best: number | null; cheapest: number | null };
 };
 
 /**
@@ -94,6 +96,60 @@ const readOffersNear = cachedFeed(
     return (data ?? []) as MapOffer[];
   },
 );
+
+/**
+ * Every place in the country with a live deal, one pin per town (0064).
+ *
+ * WHY THIS IS A SEPARATE QUERY. offers_near returns one row per (branch, deal)
+ * and orders by distance, and PostgREST caps any response at 1,000 rows — so
+ * asking it for "no radius" returns the nearest thousand rows, which is about a
+ * hundred branches around one city. The radius was honoured and the answer was
+ * still wrong. A country needs a coarser unit, and a thousand markers on a phone
+ * is not a map anyway.
+ */
+export type TownPin = {
+  town: string | null;
+  latitude: number;
+  longitude: number;
+  branches: number;
+  deals: number;
+  best_value_pct: number | null;
+  cheapest_agorot: number | null;
+};
+
+const readDealsByTown = cachedFeed("towns-with-deals", async (): Promise<TownPin[]> => {
+  const { data, error } = await publicReader().rpc("deals_by_town");
+  // Before 0064 the function does not exist, which the screen already has words
+  // for: it is the same "we have nothing to draw" as an empty radius.
+  if (error) return [];
+  return (data ?? []) as TownPin[];
+});
+
+/** The country, as pins. Town names are resolved the same way (0047). */
+export async function getTownPins(): Promise<MapPin[]> {
+  const [rows, names] = await Promise.all([readDealsByTown(), readTownNames()]);
+  return rows
+    .filter((row) => Number.isFinite(row.latitude) && Number.isFinite(row.longitude))
+    .map((row) => {
+      const town = townName(row.town, names);
+      return {
+        branchId: `${row.latitude},${row.longitude}`,
+        name: town ?? "",
+        city: town,
+        lat: row.latitude,
+        lon: row.longitude,
+        // A town pin IS the town centre, and the popup says so in those words.
+        precision: "locality" as const,
+        km: null,
+        storeSlug: "",
+        storeName: town ?? "",
+        // A country view carries counts, not lines: the deals themselves are a
+        // radius away, and shipping them all is the thing that cannot be done.
+        offers: [],
+        towns: { branches: row.branches, deals: row.deals, best: row.best_value_pct, cheapest: row.cheapest_agorot },
+      } satisfies MapPin;
+    });
+}
 
 /**
  * The pins for a point, each with its branch's deals, best saving first.
