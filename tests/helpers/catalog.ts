@@ -108,6 +108,11 @@ export async function world() {
     await db.exec("reset role;");
 
     await db.exec("begin; set local role service_role;");
+    // Which branches have which promotion (0059). The map reads this table rather
+    // than the view it is built from, for the same reason the feed reads a table:
+    // the view is a DISTINCT ON over every occurrence ever recorded, and a join
+    // cannot be pushed into it. An import rebuilds it; so must a test.
+    await db.query("select public.refresh_promotion_branches()");
     await db.query("select public.refresh_offers_catalog()");
     await db.exec("commit;");
   }

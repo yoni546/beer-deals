@@ -15216,6 +15216,216 @@ comment on function public.offers_near(double precision, double precision, doubl
 grant execute on function public.offers_near(double precision, double precision, double precision, integer)
   to anon, authenticated, service_role;
 
+-- ======================== 0059_which_branches_have_a_promotion.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0059 — which branches have a promotion, computed once per import
+--
+-- MEASURED, production, 2026-10-25. 0058 inverted the map's query to start from
+-- the branches in range, and it still times out at the 3-second ceiling anon
+-- reads under:
+--
+--   offers_near(32.0853, 34.7818, 15)   →  57014, after 3.9 s
+--
+-- WHY INVERTING IT WAS NOT ENOUGH, which is the useful part. Taken apart over
+-- REST:
+--
+--   promotion_occurrences                        225,419 rows
+--   promotion_branches filtered to ONE branch     28 rows, 0.40 s  ← fast
+--   promotion_branches joined to a set of them               times out
+--
+-- A constant filter is fast because it is pushed into the view. A JOIN predicate
+-- is not, and cannot be: `promotion_branches` is a DISTINCT ON over every
+-- occurrence ever recorded, and Postgres cannot pull a DISTINCT ON subquery up
+-- into the outer query, so it has no way to parameterise it per branch. It
+-- evaluates the whole thing — a sort of 225,419 rows — and only then joins. No
+-- index fixes that, because nothing is being looked up.
+--
+-- SO IT IS A TABLE NOW, which is exactly what 0044 did to the feed for exactly
+-- this reason: the expensive half is computed at the end of an import instead of
+-- on every read. The pairs are small — one row per (promotion, branch) actually
+-- observed, against a quarter of a million occurrences — and a plain index
+-- answers "which promotions does this branch have" in microseconds.
+--
+-- STALENESS, SAID PLAINLY. Between imports this is as old as the last one, which
+-- is already true of every price in the app. The view it is built from stays,
+-- and stays the definition: this table is only its answer, cached.
+--
+-- The delete says WHERE on purpose. An unqualified one is refused through
+-- PostgREST by Supabase's safeupdate guard, which cost this project twelve days
+-- of silently unpublished prices (0055).
+--
+-- Filled at the end of this file, so the map works the moment this is pasted
+-- rather than at the next import.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.promotion_branch_pins (
+  promotion_id bigint not null,
+  branch_id    uuid   not null,
+  observed_at  timestamptz,
+  primary key (branch_id, promotion_id)
+);
+
+comment on table public.promotion_branch_pins is
+  'Which branches a promotion was observed at — promotion_branches (0017), computed '
+  'once per import instead of per read. The view is still the definition; this is its '
+  'answer. Never written by hand: refresh_promotion_branches() rebuilds it (0059).';
+
+create index if not exists promotion_branch_pins_promotion
+  on public.promotion_branch_pins (promotion_id);
+
+-- Public, like everything it is derived from: where a shop is and what it is
+-- selling are both already world-readable by policy.
+grant select on public.promotion_branch_pins to anon, authenticated, service_role;
+
+alter table public.promotion_branch_pins enable row level security;
+
+drop policy if exists promotion_branch_pins_read on public.promotion_branch_pins;
+create policy promotion_branch_pins_read on public.promotion_branch_pins
+  for select to anon, authenticated using (true);
+
+-- ---------------------------------------------------------------------------
+-- Rebuild it. Same guard as the prices it is derived from (0008): whoever may
+-- write a price may write what we computed from it.
+-- ---------------------------------------------------------------------------
+create or replace function public.refresh_promotion_branches()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  written integer;
+begin
+  perform public.require_price_writer();
+
+  -- One transaction: readers keep seeing the previous pairs until it commits, and
+  -- a failure leaves the old ones rather than an empty map.
+  --
+  -- The WHERE is not a filter, it is a password — see 0055. Every row has a
+  -- branch_id, so this clears the table, which is what a rebuild is.
+  delete from public.promotion_branch_pins where branch_id is not null;
+  insert into public.promotion_branch_pins (promotion_id, branch_id, observed_at)
+  select pb.promotion_id, pb.branch_id, pb.observed_at
+    from public.promotion_branches pb;
+  get diagnostics written = row_count;
+
+  return written;
+end;
+$$;
+
+revoke execute on function public.refresh_promotion_branches() from public, anon;
+grant execute on function public.refresh_promotion_branches() to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- The map's query, now reading the table.
+-- ---------------------------------------------------------------------------
+create or replace function public.offers_near(
+  p_lat       double precision,
+  p_lon       double precision,
+  p_radius_km double precision default 15,
+  p_limit     integer default 400
+)
+returns table (
+  branch_id     uuid,
+  branch_name   text,
+  branch_city   text,
+  latitude      double precision,
+  longitude     double precision,
+  geo_precision text,
+  km            double precision,
+  offer_key     text,
+  store_slug    text,
+  store_name    text,
+  beer_slug     text,
+  beer_name     text,
+  pack_label    text,
+  effective_agorot integer,
+  value_pct     integer,
+  promo_type    public.promo_type,
+  valid_to      timestamptz,
+  observed_at   timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  with here as materialized (
+    select b.id, b.name_he, b.city, b.latitude, b.longitude, b.geocode_precision,
+           public.km_between(p_lat, p_lon, b.latitude, b.longitude) as km
+      from public.branches b
+     where b.is_active
+       and b.latitude is not null
+       and b.longitude is not null
+       -- A point is required. Without one there is no "near", and returning the
+       -- whole country unordered would be the bug this function exists to prevent.
+       and p_lat is not null
+       and p_lon is not null
+       -- A box before the trigonometry, and only when there is a radius to box.
+       and (coalesce(p_radius_km, 0) = 0 or (
+             b.latitude between p_lat - (p_radius_km / 111.0) and p_lat + (p_radius_km / 111.0)
+         and b.longitude between p_lon - (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+                            and p_lon + (p_radius_km / (111.0 * greatest(cos(radians(p_lat)), 0.01)))
+       ))
+  )
+  select h.id, h.name_he, h.city, h.latitude, h.longitude, h.geocode_precision, h.km,
+         c.offer_key, c.store_slug, c.store_name, c.beer_slug, c.beer_name, c.pack_label,
+         c.effective_agorot, c.value_pct, c.promo_type, c.valid_to, c.observed_at
+    from here h
+    join public.promotion_branch_pins pb on pb.branch_id = h.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where coalesce(p_radius_km, 0) = 0 or h.km <= p_radius_km
+   order by h.km asc, c.value_pct desc nulls last, c.effective_agorot asc
+   limit greatest(coalesce(p_limit, 400), 1);
+$$;
+
+grant execute on function public.offers_near(double precision, double precision, double precision, integer)
+  to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Fill it once, now, so the map answers the moment this is pasted. Idempotent:
+-- the delete runs first, and running this file twice simply rebuilds it.
+-- ---------------------------------------------------------------------------
+delete from public.promotion_branch_pins where branch_id is not null;
+insert into public.promotion_branch_pins (promotion_id, branch_id, observed_at)
+select pb.promotion_id, pb.branch_id, pb.observed_at from public.promotion_branches pb;
+
+-- ======================== 0060_three_drinks_shops.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0060 — three drinks shops, filled in by hand
+--
+-- The owner asked for יין בעיר, הרמיטאז׳ and בנא משקאות, 2026-10-25, knowing
+-- what it means: none of the three publishes a price file, so nothing imports
+-- them and nobody should expect them to fill themselves.
+--
+-- WHY THEY ARE DIFFERENT FROM EVERY OTHER SHOP HERE. The nineteen chains above
+-- are in the price-transparency programme: the law requires them to publish a
+-- file, the importer reads it every morning, and a price arrives with a scan, a
+-- branch and an observation behind it. These three are drinks shops below that
+-- threshold. Their deals will come from the admin screen, which is the same
+-- path a person's own submission takes — and they carry the same trust marks as
+-- any hand-entered price, because that is what they are.
+--
+-- SO THEY WILL LOOK EMPTY UNTIL SOMEBODY TYPES, and that is correct rather than
+-- broken. A chain with no live deal already shows as having none; these simply
+-- start there. Nothing in the app needs to know they are special: a store is a
+-- store, and the honesty is in where its prices came from, which the app
+-- already says on every line.
+--
+-- The names are the owner's, with one guess flagged: he wrote "הרימטג", which
+-- is almost certainly הרמיטאז׳. If it is a different shop, change the name here
+-- — the slug is what everything else holds on to.
+--
+-- Additive, and idempotent: a slug that is already there is left alone.
+-- ---------------------------------------------------------------------------
+
+insert into public.stores (slug, name_he) values
+  ('yain-bair',  'יין בעיר'),
+  ('hermitage',  'הרמיטאז׳'),
+  ('bana',       'בנא משקאות')
+on conflict (slug) do nothing;
+
 -- ======================== 0061_super_yudas_feed.sql ========================
 
 -- ---------------------------------------------------------------------------
@@ -15290,6 +15500,154 @@ insert into public.sources (slug, name, kind, trust) values
   ('feed-yellow',        'Paz Yellow price feed',    'chain_feed', 80)
 on conflict (slug) do nothing;
 
+-- ======================== 0064_deals_by_town.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0064 — the whole country, by town
+--
+-- MEASURED, production, 2026-10-25, after the owner chose "בכל הארץ" and saw
+-- only what was within about forty kilometres of him:
+--
+--   offers_near(TLV, radius 0, limit 400)     400 rows,  86 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 5000)  1,000 rows, 103 branches, none > 40 km
+--   offers_near(TLV, radius 0, limit 30000) 1,000 rows, 103 branches, none > 40 km
+--
+-- PostgREST caps a response at 1,000 rows whatever the function says, and
+-- offers_near orders by distance — so "no limit" could only ever mean "the
+-- nearest thousand rows", which is a hundred branches around one city. The
+-- radius was being honoured and the answer was still wrong.
+--
+-- ONE ROW PER BRANCH WOULD NOT FIX IT EITHER: a thousand branches carry deals,
+-- which is the cap again, and a thousand markers on a phone is not a map, it is
+-- a smear. The unit for a country is a TOWN.
+--
+-- GROUPED BY THE POINT, not by the name. Branches are placed at their town's
+-- centre until a geocoder puts them on their street (0045), so the branches of
+-- one town share a coordinate exactly — and grouping by that coordinate is both
+-- simpler than normalising names and honest about what the map can actually
+-- draw. When a branch does get a street-level fix it becomes its own pin, which
+-- is the right behaviour: it is no longer "somewhere in that town".
+--
+-- Public and not SECURITY DEFINER, for the reasons 0057 gives: everything it
+-- reads is world-readable, and where a shop is, is public information.
+--
+-- Additive: one function. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- One name for the point. Several branches share it; they also share a town,
+    -- so any of their city values will do, and the app resolves a CBS symbol to
+    -- its name before it reaches a screen (0047).
+    min(b.city)                                   as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                 as branches,
+    count(*)::integer                             as deals,
+    max(c.value_pct)::integer                     as best_value_pct,
+    min(c.effective_agorot)::integer              as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude
+   -- Busiest first, so a cap — if one is ever needed — keeps what matters.
+   order by count(*) desc
+   limit 400;
+$$;
+
+comment on function public.deals_by_town() is
+  'Every place in the country that has a live chain deal, one row per POINT: the '
+  'towns, because branches sit at their town centre until they are geocoded and a '
+  'thousand markers is not a map (0064). offers_near is still the answer for "near me".';
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
+-- ======================== 0065_a_town_knows_its_own_name.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0065 — a town pin knows its own name
+--
+-- MEASURED, production, minutes after 0064 shipped. The country view works —
+-- 142 towns, 16,864 deals, 789 shops, 1.16 s — and thirty of those towns come
+-- back named "0", including six of the ten largest:
+--
+--   580 deals at 31.2457, 34.7925      574 at 32.0878, 34.8860
+--   501 at 32.1773, 34.9075            487 at 32.3286, 34.8566
+--
+-- Those are Beer Sheva, Petah Tikva, Kfar Saba, Netanya, Rishon LeZion and
+-- Ashdod. On the screen they would have read "כאן".
+--
+-- WHY. The name came from `min(b.city)`, and some chains write "0" where the
+-- town's name goes (0047). "0" sorts before every real value, so one branch
+-- filing a zero renamed the whole town to nothing.
+--
+-- THE POINT ALREADY KNOWS. These coordinates are not approximations of a town —
+-- they ARE town_centres rows, copied onto the branches by place_branches_by_town
+-- (0045). So the name is a lookup on the coordinate, which is exact rather than
+-- a guess, and it names all thirty. The city column stays as the fallback for a
+-- branch that has a real street-level fix and so is not on a town's centre at
+-- all; "0" is excluded there too, since it is not a name.
+--
+-- Nothing else changes: same rows, same counts, same order.
+--
+-- One function replaced. Safe to run twice.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.deals_by_town()
+returns table (
+  town       text,
+  latitude   double precision,
+  longitude  double precision,
+  branches   integer,
+  deals      integer,
+  best_value_pct integer,
+  cheapest_agorot integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    -- The town centre this point IS, else whatever the chains called it, and
+    -- never "0" — which is a symbol some of them write instead of a name.
+    coalesce(tc.name, min(nullif(btrim(b.city), '0')))  as town,
+    b.latitude,
+    b.longitude,
+    count(distinct b.id)::integer                       as branches,
+    count(*)::integer                                   as deals,
+    max(c.value_pct)::integer                           as best_value_pct,
+    min(c.effective_agorot)::integer                    as cheapest_agorot
+    from public.branches b
+    join public.promotion_branch_pins pb on pb.branch_id = b.id
+    join public.offers_catalog c on c.promotion_id = pb.promotion_id
+    left join public.town_centres tc
+      on tc.lat = b.latitude and tc.lon = b.longitude
+   where b.is_active
+     and b.latitude is not null
+     and b.longitude is not null
+   group by b.latitude, b.longitude, tc.name
+   order by count(*) desc
+   limit 400;
+$$;
+
+grant execute on function public.deals_by_town() to anon, authenticated, service_role;
+
 -- ======================== the ledger ========================
 
 do $ledger$
@@ -15297,9 +15655,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0061'), ('0062')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0061'), ('0062'), ('0064'), ('0065')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 58 migrations';
+  raise notice 'ledger: recorded 62 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end

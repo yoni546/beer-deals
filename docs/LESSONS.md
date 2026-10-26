@@ -3,6 +3,54 @@
 Short, dated notes on things that cost real time. Each says what was seen, how it was
 narrowed down, and what the code does about it now.
 
+## 2026-10-26 — The slowness is the Tokyo hop, and prefetch cannot hide it
+
+**Seen.** The owner: "between pages it takes ages to load, the deals page and the beers page
+and the first page too, and no animation is running." Measured from Israel against production,
+warm, one request at a time:
+
+| what | TTFB |
+| --- | --- |
+| a static file (`/manifest.webmanifest`) | ~0.25 s |
+| `/settings` — reads almost nothing | ~0.85 s |
+| `/beer` | ~0.85 s |
+| `/store` | ~0.86 s |
+
+**The cause is geography, and the proof is that the numbers do not vary with the page.** The
+settings screen is as slow as the deals screen. `X-Vercel-Id: fra1::hnd1` — static files are
+served from Frankfurt, every dynamic page is routed on to Tokyo, where `vercel.json` pins the
+functions to be beside the database (ap-northeast-1). That hop is ~600 ms of the ~850, paid by
+every page whatever it renders, and no amount of query tuning touches it.
+
+**What was tried and reverted: prefetching the four TabBar links.** The idea was sound — the
+hop cannot be removed, but it could be paid while somebody reads rather than after they tap —
+and the TabBar is the one place the old "prefetch fan-out" objection does not apply (four links,
+not a chain page's ~340 row anchors). It does not work, because **Next will not render a
+`force-dynamic` route for a prefetch**:
+
+```
+curl -H "RSC: 1"                            .../beer   ->  14,591 bytes
+curl -H "RSC: 1" -H "Next-Router-Prefetch: 1" .../beer  ->     159 bytes
+```
+
+Those 159 bytes are an empty tree with no page in it. So the prefetch is a wasted request, the
+client router cache has nothing to store, `experimental.staleTimes.dynamic` has nothing to keep
+fresh, and the tap pays the full round trip regardless. An e2e test written to prove the win
+instead disproved it: three runs, three failures — twice the prefetch never produced a usable
+payload at all. `prefetch={false}` on the TabBar is correct and stays.
+
+**What would actually fix it**, in order of effect:
+1. **Move the database to eu-central-1** and re-pin `vercel.json` to `fra1`. Israel→Frankfurt is
+   ~60 ms against ~250 ms to Tokyo; this is the only change that also speeds up the FIRST page,
+   which has nothing to prefetch. Supabase cannot change a project's region in place — it means a
+   new project, a restore, new URL and keys, and a couple of hours down. Owner's decision.
+2. A static shell that streams its data would let a tap paint instantly, but that needs either
+   `loading.tsx` (stalls navigation here — see the 2026-09-29 entry) or PPR, and every route is
+   `force-dynamic` because the session is read in the layout.
+
+**Do not** re-enable prefetch anywhere while the routes are `force-dynamic`. It buys nothing and
+costs a request per link.
+
 ## 2026-09-29 — `loading.tsx` stalls client-side navigation (Next.js 15.5.26)
 
 **Seen.** After adding route-level `loading.tsx` files, every e2e spec that taps a link

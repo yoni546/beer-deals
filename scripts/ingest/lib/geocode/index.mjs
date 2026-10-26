@@ -121,6 +121,48 @@ export function normPlace(raw) {
  * inside a name may only ever REFUSE, never place. False matches then cost us a
  * missing pin, which is visible, instead of a wrong one, which is not.
  */
+/**
+ * How far an answer may be from the town it was supposed to be in.
+ *
+ * The owner's rule, 2026-10-25: "קודם כל עיר ואז הכתובת בתוך העיר, שהשם של הרחוב
+ * לא ישלח אותי לעיר או מושב אחר." The town is the thing he needs right; the
+ * street only refines it, and may never override it.
+ *
+ * Asking a geocoder for "street, town" does NOT guarantee the answer is in that
+ * town — given a street it cannot find there, it will happily return one it can
+ * find elsewhere, with no sign that it did. So every street-level answer is
+ * measured against the town's own centre, which the database already holds for
+ * 1,172 settlements, and discarded if it lands outside this.
+ *
+ * 25 km is chosen to be forgiving of the few large municipalities (Jerusalem is
+ * about 18 km across) while still catching the kind of error that prompted this:
+ * "סגולה" put a Petah Tikva shop 47 km south, at a moshav of the same name.
+ */
+export const SAME_TOWN_KM = 25;
+
+/**
+ * The fix to record for a branch, given what the geocoder said and what we know
+ * about its town — or null, meaning we learned nothing worth writing.
+ *
+ * Order, and it is the owner's order: a street-level answer INSIDE the town
+ * beats everything; a town centre is a good enough answer and is what the app
+ * already shows as "מרכז העיר"; an answer that fell outside the town is thrown
+ * away rather than trusted, because the street was never the thing being asked.
+ */
+export function fixForBranch({ fix, town, distanceKm }) {
+  const centre = town && Number.isFinite(town.lat) && Number.isFinite(town.lon)
+    ? { lat: town.lat, lon: town.lon, precision: "locality", source: "town centre" }
+    : null;
+
+  if (!fix) return centre;
+  if (fix.precision === "locality") return centre ?? { ...fix, source: "geocoder" };
+  if (!centre) return { ...fix, source: "geocoder" };
+
+  const away = distanceKm(fix.lat, fix.lon, centre.lat, centre.lon);
+  if (!Number.isFinite(away) || away > SAME_TOWN_KM) return { ...centre, rejected: away };
+  return { ...fix, source: "geocoder" };
+}
+
 export function placeToAsk({ address, city, name }, { resolveCity, knownTowns }) {
   const town = resolveCity(city);
   const street = String(address ?? "").trim();

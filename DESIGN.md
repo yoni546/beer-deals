@@ -101,10 +101,12 @@ component (`src/design/`):
 - **Empty** is blank paper with one dotted line and a next action. **Error** is a paper jam: what
   happened, and a retry.
 - **Stale / unverified / review** is hatched paper plus words ("לא עודכן 9 ימים"), never colour alone.
-- **Motion.** Four authored moments, and no more: the print-in of a strip on first paint (whole
+- **Motion.** Five authored moments, and no more: the print-in of a strip on first paint (whole
   line-heights, a single overshoot); the first run's stage (below); the rise of a screen arriving
-  (`page-enter`, 240 ms, 0.34.0); and the waiting bar, which is a pour — the accent with a head of
-  foam along its top edge (0.12.0). Everything else is instant. Each one is CSS on an element that
+  (`page-enter`, 240 ms, 0.34.0); the waiting bar, which is a pour — the accent with a head of
+  foam along its top edge; and, in the INSTALLED app only, a trolley filling with
+  six-packs while it opens (all 0.12.0). That last one runs where the OS already
+  shows a blank screen, which is the only kind of moment an overlay may have. Everything else is instant. Each one is CSS on an element that
   already exists: no library, no new asset, nothing per-frame on the main thread. Fully disabled
   under `prefers-reduced-motion`.
 
