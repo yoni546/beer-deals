@@ -39,6 +39,16 @@ export function TabBar() {
                 // layout, so default prefetching turned one page view into up to four
                 // server renders -- three of which nobody asked for, each paying the full
                 // Israel-Tokyo round trip, and each queued ahead of the person's own tap.
+                //
+                // RETRIED 2026-10-26 AND PUT BACK. Navigation costs ~850 ms from Israel, of
+                // which ~600 ms is the fra1->hnd1 hop every page pays whatever it renders, so
+                // prefetching four links looked like a way to spend that second while
+                // somebody reads instead of after they tap. It is not: a prefetch of a
+                // force-dynamic route is answered with 159 bytes containing no page at all
+                // (a real navigation to /beer is 14,591), because Next will not render a
+                // force-dynamic route for a prefetch. The request is pure waste and the tap
+                // still pays in full -- measured, not guessed. docs/LESSONS.md has the
+                // transcript. Nothing here can be fixed in code; the hop itself is the bug.
                 prefetch={false}
                 aria-current={current ? "page" : undefined}
                 className={`relative flex h-16 flex-col items-center justify-center gap-1 text-xs ${

@@ -51,7 +51,7 @@ export function DealsMap({ pins, centre, radiusKm }: { pins: MapPin[]; centre: {
 
       const instance = L.map(holder.current, {
         center: [centre.lat, centre.lon],
-        zoom: radiusKm <= 5 ? 13 : radiusKm <= 15 ? 12 : 10,
+        zoom: zoomFor(radiusKm),
         // A map inside a scrolling page that grabs the wheel is a trap on a laptop
         // and a scroll-jail on a phone. Dragging and pinching still work.
         scrollWheelZoom: false,
@@ -120,16 +120,25 @@ export function DealsMap({ pins, centre, radiusKm }: { pins: MapPin[]; centre: {
         markers.current.push(marker);
       }
 
-      instance.setView([centre.lat, centre.lon], instance.getZoom());
+      // The ZOOM moves with the radius, not just the centre. Choosing a town from
+      // the whole-country view used to re-centre and keep zoom 7, which left you
+      // looking at Lebanon while the heading said forty shops in Haifa.
+      instance.setView([centre.lat, centre.lon], zoomFor(radiusKm));
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [pins, centre]);
+  }, [pins, centre, radiusKm]);
 
   return <div ref={holder} className="map-canvas" role="application" aria-label="מפת המבצעים" />;
 }
+
+/**
+ * How close to start, from the radius being asked about. The last step is the
+ * whole country — what somebody who has not said where they live sees.
+ */
+const zoomFor = (radiusKm: number) => (radiusKm <= 5 ? 13 : radiusKm <= 15 ? 12 : radiusKm <= 40 ? 10 : 7);
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
@@ -167,6 +176,24 @@ const PROMO_HE: Record<string, string> = {
  */
 function popupHtml(group: MapPin[]): string {
   const [first] = group;
+
+  // A COUNTRY PIN IS A TOWN, and carries counts rather than lines: the deals
+  // themselves are a radius away, and shipping every one of them is the thing
+  // that cannot be done (0064). So it says what is there and how to see it.
+  if (first.towns) {
+    const t = first.towns;
+    const best = t.best === null ? "" : `<span class="map-pop-save num">−${t.best}%</span>`;
+    const from = t.cheapest === null ? "" : `<span class="map-pop-price num">מ־${shekels(t.cheapest)}</span>`;
+    return `<div class="map-pop">
+      <p class="map-pop-head">${escapeHtml(first.city ?? "כאן")}</p>
+      <ul class="map-pop-list"><li class="map-pop-row">
+        <span class="map-pop-beer">${t.deals} מבצעים ב־${t.branches} חנויות</span>
+        ${best}${from}
+      </li></ul>
+      <p class="map-pop-note">בחרו מרחק כדי לראות את החנויות עצמן</p>
+    </div>`;
+  }
+
   const distance = first.km === null ? "" : `<span class="map-pop-km num">${first.km < 1 ? `${Math.round(first.km * 1000)} מ׳` : `${first.km.toFixed(1)} ק״מ`}</span>`;
   const whereabouts = first.precision === "locality" ? '<p class="map-pop-note">מיקום משוער — מרכז היישוב</p>' : "";
 
