@@ -19,6 +19,22 @@
     ]
   },
   {
+    "version": "0.38.1",
+    "date": "2026-10-26",
+    "title_he": "הקישור למפה נראה גם בחושך",
+    "highlights_he": [
+      "במצב כהה הקישור \"על המפה\" בדף הבית כמעט נעלם. עכשיו הוא קריא כמו כל השאר."
+    ],
+    "kind": [
+      "fix"
+    ],
+    "showInApp": true,
+    "internal": [
+      "The map link (#41) sits on the counter, not on a paper strip, but took .disclose's colour, var(--ink) — the ink of the paper, which stays light in dark mode. In dark mode it was dark brown on a dark counter: 1.03:1. It now takes text-on-ground, the counter's own text colour (a utility, so it wins over the component class).",
+      "CI on main had been red since #41 on exactly this (quality.spec axe, dark, both phone sizes), which also turned every PR opened after it red."
+    ]
+  },
+  {
     "version": "0.38.0",
     "date": "2026-10-12",
     "title_he": "הכי קרוב — באמת הכי קרוב",

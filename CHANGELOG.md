@@ -20,6 +20,17 @@ Internal:
 - Indexes: price_obs_superseded_by, price_obs_rejected, promotion_groups_dead. Rollback: supabase/rollback/0066_prune_history.down.sql (does not restore pruned rows). Production steps: docs/PRUNE-HISTORY.md.
 - The branch's old 0053 (catalogue refresh `where true` + service_role 180s) is dropped: main's 0055 (`where offer_key is not null`) and 0056 (service_role 120s) fix the same thing and are what production runs. security-sweep keeps the check that refuses any unqualified DELETE/UPDATE in a function, which main did not have.
 
+## 0.38.1 — 2026-10-26
+
+**הקישור למפה נראה גם בחושך** · Fix
+
+- במצב כהה הקישור "על המפה" בדף הבית כמעט נעלם. עכשיו הוא קריא כמו כל השאר.
+
+Internal:
+
+- The map link (#41) sits on the counter, not on a paper strip, but took .disclose's colour, var(--ink) — the ink of the paper, which stays light in dark mode. In dark mode it was dark brown on a dark counter: 1.03:1. It now takes text-on-ground, the counter's own text colour (a utility, so it wins over the component class).
+- CI on main had been red since #41 on exactly this (quality.spec axe, dark, both phone sizes), which also turned every PR opened after it red.
+
 ## 0.38.0 — 2026-10-12
 
 **הכי קרוב — באמת הכי קרוב** · Fix
