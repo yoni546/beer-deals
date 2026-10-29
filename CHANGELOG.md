@@ -6,6 +6,17 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.40.2 — 2026-10-29
+
+**תמונות לקרומבכר ול־1664 בלאנק** · Design
+
+- לקרומבכר ול־1664 בלאנק יש עכשיו צילום אמיתי של הבקבוק במקום ציור.
+
+Internal:
+
+- Owner's list 2026-10-29, item 9. scripts/fetch-bottles.mjs: krombacher rami(4008287762020) (Weizen 500 ml), kronenbourg rami(851621000043) with tolerance 8 (white cap and label on white). Provenance in src/design/bottle-photos.json.
+- Not done: miller (catalogue has only the can), duvel (photo 5411681014005 exists; needs an identity in src/design/themes.ts first), and james, san-miguel, schofferhofer, somersby, bazelet, wolfaus, bitburger, desperados: no SKU or barcode in any feed, so no catalogue photo to find.
+
 ## 0.40.1 — 2026-10-29
 
 **בסיס הנתונים מפסיק לתפוח** · Data
