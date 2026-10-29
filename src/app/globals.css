@@ -499,6 +499,13 @@ select,
   .leaflet-popup-content {
     margin: 0.75rem;
   }
+  /* A long popup scrolls inside itself (maxHeight in DealsMap). The map's own
+     touch-action is none; the list must take a vertical finger drag, and the end
+     of the list must not hand the drag on to the page. */
+  .leaflet-popup-scrolled {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
   .leaflet-control-attribution {
     background: color-mix(in oklab, var(--paper) 86%, transparent);
     color: var(--ink-2);
@@ -739,11 +746,16 @@ svg.bottle-art {
 /* The corner to "אני" answers the press, and only the press: it is a way somewhere, so the
    arrival is the page transition's, not this button's. Transform only; release is the same
    short ease-out, so letting go never lags. */
-.me-link {
+.me-link,
+.save-offer {
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.me-link:active {
+.me-link:active,
+.save-offer:active {
   transform: scale(0.97);
+}
+.save-offer[aria-pressed="true"] {
+  color: var(--ink);
 }
 
 /* The only loading indicator: a thin bar at the top edge while a tap is being answered. */
@@ -807,12 +819,14 @@ svg.bottle-art {
      measurements into fractions of a pixel (a 44px tap target measured 43.99999 and an
      e2e floor test was right to refuse it). Without it, the transform is gone the
      moment the animation ends. */
-  animation: page-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: page-enter 280ms cubic-bezier(0.23, 1, 0.32, 1);
 }
+/* --enter-x is set by PageTransition from the way you went (onward = from the left in
+   this right-to-left app, back = from the right). Without it, the plain rise. */
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(0.5rem);
+    transform: translateX(var(--enter-x, 0)) translateY(var(--enter-y, 0.5rem));
   }
 }
 

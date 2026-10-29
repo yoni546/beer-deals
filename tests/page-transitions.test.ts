@@ -61,6 +61,19 @@ describe("moving between screens", () => {
     expect(component).toContain('pathname === landedOn ? undefined : "page-enter"');
   });
 
+  it("slides in from the side you went to, right to left (0.41.0)", async () => {
+    const { enterOffset } = await import("@/components/ui/PageTransition");
+    // Onward is leftward in Hebrew: a negative offset enters from the left.
+    expect(enterOffset("/beer", "/beer/goldstar")).toBe("-1.5rem");
+    expect(enterOffset("/beer/goldstar", "/beer")).toBe("1.5rem");
+    expect(enterOffset("/", "/store")).toBe("-1.5rem");
+    expect(enterOffset("/store", "/map")).toBe("1.5rem");
+    expect(enterOffset("/store/rami-levy", "/")).toBe("1.5rem");
+    // No order between them: the plain rise.
+    expect(enterOffset("/", "/settings")).toBeNull();
+    expect(css).toContain("translateX(var(--enter-x, 0))");
+  });
+
   it("holds no transform after it has played", () => {
     // A filling animation keeps the transform applied for the element's whole life,
     // composites the page under it, and makes a 44px tap target measure 43.99999.

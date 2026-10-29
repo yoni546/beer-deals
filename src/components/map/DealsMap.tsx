@@ -116,7 +116,10 @@ export function DealsMap({ pins, centre, radiusKm }: { pins: MapPin[]; centre: {
 
         const marker = L.marker([group[0].lat, group[0].lon], { icon, title: group[0].name })
           .addTo(instance)
-          .bindPopup(popupHtml(group), { closeButton: true, maxWidth: 280 });
+          // maxHeight makes a long popup scroll inside itself (Leaflet adds
+          // `leaflet-popup-scrolled`). Without it a town with four shops grew
+          // taller than the map, and the bottom of the list could not be reached.
+          .bindPopup(popupHtml(group), { closeButton: true, maxWidth: 280, maxHeight: popupMaxHeight(holder.current) });
         markers.current.push(marker);
       }
 
@@ -139,6 +142,9 @@ export function DealsMap({ pins, centre, radiusKm }: { pins: MapPin[]; centre: {
  * whole country — what somebody who has not said where they live sees.
  */
 const zoomFor = (radiusKm: number) => (radiusKm <= 5 ? 13 : radiusKm <= 15 ? 12 : radiusKm <= 40 ? 10 : 7);
+
+/** A popup never taller than the map, minus room for its tip and the close button. */
+const popupMaxHeight = (holder: HTMLDivElement | null) => Math.max(160, (holder?.clientHeight ?? 400) - 96);
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);

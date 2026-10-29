@@ -657,3 +657,24 @@ test("Home leads with a followed beer that reached your price, and only then wit
   await page.goto("/");
   await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
 });
+
+test("a deal can be saved, and /saved shows it from the live feed (0.41.0)", async ({ page }) => {
+  await onboard(page);
+  const line = page.locator("main article").first();
+  const save = line.locator("[data-save-offer]");
+  await expect(save).toHaveText("שמירה");
+  await save.click();
+  await expect(save).toHaveAttribute("aria-pressed", "true");
+  await expect(save).toHaveText("נשמר");
+  const name = (await line.locator("a.line-tight").innerText()).split("\n")[0].trim();
+
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "לרשימת המבצעים ששמרתי" }).click();
+  await expect(page).toHaveURL(/\/saved$/);
+  await expect(page.locator("main article")).toHaveCount(1);
+  await expect(page.locator("main article").first()).toContainText(name);
+  // Still saved where it is shown, and un-saving takes it off the list on the next visit.
+  await page.locator("main article [data-save-offer]").click();
+  await page.reload();
+  await expect(page.getByText("עוד לא שמרתם מבצעים")).toBeVisible();
+});

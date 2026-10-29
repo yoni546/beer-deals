@@ -361,7 +361,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   lead="beer"
                   perLiter={perLiter}
                   limit={6}
-                  moreHref="/beer"
                 />
               )
             )}

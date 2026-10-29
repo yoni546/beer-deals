@@ -3,6 +3,7 @@ import { ChevronDownIcon } from "@/components/ui/icons";
 import { DealScoreChip } from "@/components/ui/DealScore";
 import { Price, Saving, UnitPrice } from "@/components/ui/Price";
 import { OfferFeedback } from "@/components/OfferFeedback";
+import { SaveOffer } from "@/components/SaveOffer";
 import { NearestBranch } from "@/components/NearestBranch";
 import { ScopeLine } from "@/components/ScopeLine";
 import type { Offer } from "@/lib/db/types";
@@ -178,18 +179,22 @@ export function OfferLine({
       </div>
 
       {/* Every offer, not only the user-submitted ones. Until 0031 the chain feed --
-          the bulk of what anybody sees -- had no report path at all. */}
-      <details className="group" data-feedback>
-        <summary className="disclose-quiet">
-          הייתם שם?
-          <span aria-hidden className="transition-transform group-open:rotate-180">
-            <ChevronDownIcon size={14} />
-          </span>
-        </summary>
-        <div className="pb-2">
-          <OfferFeedback offerKey={offer.offer_key} seenPriceAgorot={offer.effective_agorot} />
-        </div>
-      </details>
+          the bulk of what anybody sees -- had no report path at all. Saving sits on the
+          same row (0.41.0): both are things you do with a deal, not facts about it. */}
+      <div className="flex items-start justify-between gap-3">
+        <details className="group min-w-0 flex-1" data-feedback>
+          <summary className="disclose-quiet">
+            הייתם שם?
+            <span aria-hidden className="transition-transform group-open:rotate-180">
+              <ChevronDownIcon size={14} />
+            </span>
+          </summary>
+          <div className="pb-2">
+            <OfferFeedback offerKey={offer.offer_key} seenPriceAgorot={offer.effective_agorot} />
+          </div>
+        </details>
+        <SaveOffer offerKey={offer.offer_key} />
+      </div>
     </article>
   );
 }
