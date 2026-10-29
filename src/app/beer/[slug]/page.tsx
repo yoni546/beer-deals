@@ -7,7 +7,8 @@ import { RegularStrip } from "@/components/RegularStrip";
 import { CategorySection, NoDealLine, Part } from "@/components/Sections";
 import { SortBar } from "@/components/SortBar";
 import { PACK_CLASS_HE, packText } from "@/lib/format";
-import { getGroupOffers, getOffers, getRegularPrices } from "@/lib/offers";
+import { getGroupOffers, getOffers, getRegularPrices, getShopCrates } from "@/lib/offers";
+import { ShopCrates } from "@/components/ShopCrates";
 import {
   PACK_CLASSES,
   groupByPack,
@@ -53,6 +54,9 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
     getMyWatchlist(),
   ]);
   if (!beer) notFound();
+  // Crates at liquor shops' sites (0068): supermarkets almost never sell a crate, so this is where most of
+  // a beer's crate prices come from. Read after the beer, because it is keyed by the beer's id.
+  const shopCrates = await getShopCrates([beer.id]);
 
   const sort = parseSort(query.sort);
   const perLiter = query.unit === "1";
@@ -62,7 +66,9 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
   const freshest = newestObservation([...offers, ...regular]);
   const dealCount = offers.length + groups.length;
 
-  const availablePacks = [...new Set([...offers.map(packClass), ...regular.map(regularPackClass), ...groups.map(groupPackClass)])] as PackFilter[];
+  const availablePacks = [
+    ...new Set([...offers.map(packClass), ...regular.map(regularPackClass), ...groups.map(groupPackClass), ...(shopCrates.length ? ["case" as const] : [])]),
+  ] as PackFilter[];
   const kinds = PACK_CLASSES.filter((kind) => (pack === "all" || pack === kind) && availablePacks.includes(kind)).map((kind) => ({
     kind,
     deals: orderPackGroups(groupByPack(offers.filter((offer) => packClass(offer) === kind)), sort, perLiter),
@@ -97,14 +103,14 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
         <FollowBeer beerId={beer.id} beerName={beer.name_he} watching={watchlist[beer.id] ?? null} />
       </div>
 
-      {(dealCount > 0 || regular.length > 0) && (
+      {(dealCount > 0 || regular.length > 0 || shopCrates.length > 0) && (
         <div className="mb-6">
           <SortBar path={path} state={{ sort, perLiter, pack }} availablePacks={availablePacks} />
         </div>
       )}
 
       {kinds.length === 0 ? (
-        dealCount > 0 || regular.length > 0 ? (
+        dealCount > 0 || regular.length > 0 || shopCrates.length > 0 ? (
           pack === "case" ? (
           <NoCratesYet allHref={path} />
         ) : (
@@ -153,6 +159,11 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
                       headingLevel="h4"
                     />
                   ))}
+                </Part>
+              )}
+              {kind === "case" && shopCrates.length > 0 && (
+                <Part part="shops" title="בחנויות משקאות">
+                  <ShopCrates crates={shopCrates} />
                 </Part>
               )}
             </CategorySection>

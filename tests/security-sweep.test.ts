@@ -199,6 +199,11 @@ describe("the whole schema, swept", () => {
       "notification_events:UPDATE",
       "push_log:INSERT",
       "push_subscriptions:DELETE",
+      // 0068: liquor shops' crate prices, written by scripts/shops/crates.mjs. Public prices from public
+      // pages, derived and re-read daily, so a direct upsert and a week-old delete are all it needs.
+      "shop_crate_prices:DELETE",
+      "shop_crate_prices:INSERT",
+      "shop_crate_prices:UPDATE",
       "sku_barcodes:INSERT",
       "sku_barcodes:UPDATE",
       "skus:INSERT",

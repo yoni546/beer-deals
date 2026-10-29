@@ -6,6 +6,7 @@ import { note } from "@/lib/log";
 import { isProductionEnvironment } from "@/lib/demo";
 import { getBeerBySlug, getStoreBySlug } from "@/lib/queries";
 import { supabaseServer } from "@/lib/supabase/server";
+import { SHOPS, SHOP_PRICE_DAYS, perUnitAgorot, type ShopCrate } from "@/lib/shops";
 import type { DealScore, GroupOffer, Offer, OfferStanding, Packaging, RegularPrice } from "@/lib/db/types";
 
 export type { RegularPrice };
@@ -354,6 +355,30 @@ const readListing = cachedFeed("listing", async (by: "beer" | "store", hide: boo
     rows.set(slug, current);
   }
   return [...rows.values()];
+});
+
+/**
+ * Crate prices on liquor shops' websites (0068), cheapest per bottle first. Only rows the site showed in the
+ * last SHOP_PRICE_DAYS and in stock. A database without 0068 yet returns none rather than failing the page:
+ * these are an addition to the shelf prices, never a replacement for them.
+ */
+export const getShopCrates = cache(async (beerIds?: string[]): Promise<ShopCrate[]> => {
+  if (beerIds && beerIds.length === 0) return [];
+  const since = new Date(Date.now() - SHOP_PRICE_DAYS * 86_400_000).toISOString();
+  let query = publicReader()
+    .from("shop_crate_prices")
+    .select("shop, beer_id, variant, title, pack_quantity, volume_ml, container, price_agorot, url, pickup_only, seen_at")
+    .eq("in_stock", true)
+    .gte("seen_at", since);
+  if (beerIds) query = query.in("beer_id", beerIds);
+  const { data, error } = await query;
+  if (error) {
+    note("read.shop_crates_unavailable", { reason: error.message });
+    return [];
+  }
+  return ((data ?? []) as ShopCrate[])
+    .filter((row) => row.shop in SHOPS)
+    .sort((a, b) => perUnitAgorot(a) - perUnitAgorot(b) || a.price_agorot - b.price_agorot);
 });
 
 /** When the newest price on the site was observed — the honest "last updated". */
