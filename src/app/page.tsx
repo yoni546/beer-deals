@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PinIcon } from "@/components/ui/icons";
+import { MeLink } from "@/components/ui/MeLink";
 import { redirect } from "next/navigation";
 import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
@@ -196,7 +196,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="flex items-center justify-between gap-2">
           <h1 className="min-w-0 truncate text-[1.75rem] leading-tight font-bold text-on-ground">{name ? `אהלן, ${name}` : "אהלן"}</h1>
           {/* Release notes are for the people who run the app (the page itself checks too). */}
-          {viewer.isAdmin && <WhatsNewLink latestVersion={latestVisibleVersion} className="-me-2.5 text-on-ground-2" />}
+          <div className="flex shrink-0 items-center gap-1">
+            {viewer.isAdmin && <WhatsNewLink latestVersion={latestVisibleVersion} className="text-on-ground-2" />}
+            <MeLink />
+          </div>
         </div>
         <div className="mt-1">
           <Freshness at={freshest} />
@@ -260,19 +263,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
           <div className="mb-5 flex items-center gap-3">
             <IntentSwitch intent={intent} hrefFor={hrefForIntent} />
-            {/* The way into the map. A tab of its own would make a map one of the
-                four things this app is, which it is not: it is one way of reading
-                the answer Home already gives.
-
-                SHOWN TO EVERYONE, including somebody who has never said where they
-                live (the owner's rule, 2026-10-25). It used to appear only when we
-                could place the person, which made the map a reward for filling in
-                a profile — and wanting to see another town's deals is a reason to
-                open a map, not a reason to be turned away from one. */}
-            <Link href="/map" prefetch={false} className="disclose shrink-0 text-sm text-on-ground">
-              <PinIcon size={16} />
-              על המפה
-            </Link>
           </div>
 
           {intent === "near" ? (
