@@ -183,6 +183,27 @@ test("Beer page: every pack is its own strip and a chain's 6×500 price never si
   await expect(mid).not.toContainText("₪25.00");
 });
 
+test("ארגזים is always offered: a beer with no crate says so, and 'ארגז' in the search goes there", async ({ page }) => {
+  await onboard(page);
+  // Heineken has no crate in the catalogue; the chip is there anyway, and leads to a page that says so.
+  await page.goto("/beer/heineken");
+  await openSort(page);
+  await page.getByRole("link", { name: "ארגזים" }).click();
+  await expect(page).toHaveURL(/pack=case/);
+  await expect(page.getByText("אין כרגע מבצעי ארגזים")).toBeVisible();
+  await page.getByRole("link", { name: "לכל המבצעים" }).click();
+  await expect(page).toHaveURL(/\/beer\/heineken$/);
+
+  // Typed on Home: the word is enough, and Enter takes it.
+  await page.goto("/");
+  await page.waitForLoadState("networkidle"); // hydrated, so typing reaches React
+  const box = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
+  await box.fill("ארגז");
+  await expect(page.getByRole("link", { name: /ארגזים/ })).toBeVisible();
+  await box.press("Enter");
+  await expect(page).toHaveURL(/\/\?pack=case$/);
+});
+
 test("Beer page: the pack filter narrows to one kind of pack and stays in the URL", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");

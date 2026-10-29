@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PinIcon } from "@/components/ui/icons";
 import { redirect } from "next/navigation";
-import { EmptyState, ButtonLink, Screen } from "@/components/Chrome";
+import { EmptyState, ButtonLink, NoCratesYet, Screen } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { FavouriteKeys } from "@/components/FavouriteKeys";
 import { Freshness } from "@/components/Freshness";
@@ -275,7 +275,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </Link>
           </div>
 
-          {intent === "near" ? (
+          {/* ארגזים chosen and none today: say so, in place of the lists. */}
+          {pack === "case" && !availablePacks.includes("case") ? (
+            <NoCratesYet allHref="/" />
+          ) : intent === "near" ? (
             // Your beers first, each one nearest-first — the same shape as the rest of
             // the app, because "favourite #1 is the app" does not stop being true when
             // the question is where. (It was one flat distance list at first, on the

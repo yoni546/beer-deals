@@ -71,6 +71,19 @@ export function EmptyState({
   );
 }
 
+/**
+ * The ארגזים filter with nothing behind it. The chip is always offered (owner, 2026-10-29: people look
+ * for crates), and the chains' price files rarely carry one, so this says plainly that there is none
+ * today rather than showing an empty list — and offers the way back to everything.
+ */
+export function NoCratesYet({ allHref }: { allHref: string }) {
+  return (
+    <EmptyState title="אין כרגע מבצעי ארגזים" action={<ButtonLink href={allHref} variant="quiet">לכל המבצעים</ButtonLink>}>
+      ברשתות שאנחנו קוראים יש כרגע שישיות, רביעיות ובודדים. כשיופיע מבצע על ארגז, הוא יעלה כאן.
+    </EmptyState>
+  );
+}
+
 /** A primary action on the counter or on paper. */
 export function ButtonLink({
   href,
