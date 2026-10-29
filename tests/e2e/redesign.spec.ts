@@ -339,9 +339,14 @@ test("the bottom bar takes you between the four places and marks where you are",
   await bar.getByRole("link", { name: "סופרים" }).click();
   await expect(page).toHaveURL(/\/store$/);
 
-  await bar.getByRole("link", { name: "אני" }).click();
+  await bar.getByRole("link", { name: "מפה" }).click();
+  await expect(page).toHaveURL(/\/map$/);
+  await expect(bar.getByRole("link", { name: "מפה" })).toHaveAttribute("aria-current", "page");
+
+  // "אני" is not a tab: it is the corner of each main screen's heading.
+  await expect(bar.getByRole("link", { name: "אני" })).toHaveCount(0);
+  await page.getByRole("main").getByRole("link", { name: "אני" }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(bar.getByRole("link", { name: "אני" })).toHaveAttribute("aria-current", "page");
 });
 
 test("an unknown beer is a designed 404, not a crash", async ({ page }) => {

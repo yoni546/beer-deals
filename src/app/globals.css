@@ -736,6 +736,16 @@ svg.bottle-art {
 .print-in > *:nth-child(5) { animation-delay: 180ms; }
 .print-in > *:nth-child(n + 6) { animation-delay: 225ms; }
 
+/* The corner to "אני" answers the press, and only the press: it is a way somewhere, so the
+   arrival is the page transition's, not this button's. Transform only; release is the same
+   short ease-out, so letting go never lags. */
+.me-link {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.me-link:active {
+  transform: scale(0.97);
+}
+
 /* The only loading indicator: a thin bar at the top edge while a tap is being answered. */
 @keyframes nav-progress {
   from { transform: translateX(-100%); }

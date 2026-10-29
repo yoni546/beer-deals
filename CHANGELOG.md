@@ -6,6 +6,19 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.39.0 — 2026-10-29
+
+**המפה בסרגל התחתון** · Feature
+
+- המפה קיבלה מקום משלה בסרגל התחתון, ליד המבצעים.
+- "אני" (הבירות שלכם, ההתראות וההגדרות) עבר לכפתור העגול בפינה העליונה של כל מסך.
+
+Internal:
+
+- Owner's call (2026-10-29): the map is a tab (Deals · Map · Beers · Stores); settings left the bar for MeLink, a 44px round link in the TopBar action slot of Home, Map, Beers and Stores. Settings are visited rarely; the map is a place people go back to.
+- A corner rather than a drawer: /settings is a page of forms, and a drawer would hide it behind one more motion. The only motion is the press (scale 0.97, 160ms ease-out, transform only; off under reduced motion with everything else).
+- The map lost its back arrow (a tab is a place, not a step away from Home) and Home lost the "על המפה" link beside the intent switch: one way in. tests/map-screen.test.ts now asserts the tab and that no page links to /map besides it.
+
 ## 0.38.1 — 2026-10-26
 
 **הקישור למפה נראה גם בחושך** · Fix

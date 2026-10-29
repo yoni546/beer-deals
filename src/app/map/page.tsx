@@ -1,4 +1,5 @@
 import { Screen, TopBar } from "@/components/Chrome";
+import { MeLink } from "@/components/ui/MeLink";
 import { MapScreen } from "@/components/map/MapScreen";
 import { getMapPins, getTownPins } from "@/lib/map";
 import { getViewer } from "@/lib/session";
@@ -71,7 +72,7 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
       <div className="px-4 pt-4">
         <TopBar
           title="מפה"
-          backHref="/"
+          action={<MeLink />}
           sub={
             !chosen
               ? "בחרו יישוב, או שתפו מיקום — ותראו מה יש שם במבצע"

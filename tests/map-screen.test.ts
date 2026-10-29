@@ -44,25 +44,23 @@ describe("the map", () => {
     expect(page).toContain("מרכז היישוב");
   });
 
-  it("can be reached by anyone, from one place", () => {
-    // A screen nothing links to is not shipped. It is deliberately NOT a fifth tab:
-    // a map is one way of reading the answer Home already gives, not one of the four
-    // things this app is.
-    const home = read("src", "app", "page.tsx");
-    expect(home).toMatch(/href="\/map"/);
-    // 2026-10-25: NOT behind a location. The map used to appear only for somebody
-    // we could already place, which made it a reward for filling in a profile.
-    expect(home).not.toMatch(/distances\.available && [\s\S]{0,80}href="\/map"/);
+  it("can be reached by anyone, from one place: the tab bar", () => {
+    // A screen nothing links to is not shipped. Since 2026-10-29 (the owner) the map is one of
+    // the four tabs, and "אני" moved to a corner of each main screen's heading (MeLink).
+    const bar = read("src", "components", "ui", "TabBar.tsx");
+    expect(bar).toMatch(/href: "\/map", label: "מפה"/);
+    expect(bar).not.toMatch(/href: "\/settings"/);
+    // 2026-10-25: NOT behind a location — a tab is there for everybody, placed or not.
     const page = read("src", "app", "map", "page.tsx");
     expect(page).toMatch(/const chosen = lat !== null/);
     expect(page).not.toMatch(/EmptyState/);
 
-    // And nowhere else, so it cannot quietly become navigation.
+    // And no second way in: the old link next to Home's switch went when the tab came.
     const everywhere = ["src/app", "src/components"].flatMap((dir) => tsx(join(ROOT, dir)))
       .filter((file) => !file.includes(join("app", "map")) && !file.includes(join("components", "map")))
       .filter((file) => /href="\/map"/.test(readFileSync(file, "utf8")))
       .map((file) => file.slice(ROOT.length + 1));
-    expect(everywhere).toEqual([join("src", "app", "page.tsx")]);
+    expect(everywhere).toEqual([]);
   });
 
   it("names the tile provider in the attribution, on the map", () => {
