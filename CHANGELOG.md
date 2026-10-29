@@ -6,6 +6,17 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.40.2 — 2026-10-29
+
+**שופרסל, טיב טעם ויוחננוף חוזרים** · Fix, Data
+
+- ייבוא שנקטע באמצע כבר לא גורם לייבוא הבא לדלג על רשתות. בגלל זה שופרסל, טיב טעם, יוחננוף ועוד הופיעו בלי מבצעים.
+
+Internal:
+
+- Migration 0067: start_ingestion_run marks this source's runs still 'running' after 4 hours as 'failed' (stats.abandoned) before looking for an earlier run of the same files. The 27–29.10 production imports were cancelled at 180 min; their runs stayed 'running' and the 29.10 evening run skipped 9 publishers as 'already imported' (shufersal, yochananof, tiv-taam, king-store, freshmarket, dor-alon, keshet, stop-market, politzer). Rollback: supabase/rollback/0067_abandoned_ingestion_runs.down.sql.
+- Needs applying to production (db push) and one import run afterwards; until then those chains stay empty.
+
 ## 0.40.1 — 2026-10-29
 
 **בסיס הנתונים מפסיק לתפוח** · Data

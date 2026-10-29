@@ -49,6 +49,24 @@ describe("a file is imported once", () => {
     expect((await r.start("sha256:bbb")).already_imported).toBe(false);
   });
 
+  it("does not take a run that never finished for an import (0067)", async () => {
+    // A job cancelled at its time limit never calls finish_ingestion_run. Its run stayed
+    // `running`, and the next import of the same files was skipped as "already imported".
+    const w = await world();
+    const r = await runner(w);
+    const dead = await r.start("sha256:dead");
+    await w.db.query("update public.ingestion_runs set started_at = now() - interval '5 hours' where id = $1", [dead.run_id]);
+
+    const next = await r.start("sha256:dead");
+    expect(next.already_imported).toBe(false);
+    expect(next.run_id).not.toBe(dead.run_id);
+    const old = (await w.db.query<{ status: string; stats: { abandoned?: boolean } }>("select status, stats from public.ingestion_runs where id = $1", [dead.run_id])).rows[0];
+    expect(old).toMatchObject({ status: "failed", stats: { abandoned: true } });
+
+    // A run that is merely in progress (started minutes ago) still blocks a second import.
+    expect((await r.start("sha256:dead")).run_id).toBe(next.run_id);
+  });
+
   it("lets a failed file be tried again", async () => {
     const w = await world();
     const r = await runner(w);
