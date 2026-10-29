@@ -6,6 +6,24 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.41.0 — 2026-10-29
+
+**שמירת מבצעים, ומעברים שרואים** · Feature, Fix
+
+- אפשר לשמור מבצע: כפתור ״שמירה״ בכל מבצע, והרשימה ב״אני״. המחירים שם תמיד עדכניים.
+- המעבר בין המסכים זז לכיוון שהלכתם: קדימה משמאל, אחורה מימין.
+- על המפה, החלון של נקודה עם הרבה חנויות נגלל עד הסוף.
+- הציון של מבצע כתוב עכשיו כ״ציון״, ולחיצה עליו מסבירה מול מה הוא משווה. ״לא באמת מבצע״ הוחלף ב״לא מיוחד״.
+- בדפי הבירות והסופרים כתוב ״עד −X%״, עם הסבר למה בחלק אין אחוז; ו״עוד מבצעים״ בדף הבית נפתח במקום.
+
+Internal:
+
+- Owner's list 2026-10-29, items 1, 3–7. Map: bindPopup maxHeight = map height − 96px (Leaflet adds leaflet-popup-scrolled); that class gets touch-action: pan-y + overscroll-behavior: contain, since the map container is touch-action: none.
+- PageTransition: enterOffset(from, to) sets --enter-x (−1.5rem onward = from the left in RTL, +1.5rem back) by tab order [/, /map, /beer, /store] and path depth; unordered pairs keep the 0.5rem rise. Previous path via React's adjust-state-during-render, not an effect. 280ms, ease-out (0.23, 1, 0.32, 1), still no fill mode.
+- Saved deals: offer keys only, in the cookie saved_offers (max 40, | separated, validated by /^(obs|deal|grp):[w-]{1,64}$/), no migration. /saved reads getOffersByKeys (origin-paired .in on offers_feed; the catalog half is offers_catalog with a unique index on offer_key) and counts keys no longer in the feed instead of showing an old price. SaveOffer renders unsaved on the server and reads the cookie after mount. Linked from /settings.
+- DealScoreChip is a <details> (group/score): summary 'ציון N · band', panel says what it compares. weak band 'לא באמת מבצע' → 'לא מיוחד' (docs/DEAL-SCORE.md updated). Saving takes upTo for listings ('עד −58%'), and ListingSearch explains the percentage once above the rows.
+- Strip without moreHref folds the rest in a native <details> (group/more, so OfferLine's own group-open variants do not fire); Home's 'עוד מבצעים' no longer links to /beer.
+
 ## 0.40.1 — 2026-10-29
 
 **בסיס הנתונים מפסיק לתפוח** · Data

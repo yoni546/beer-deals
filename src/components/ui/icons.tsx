@@ -104,6 +104,12 @@ export const BellOffIcon = (p: IconProps) => (
     <path d="M10 21h4M4 4l16 16" />
   </Icon>
 );
+/** A bookmark: a saved deal. Filled once it is saved. */
+export const BookmarkIcon = ({ filled = false, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p} solid={filled}>
+    <path d="M7 3.75h10v16.5l-5-3.75-5 3.75z" />
+  </Icon>
+);
 export const CheckIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />
