@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { conditionChips, daysSince, packText, relativeTimeHe, scopeHe, validUntilHe, volumeHe } from "@/lib/format";
-import { normalize, score, search, skeleton } from "@/lib/search";
+import { normalize, score, search, searchPacks, skeleton } from "@/lib/search";
 
 // Thursday 2026-10-01 09:00 in Israel (UTC+3 in summer time → 06:00Z).
 const NOW = Date.parse("2026-10-01T06:00:00Z");
@@ -177,5 +177,21 @@ describe("where a deal runs (0.9.0)", () => {
   it("nothing current: 'זמינות לפי סניף'; no scope data at all: nothing", () => {
     expect(scopeHe(row("unknown", 18, 0, 0))?.label).toBe("זמינות לפי סניף");
     expect(scopeHe(row(null, 0, 0, 0))).toBeNull();
+  });
+});
+
+describe("a kind of pack, typed into Home's search", () => {
+  const hrefs = (query: string) => searchPacks(query).map((pack) => pack.href);
+
+  it("finds the crates by the word people use, from its first three letters", () => {
+    for (const query of ["ארג", "ארגז", "ארגזים", "קרטון"]) expect(hrefs(query), query).toEqual(["/?pack=case"]);
+  });
+
+  it("finds the six-packs the same way", () => {
+    for (const query of ["שיש", "שישייה", "מארז"]) expect(hrefs(query), query).toEqual(["/?pack=small_multipack"]);
+  });
+
+  it("stays out of the way of a beer or a chain being typed (it would take Enter)", () => {
+    for (const query of ["ש", "שו", "שופ", "שופרסל", "גולד", "ar"]) expect(hrefs(query), query).toEqual([]);
   });
 });

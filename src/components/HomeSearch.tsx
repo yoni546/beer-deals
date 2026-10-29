@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { CloseIcon, GlassIcon, SearchIcon, StoreIcon } from "@/components/ui/icons";
+import { CloseIcon, GlassIcon, SearchIcon, StoreIcon, TagIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
-import { search } from "@/lib/search";
+import { search, searchPacks } from "@/lib/search";
 
 type Entry = { slug: string; label: string; alias?: string | null };
 
@@ -29,7 +29,9 @@ export function HomeSearch({ beers, stores }: { beers: Entry[]; stores: Entry[] 
 
   const beerHits = useMemo(() => search(beers, query, (b) => [b.label, b.alias ?? ""]).slice(0, MAX_BEERS), [beers, query]);
   const storeHits = useMemo(() => search(stores, query, (s) => [s.label]).slice(0, MAX_STORES), [stores, query]);
-  const first = beerHits[0] ? `/beer/${beerHits[0].slug}` : storeHits[0] ? `/store/${storeHits[0].slug}` : null;
+  const packHits = useMemo(() => searchPacks(query), [query]);
+  // A kind of pack is an exact word, not a fuzzy name, so when it matches it leads.
+  const first = packHits[0]?.href ?? (beerHits[0] ? `/beer/${beerHits[0].slug}` : storeHits[0] ? `/store/${storeHits[0].slug}` : null);
 
   return (
     <div role="search">
@@ -66,7 +68,7 @@ export function HomeSearch({ beers, stores }: { beers: Entry[]; stores: Entry[] 
 
       {searching && (
         <div className="mt-3" aria-live="polite">
-          {beerHits.length + storeHits.length === 0 ? (
+          {beerHits.length + storeHits.length + packHits.length === 0 ? (
             <Tape className="px-5 py-5 text-center">
               <p className="text-base font-bold text-ink">לא מצאנו בירה או סופר בשם הזה</p>
               <p className="mt-1 text-sm text-ink-2">בדקו את האיות, או נסו רק חלק מהשם.</p>
@@ -77,6 +79,9 @@ export function HomeSearch({ beers, stores }: { beers: Entry[]; stores: Entry[] 
           ) : (
             <Tape as="div" className="pb-1">
               <ul className="divide-y divide-dotted divide-paper-line">
+                {packHits.map((pack) => (
+                  <Result key={`p-${pack.href}`} href={pack.href} label={pack.label} kind="סינון" />
+                ))}
                 {beerHits.map((beer) => (
                   <Result key={`b-${beer.slug}`} href={`/beer/${beer.slug}`} label={beer.label} alias={beer.alias} kind="בירה" />
                 ))}
@@ -92,8 +97,8 @@ export function HomeSearch({ beers, stores }: { beers: Entry[]; stores: Entry[] 
   );
 }
 
-function Result({ href, label, alias, kind }: { href: string; label: string; alias?: string | null; kind: "בירה" | "סופר" }) {
-  const Icon = kind === "בירה" ? GlassIcon : StoreIcon;
+function Result({ href, label, alias, kind }: { href: string; label: string; alias?: string | null; kind: "בירה" | "סופר" | "סינון" }) {
+  const Icon = kind === "בירה" ? GlassIcon : kind === "סופר" ? StoreIcon : TagIcon;
   return (
     <li>
       <Link href={href} prefetch={false} className="flex min-h-14 items-center gap-3 px-4 py-2 text-ink">

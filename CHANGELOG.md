@@ -6,6 +6,19 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.40.0 — 2026-10-29
+
+**ארגזים — תמיד אפשר לחפש** · Feature
+
+- בסינון יש עכשיו תמיד גם "ארגזים", לא רק שישיות ובודדים.
+- אפשר גם לכתוב "ארגז" בחיפוש בדף הבית.
+- כשאין כרגע מבצע על ארגז, כתוב את זה בפירוש, עם קישור חזרה לכל המבצעים.
+
+Internal:
+
+- Owner's ask (2026-10-29). Production had 0 offers of 10+ units (692 in offers_catalog; 2 SKUs of 24, neither priced in a feed), so the ארגזים chip was always hidden by availablePacks. It is now always offered (SortBar), and NoCratesYet (Chrome) says there is none today on Home, a beer page and a chain page instead of an empty list.
+- Home's search matches kinds of pack (lib/search.ts searchPacks: ארגז/קרטון → /?pack=case, שישייה/מארז → /?pack=small_multipack), only on a 3+ letter word-prefix, so 'ש' on its way to 'שופרסל' never takes Enter. A crate is still only a crate on evidence (skus.packaging = bottle_crate); the rule did not change.
+
 ## 0.39.0 — 2026-10-29
 
 **המפה בסרגל התחתון** · Feature
