@@ -1,4 +1,5 @@
 import { Screen, TopBar } from "@/components/Chrome";
+import { MeLink } from "@/components/ui/MeLink";
 import { ListingSearch } from "@/components/ListingSearch";
 import { getListing } from "@/lib/offers";
 import { getBeers } from "@/lib/queries";
@@ -18,7 +19,7 @@ export default async function BeersPage() {
 
   return (
     <Screen>
-      <TopBar title="בירות" sub="חפשו בירה, או בחרו אחת מהרשימה" />
+      <TopBar title="בירות" sub="חפשו בירה, או בחרו אחת מהרשימה" action={<MeLink />} />
       <ListingSearch
         basePath="/beer"
         placeholder="איזו בירה?"

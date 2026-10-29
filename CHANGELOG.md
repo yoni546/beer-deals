@@ -6,7 +6,7 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
-## 0.38.2 — 2026-10-26
+## 0.40.1 — 2026-10-29
 
 **בסיס הנתונים מפסיק לתפוח** · Data
 
@@ -19,6 +19,33 @@ Internal:
 - prune_history(kind, apply, batch), service role only: rejected price rows, occurrences not in the latest scan, branch scans > 7 days that are not the latest, superseded/rejected groups. scripts/ingest/prune-history.mjs runs it after every import (both workflows). Staging: 845 MB -> 474 MB after vacuum full; offers_feed 524, canonical 1,028, live 70,430, scores 366 unchanged.
 - Indexes: price_obs_superseded_by, price_obs_rejected, promotion_groups_dead. Rollback: supabase/rollback/0066_prune_history.down.sql (does not restore pruned rows). Production steps: docs/PRUNE-HISTORY.md.
 - The branch's old 0053 (catalogue refresh `where true` + service_role 180s) is dropped: main's 0055 (`where offer_key is not null`) and 0056 (service_role 120s) fix the same thing and are what production runs. security-sweep keeps the check that refuses any unqualified DELETE/UPDATE in a function, which main did not have.
+- Applied and pruned in PRODUCTION on 2026-10-29 before this merged (docs/PRUNE-HISTORY.md): 876 MB -> 727 MB, app numbers unchanged. This merge adds the daily prune step to both workflows, so the history stays pruned.
+
+## 0.40.0 — 2026-10-29
+
+**ארגזים — תמיד אפשר לחפש** · Feature
+
+- בסינון יש עכשיו תמיד גם "ארגזים", לא רק שישיות ובודדים.
+- אפשר גם לכתוב "ארגז" בחיפוש בדף הבית.
+- כשאין כרגע מבצע על ארגז, כתוב את זה בפירוש, עם קישור חזרה לכל המבצעים.
+
+Internal:
+
+- Owner's ask (2026-10-29). Production had 0 offers of 10+ units (692 in offers_catalog; 2 SKUs of 24, neither priced in a feed), so the ארגזים chip was always hidden by availablePacks. It is now always offered (SortBar), and NoCratesYet (Chrome) says there is none today on Home, a beer page and a chain page instead of an empty list.
+- Home's search matches kinds of pack (lib/search.ts searchPacks: ארגז/קרטון → /?pack=case, שישייה/מארז → /?pack=small_multipack), only on a 3+ letter word-prefix, so 'ש' on its way to 'שופרסל' never takes Enter. A crate is still only a crate on evidence (skus.packaging = bottle_crate); the rule did not change.
+
+## 0.39.0 — 2026-10-29
+
+**המפה בסרגל התחתון** · Feature
+
+- המפה קיבלה מקום משלה בסרגל התחתון, ליד המבצעים.
+- "אני" (הבירות שלכם, ההתראות וההגדרות) עבר לכפתור העגול בפינה העליונה של כל מסך.
+
+Internal:
+
+- Owner's call (2026-10-29): the map is a tab (Deals · Map · Beers · Stores); settings left the bar for MeLink, a 44px round link in the TopBar action slot of Home, Map, Beers and Stores. Settings are visited rarely; the map is a place people go back to.
+- A corner rather than a drawer: /settings is a page of forms, and a drawer would hide it behind one more motion. The only motion is the press (scale 0.97, 160ms ease-out, transform only; off under reduced motion with everything else).
+- The map lost its back arrow (a tab is a place, not a step away from Home) and Home lost the "על המפה" link beside the intent switch: one way in. tests/map-screen.test.ts now asserts the tab and that no page links to /map besides it.
 
 ## 0.38.1 — 2026-10-26
 

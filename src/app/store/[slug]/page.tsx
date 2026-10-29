@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmptyState, Screen, TopBar } from "@/components/Chrome";
+import { EmptyState, NoCratesYet, Screen, TopBar } from "@/components/Chrome";
 import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
@@ -150,7 +150,11 @@ export default async function StorePage({ params, searchParams }: { params: Prom
       {dealCount === 0 && regular.length === 0 ? (
         <EmptyState title={`עוד אין מחירי בירה מ${store.name_he}`}>מחירים ומבצעים נכנסים מפרסומי הרשתות. כשיופיעו, הם יעלו כאן.</EmptyState>
       ) : kinds.length === 0 && missing.length === 0 ? (
-        <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
+        pack === "case" ? (
+          <NoCratesYet allHref={path} />
+        ) : (
+          <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
+        )
       ) : (
         <div className="space-y-10">
           {kinds.map(({ kind, deals, groups: mixes, regular: prices }, section) => {

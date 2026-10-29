@@ -1,4 +1,4 @@
-# Pruning the price history (0.38.2, migration 0066) — production steps for Yoni
+# Pruning the price history (0.40.1, migration 0066) — production steps for Yoni
 
 Production's database is over the free plan's 0.5 GB (548 MB on 2026-10-12). Two causes, both fixed by 0066:
 
