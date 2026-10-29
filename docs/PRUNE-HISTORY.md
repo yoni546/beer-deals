@@ -17,6 +17,24 @@ Production's database is over the free plan's 0.5 GB (548 MB on 2026-10-12). Two
 **On staging (2026-10-14):** 845 MB → **474 MB**. The app's numbers did not change: 524 offers, 1,028
 promotions, 70,430 live prices, 366 deal scores.
 
+**On production (2026-10-29), done** (by Claude, for the owner, with Yoni away):
+- **Backup:** local `supabase db dump --linked` (roles, schema, data), outside the repository. Docker Desktop
+  must be running.
+- **History:** production's history did not record 0024, 0054–0060, 0064 and 0065, which were applied by hand in
+  the SQL editor. They were checked against the schema and marked applied with `migration repair --status applied`
+  (no SQL re-run).
+- **0066:** `db push` applied it alone.
+- **Prune:** 223,807 occurrences, 10,753 scans and 28,929 groups deleted, 0 rejected prices. The prune ran through
+  `npx supabase db query --linked "begin; set local role service_role; select public.prune_history('<kind>', true,
+  20000); commit;"`, so no key leaves the dashboard.
+- **VACUUM FULL** on the three pruned tables (about 10 s each): **876 MB → 727 MB**.
+- **The app's numbers did not change:** 692 offers, 682 scores, 72,803 live prices, 19,102 pins.
+- **What is left:** the 674 MB of `price_observations`, the real price history the Deal Score reads.
+- **Why it mattered:** the daily import had been cancelled at its 3-hour limit since 27.10. Every batch of 100
+  prices hit the statement timeout, because the ledger grew by a row per unchanged price per day. 0066 stops that.
+
+The steps below stay as the procedure for any other database.
+
 ## Steps (about 15 minutes; do them outside 05:00–06:00 UTC, when the daily import runs)
 
 In the repository folder, in Git Bash, with the production ref in `$PROD_REF` and the CLI linked to it
