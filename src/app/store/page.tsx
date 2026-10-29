@@ -1,4 +1,5 @@
 import { Screen, TopBar } from "@/components/Chrome";
+import { MeLink } from "@/components/ui/MeLink";
 import { ListingSearch } from "@/components/ListingSearch";
 import { getListing } from "@/lib/offers";
 import { getStores } from "@/lib/queries";
@@ -12,7 +13,7 @@ export default async function StoresPage() {
 
   return (
     <Screen>
-      <TopBar title="סופרים" sub="מה במבצע ברשת שאתם קונים בה" />
+      <TopBar title="סופרים" sub="מה במבצע ברשת שאתם קונים בה" action={<MeLink />} />
       <ListingSearch
         basePath="/store"
         placeholder="איזה סופר?"

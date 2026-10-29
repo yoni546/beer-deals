@@ -2,20 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GlassIcon, MeIcon, StoreIcon, TagIcon } from "@/components/ui/icons";
+import { GlassIcon, PinIcon, StoreIcon, TagIcon } from "@/components/ui/icons";
 
 const TABS = [
   { href: "/", label: "מבצעים", Icon: TagIcon, match: (p: string) => p === "/" },
+  { href: "/map", label: "מפה", Icon: PinIcon, match: (p: string) => p.startsWith("/map") },
   { href: "/beer", label: "בירות", Icon: GlassIcon, match: (p: string) => p.startsWith("/beer") },
   { href: "/store", label: "סופרים", Icon: StoreIcon, match: (p: string) => p.startsWith("/store") },
-  { href: "/settings", label: "אני", Icon: MeIcon, match: (p: string) => p.startsWith("/settings") || p.startsWith("/whats-new") || p.startsWith("/submit") },
 ] as const;
 
 /** Screens that own the whole viewport: onboarding and the admin tools. */
 const HIDDEN_ON = ["/welcome", "/admin"];
 
 /**
- * The counter's edge: four places, always one tap away. Solid, not glass; every
+ * The counter's edge: four places, always one tap away (the person's own settings are a
+ * corner, MeLink, not a place: visited rarely, so they do not take a tab). Solid, not glass; every
  * target is at least 64px tall. The current place is marked twice (a bar and the
  * bold label) so it never depends on colour.
  */
