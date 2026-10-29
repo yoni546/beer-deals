@@ -269,7 +269,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 could place the person, which made the map a reward for filling in
                 a profile — and wanting to see another town's deals is a reason to
                 open a map, not a reason to be turned away from one. */}
-            <Link href="/map" prefetch={false} className="disclose shrink-0 text-sm">
+            <Link href="/map" prefetch={false} className="disclose shrink-0 text-sm text-on-ground">
               <PinIcon size={16} />
               על המפה
             </Link>
