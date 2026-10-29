@@ -73,11 +73,15 @@ export const BOTTLES = {
   "blue-moon": rami("5010038454831"),
   benediktiner: rami("4052197000017"),
   corona: commons("Corona Extra beer bottle (2019).png", "CC BY-SA 4.0", "Bruce The Deus"),
+  // 0.40.x (owner's list 2026-10-29): the catalogue now has single-bottle barcodes for these.
+  krombacher: rami("4008287762020"), // Krombacher Weizen 500 ml, the bottle the feeds list
+  kronenbourg: { ...rami("851621000043"), tolerance: 8 }, // 1664 Blanc 330 ml, Israeli label; white cap and label on white, so a tight cut
   // desperados: no usable photo yet — the free ones are shot against walls and tables (the background
   //   cannot be removed without redrawing), and no Israeli retailer's catalogue lists it. Drawn stand-in.
   // bazelet: no barcode in any feed and no free photo. Drawn stand-in.
-  // krombacher, kronenbourg, miller: the retailer catalogues show only cans and multipacks (a single bottle
-  //   would have to be cut out of a pack shot, which alters the photo). Drawn stand-ins.
+  // miller: the retailer catalogue shows only the can (8593868006847). Drawn stand-in.
+  // duvel: a photo exists (5411681014005) but the beer has no identity in src/design/themes.ts yet.
+  // (krombacher and kronenbourg were here until 2026-10-29, when the feeds gave single-bottle barcodes.)
   // estrella: the catalogue has no image for its barcodes (HTTP 403). Drawn stand-in.
   // Tried 2026-10-05 and rejected, so nobody repeats it: Commons "KrombacherPils.jpg" (garden fence),
   //   "Estrella2014.jpg" (a street) and "Desperados original 25cl.jpg" (grey wall and table). None is on a

@@ -103,7 +103,7 @@ describe("a photo on record replaces the drawn bottle for that beer", () => {
  * eight photos and their manifest entries could be deleted together and CI stayed
  * green. Adding a photo means removing a line here.
  */
-const PHOTOLESS = ["bazelet", "desperados", "estrella", "krombacher", "kronenbourg", "miller"];
+const PHOTOLESS = ["bazelet", "desperados", "estrella", "miller"];
 
 describe("the real bottle photos on record", () => {
   it("every one has a file, its provenance, and belongs to a beer with an identity", async () => {
