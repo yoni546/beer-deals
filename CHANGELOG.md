@@ -24,6 +24,28 @@ Internal:
 - DealScoreChip is a <details> (group/score): summary 'ציון N · band', panel says what it compares. weak band 'לא באמת מבצע' → 'לא מיוחד' (docs/DEAL-SCORE.md updated). Saving takes upTo for listings ('עד −58%'), and ListingSearch explains the percentage once above the rows.
 - Strip without moreHref folds the rest in a native <details> (group/more, so OfferLine's own group-open variants do not fire); Home's 'עוד מבצעים' no longer links to /beer.
 
+## 0.40.3 — 2026-10-29
+
+**תמונות לקרומבכר ול־1664 בלאנק** · Design
+
+- לקרומבכר ול־1664 בלאנק יש עכשיו צילום אמיתי של הבקבוק במקום ציור.
+
+Internal:
+
+- Owner's list 2026-10-29, item 9. scripts/fetch-bottles.mjs: krombacher rami(4008287762020) (Weizen 500 ml), kronenbourg rami(851621000043) with tolerance 8 (white cap and label on white). Provenance in src/design/bottle-photos.json.
+- Not done: miller (catalogue has only the can), duvel (photo 5411681014005 exists; needs an identity in src/design/themes.ts first), and james, san-miguel, schofferhofer, somersby, bazelet, wolfaus, bitburger, desperados: no SKU or barcode in any feed, so no catalogue photo to find.
+
+## 0.40.2 — 2026-10-29
+
+**שופרסל, טיב טעם ויוחננוף חוזרים** · Fix, Data
+
+- ייבוא שנקטע באמצע כבר לא גורם לייבוא הבא לדלג על רשתות. בגלל זה שופרסל, טיב טעם, יוחננוף ועוד הופיעו בלי מבצעים.
+
+Internal:
+
+- Migration 0067: start_ingestion_run marks this source's runs still 'running' after 4 hours as 'failed' (stats.abandoned) before looking for an earlier run of the same files. The 27–29.10 production imports were cancelled at 180 min; their runs stayed 'running' and the 29.10 evening run skipped 9 publishers as 'already imported' (shufersal, yochananof, tiv-taam, king-store, freshmarket, dor-alon, keshet, stop-market, politzer). Rollback: supabase/rollback/0067_abandoned_ingestion_runs.down.sql.
+- Needs applying to production (db push) and one import run afterwards; until then those chains stay empty.
+
 ## 0.40.1 — 2026-10-29
 
 **בסיס הנתונים מפסיק לתפוח** · Data
