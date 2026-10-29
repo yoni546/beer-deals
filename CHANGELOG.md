@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.40.1 — 2026-10-29
+
+**בסיס הנתונים מפסיק לתפוח** · Data
+
+- מחיר שלא השתנה כבר לא נרשם מחדש בכל יום, ומה ששום מסך לא קורא נמחק אוטומטית.
+- בסיס הנתונים יורד בכמעט חצי, בלי לשנות שום דבר ממה שרואים.
+
+Internal:
+
+- Migration 0066 (written as 0052 on 2026-10-14, renumbered after main took 0054–0065; 0061–0063 belong to open PRs): record_price marks an unchanged price as seen again (observed_at forward, first_observed_at kept) instead of a new row; one sample row a week is still written for the Deal Score history (0027 reads live + superseded over 180 days, needs >= 4) and for 0054's market reference (reads the last 14 days). The append-only guard allows exactly that and, inside prune_history only, deleting REJECTED rows.
+- prune_history(kind, apply, batch), service role only: rejected price rows, occurrences not in the latest scan, branch scans > 7 days that are not the latest, superseded/rejected groups. scripts/ingest/prune-history.mjs runs it after every import (both workflows). Staging: 845 MB -> 474 MB after vacuum full; offers_feed 524, canonical 1,028, live 70,430, scores 366 unchanged.
+- Indexes: price_obs_superseded_by, price_obs_rejected, promotion_groups_dead. Rollback: supabase/rollback/0066_prune_history.down.sql (does not restore pruned rows). Production steps: docs/PRUNE-HISTORY.md.
+- The branch's old 0053 (catalogue refresh `where true` + service_role 180s) is dropped: main's 0055 (`where offer_key is not null`) and 0056 (service_role 120s) fix the same thing and are what production runs. security-sweep keeps the check that refuses any unqualified DELETE/UPDATE in a function, which main did not have.
+- Applied and pruned in PRODUCTION on 2026-10-29 before this merged (docs/PRUNE-HISTORY.md): 876 MB -> 727 MB, app numbers unchanged. This merge adds the daily prune step to both workflows, so the history stays pruned.
+
 ## 0.40.0 — 2026-10-29
 
 **ארגזים — תמיד אפשר לחפש** · Feature

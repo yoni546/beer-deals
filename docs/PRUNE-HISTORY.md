@@ -1,0 +1,102 @@
+# Pruning the price history (0.40.1, migration 0066) — production steps for Yoni
+
+Production's database is over the free plan's 0.5 GB (548 MB on 2026-10-12). Two causes, both fixed by 0066:
+
+1. Every daily import re-recorded every price and promotion, changed or not (~60,000 rows, ~37 MB a day).
+   Now an unchanged price is only marked as seen again; one row a week is still written, for the Deal Score's
+   history.
+2. History nothing reads was kept forever. `prune_history` deletes it, in batches, after every import:
+   - rejected price rows (rolled-back runs and resets);
+   - "where is this promotion" rows from files that are no longer current;
+   - branch scans older than a week (the latest scan of every chain is always kept);
+   - mix-and-match promotions that were replaced or rejected.
+
+   It never touches live, held or superseded prices (the Deal Score reads 180 days of them) or notification
+   events (they are what stops a deal being announced twice).
+
+**On staging (2026-10-14):** 845 MB → **474 MB**. The app's numbers did not change: 524 offers, 1,028
+promotions, 70,430 live prices, 366 deal scores.
+
+**On production (2026-10-29), done** (by Claude, for the owner, with Yoni away):
+- **Backup:** local `supabase db dump --linked` (roles, schema, data), outside the repository. Docker Desktop
+  must be running.
+- **History:** production's history did not record 0024, 0054–0060, 0064 and 0065, which were applied by hand in
+  the SQL editor. They were checked against the schema and marked applied with `migration repair --status applied`
+  (no SQL re-run).
+- **0066:** `db push` applied it alone.
+- **Prune:** 223,807 occurrences, 10,753 scans and 28,929 groups deleted, 0 rejected prices. The prune ran through
+  `npx supabase db query --linked "begin; set local role service_role; select public.prune_history('<kind>', true,
+  20000); commit;"`, so no key leaves the dashboard.
+- **VACUUM FULL** on the three pruned tables (about 10 s each): **876 MB → 727 MB**.
+- **The app's numbers did not change:** 692 offers, 682 scores, 72,803 live prices, 19,102 pins.
+- **What is left:** the 674 MB of `price_observations`, the real price history the Deal Score reads.
+- **Why it mattered:** the daily import had been cancelled at its 3-hour limit since 27.10. Every batch of 100
+  prices hit the statement timeout, because the ledger grew by a row per unchanged price per day. 0066 stops that.
+
+The steps below stay as the procedure for any other database.
+
+## Steps (about 15 minutes; do them outside 05:00–06:00 UTC, when the daily import runs)
+
+In the repository folder, in Git Bash, with the production ref in `$PROD_REF` and the CLI linked to it
+(`docs/PRODUCTION-HANDOFF-YONI.md` §B):
+
+1. **Prove the target:**
+
+   ```bash
+   bash scripts/production/assert-production.sh "$PROD_REF"
+   ```
+
+2. **Backup.** Supabase → Database → Backups: the newest daily backup is completed and under 24 hours old.
+   Pruning deletes rows; the backup is the only way back.
+
+3. **Migrations.** The dry run must list `0066_prune_history.sql` and nothing else you do not expect. (Until
+   2026-10-26 this was 0052, with a 0053 for the catalogue refresh; main's 0055/0056 fixed that refresh first, so
+   0053 is gone. Production never had either. If 0061–0063 from the open PRs merged after 0064/0065 were applied,
+   `db push` refuses them as out of order: add `--include-all` once you have read that list.)
+
+   ```bash
+   bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push --dry-run
+   ```
+
+   ```bash
+   bash scripts/production/assert-production.sh "$PROD_REF" && npx supabase db push
+   ```
+
+4. **Count, then prune.** `.env.production.local` as in the handoff §J route 2. Write down the counts.
+   The second command deletes in batches (staging took 77 seconds):
+
+   ```bash
+   node scripts/ingest/prune-history.mjs --target production --confirm-ref "$PROD_REF"
+   ```
+
+   ```bash
+   node scripts/ingest/prune-history.mjs --target production --confirm-ref "$PROD_REF" --apply
+   ```
+
+5. **Give the space back.** Deleting frees space inside the database. The size Supabase counts drops only after
+   `vacuum full`, which rewrites each table and **locks it while it runs** (44 seconds for the price table on
+   staging: pages wait, nothing is lost). Supabase → SQL Editor, one line at a time:
+
+   ```sql
+   vacuum (full, analyze) public.price_observations;
+   vacuum (full, analyze) public.promotion_occurrences;
+   vacuum (full, analyze) public.promotion_groups;
+   vacuum (full, analyze) public.promotion_group_items;
+   vacuum (full, analyze) public.branch_scans;
+   select pg_size_pretty(pg_database_size(current_database()));
+   ```
+
+6. **Check the site:**
+
+   ```bash
+   node scripts/smoke-production.mjs --supabase-ref "$PROD_REF" --expect-data
+   ```
+
+From then on the production workflow prunes after every import by itself, and Postgres reuses the freed space
+without another `vacuum full`.
+
+**Rollback** (only with Ori): `supabase/rollback/0066_prune_history.down.sql` puts back a new row per file. It does
+not bring pruned rows back; the backup does.
+
+**Stage 2 (not in this release):** the superseded prices that only repeat the same price (97% of them on staging)
+can be thinned too. That needs the Deal Score's history to be measured by time instead of by number of rows.
