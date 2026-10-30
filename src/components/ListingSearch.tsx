@@ -83,6 +83,14 @@ export function ListingSearch({
         )}
       </div>
 
+      {/* What the percentage on a row means, and why some rows have none (0.41.0):
+          a bare "−58%" read as "everything here is 58% off". */}
+      {items.some((item) => item.count > 0) && (
+        <p className="mb-4 text-sm leading-relaxed text-on-ground-2">
+          האחוז הוא החיסכון הגדול ביותר מבין המבצעים. הוא מופיע רק כשיש לנו מחיר רגיל אמין להשוות אליו.
+        </p>
+      )}
+
       <p className="sr-only" aria-live="polite">
         {searching ? `${matches.length} תוצאות` : ""}
       </p>
@@ -142,7 +150,7 @@ function Rows({ items, basePath, heading }: { items: ListingItem[]; basePath: st
               </span>
               {item.count > 0 ? (
                 <span className="flex shrink-0 items-center gap-2 text-sm text-ink-2">
-                  {item.bestValuePct !== null && <Saving pct={item.bestValuePct} className="rounded-md bg-deal px-2 py-1 text-sm font-bold text-on-deal" />}
+                  {item.bestValuePct !== null && <Saving pct={item.bestValuePct} upTo className="rounded-md bg-deal px-2 py-1 text-sm font-bold text-on-deal" />}
                   <span>
                     {item.count} {item.count === 1 ? "מבצע" : "מבצעים"}
                   </span>

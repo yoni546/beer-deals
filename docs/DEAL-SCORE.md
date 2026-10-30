@@ -91,7 +91,7 @@ call something exceptional. The `basis` column records `capped: true` when this 
 | 85–100 | `amazing` | מטורף |
 | 70–84 | `very_good` | משתלם מאוד |
 | 45–69 | `fair` | סביר |
-| 0–44 | `weak` | לא באמת מבצע |
+| 0–44 | `weak` | לא מיוחד (until 0.41.0: לא באמת מבצע) |
 
 The design system supplies the colour and the mark; the UI never uses an emoji
 (`CLAUDE.md`, enforced by `tests/no-emoji.test.ts`).

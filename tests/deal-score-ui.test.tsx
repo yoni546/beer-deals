@@ -26,6 +26,16 @@ describe("the Deal Score on a line", () => {
     expect(screen.getByText("94")).toBeTruthy();
   });
 
+  it("says it is a score, and opens to what it compares", () => {
+    const { container } = render(<DealScoreChip score={{ score: 39, band: "weak" }} />);
+    // The weak band sits beside the chain's own "−25%": its word must not contradict
+    // a real discount ("לא באמת מבצע" did), and the number must say it is a score.
+    expect(screen.getByText("לא מיוחד")).toBeTruthy();
+    expect(container.textContent).not.toContain("לא באמת מבצע");
+    expect(container.querySelector("summary")?.textContent).toContain("ציון");
+    expect(container.querySelector("details p")?.textContent).toMatch(/רשתות האחרות/);
+  });
+
   it("reads the whole thing out to a screen reader", () => {
     render(<DealScoreChip score={{ score: 61, band: "fair" }} />);
     // The number beside the word is aria-hidden, so the figure has to be said in full

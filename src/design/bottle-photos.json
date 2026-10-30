@@ -480,5 +480,41 @@
     "barcode": "4052197000017",
     "addedOn": "2026-09-29",
     "cap": 0.029
+  },
+  "krombacher": {
+    "src": "/bottles/krombacher.webp",
+    "width": 236,
+    "height": 973,
+    "thumb": {
+      "src": "/bottles/krombacher@216.webp",
+      "width": 52,
+      "height": 216
+    },
+    "source": "https://img.rami-levy.co.il/product/4008287762020/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/4008287762020/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "4008287762020",
+    "cap": 0.038,
+    "addedOn": "2026-10-29"
+  },
+  "kronenbourg": {
+    "src": "/bottles/kronenbourg.webp",
+    "width": 259,
+    "height": 968,
+    "thumb": {
+      "src": "/bottles/kronenbourg@216.webp",
+      "width": 58,
+      "height": 216
+    },
+    "source": "https://img.rami-levy.co.il/product/851621000043/large.jpg",
+    "license": "Retailer pack shot — not under a free licence; brand packaging is the copyright of its owner",
+    "approvedBy": "owner decision 2026-09-29 (product photography from public sources, provenance recorded)",
+    "sourceUrl": "https://img.rami-levy.co.il/product/851621000043/large.jpg",
+    "sourceName": "Rami Levy online catalogue (img.rami-levy.co.il)",
+    "barcode": "851621000043",
+    "cap": 0.043,
+    "addedOn": "2026-10-29"
   }
 }

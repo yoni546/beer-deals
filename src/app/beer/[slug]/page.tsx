@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { EmptyState, Screen, TopBar } from "@/components/Chrome";
+import { EmptyState, NoCratesYet, Screen, TopBar } from "@/components/Chrome";
 import { Freshness } from "@/components/Freshness";
 import { Strip } from "@/components/BeerStrip";
 import { GroupStrip } from "@/components/GroupOffers";
@@ -105,7 +105,11 @@ export default async function BeerPage({ params, searchParams }: { params: Promi
 
       {kinds.length === 0 ? (
         dealCount > 0 || regular.length > 0 ? (
+          pack === "case" ? (
+          <NoCratesYet allHref={path} />
+        ) : (
           <EmptyState title="אין כאן כלום מהסוג הזה">נסו שישיות, ארגזים או בודדים.</EmptyState>
+        )
         ) : (
           <EmptyState title={`אין כרגע מבצע על ${beer.name_he}`}>
             כשמבצע שפתוח לכולם יופיע, הוא יעלה כאן. אם זו אחת מהבירות שלכם, תקבלו גם התראה.
