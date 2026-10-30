@@ -367,6 +367,32 @@ const readFreshness = cachedFeed("freshness", async (hide: boolean): Promise<str
 });
 
 /**
+ * The offers still live for these keys (saved deals, src/lib/saved.ts), in the order
+ * given. A key that is no longer in the feed — the deal ended, or its price changed —
+ * is simply absent: the caller counts what is missing rather than showing an old price.
+ * Paired with `origin` for the same reason as getOfferByKey below; the catalog half is
+ * a table with a unique index on offer_key (0044), so this is two indexed reads.
+ */
+export async function getOffersByKeys(keys: string[]): Promise<Offer[]> {
+  if (keys.length === 0) return [];
+  const supabase = await supabaseServer();
+  const read = (origin: "legacy" | "catalog", some: string[]) => {
+    if (some.length === 0) return Promise.resolve({ data: [] as Offer[], error: null });
+    let query = supabase.from("offers_feed").select("*").eq("origin", origin).in("offer_key", some);
+    if (hideSamples()) query = query.eq("is_sample", false);
+    return query;
+  };
+  const [legacy, catalog] = await Promise.all([
+    read("legacy", keys.filter((key) => key.startsWith("deal:"))),
+    read("catalog", keys.filter((key) => !key.startsWith("deal:"))),
+  ]);
+  const error = legacy.error ?? catalog.error;
+  if (error) throw new DataUnavailableError("saved deals", error.message);
+  const byKey = new Map([...((legacy.data ?? []) as Offer[]), ...((catalog.data ?? []) as Offer[])].map((offer) => [offer.offer_key, offer]));
+  return decorate(keys.flatMap((key) => byKey.get(key) ?? []));
+}
+
+/**
  * One offer by its key ('obs:12' or 'deal:<uuid>') — used for the editorial "deal of the week".
  *
  * `offer_key` is a computed expression in both halves of the view ('obs:' || observation_id,

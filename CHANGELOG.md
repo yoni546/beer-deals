@@ -6,6 +6,98 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.41.0 — 2026-10-29
+
+**שמירת מבצעים, ומעברים שרואים** · Feature, Fix
+
+- אפשר לשמור מבצע: כפתור ״שמירה״ בכל מבצע, והרשימה ב״אני״. המחירים שם תמיד עדכניים.
+- המעבר בין המסכים זז לכיוון שהלכתם: קדימה משמאל, אחורה מימין.
+- על המפה, החלון של נקודה עם הרבה חנויות נגלל עד הסוף.
+- הציון של מבצע כתוב עכשיו כ״ציון״, ולחיצה עליו מסבירה מול מה הוא משווה. ״לא באמת מבצע״ הוחלף ב״לא מיוחד״.
+- בדפי הבירות והסופרים כתוב ״עד −X%״, עם הסבר למה בחלק אין אחוז; ו״עוד מבצעים״ בדף הבית נפתח במקום.
+
+Internal:
+
+- Owner's list 2026-10-29, items 1, 3–7. Map: bindPopup maxHeight = map height − 96px (Leaflet adds leaflet-popup-scrolled); that class gets touch-action: pan-y + overscroll-behavior: contain, since the map container is touch-action: none.
+- PageTransition: enterOffset(from, to) sets --enter-x (−1.5rem onward = from the left in RTL, +1.5rem back) by tab order [/, /map, /beer, /store] and path depth; unordered pairs keep the 0.5rem rise. Previous path via React's adjust-state-during-render, not an effect. 280ms, ease-out (0.23, 1, 0.32, 1), still no fill mode.
+- Saved deals: offer keys only, in the cookie saved_offers (max 40, | separated, validated by /^(obs|deal|grp):[w-]{1,64}$/), no migration. /saved reads getOffersByKeys (origin-paired .in on offers_feed; the catalog half is offers_catalog with a unique index on offer_key) and counts keys no longer in the feed instead of showing an old price. SaveOffer renders unsaved on the server and reads the cookie after mount. Linked from /settings.
+- DealScoreChip is a <details> (group/score): summary 'ציון N · band', panel says what it compares. weak band 'לא באמת מבצע' → 'לא מיוחד' (docs/DEAL-SCORE.md updated). Saving takes upTo for listings ('עד −58%'), and ListingSearch explains the percentage once above the rows.
+- Strip without moreHref folds the rest in a native <details> (group/more, so OfferLine's own group-open variants do not fire); Home's 'עוד מבצעים' no longer links to /beer.
+
+## 0.40.3 — 2026-10-29
+
+**תמונות לקרומבכר ול־1664 בלאנק** · Design
+
+- לקרומבכר ול־1664 בלאנק יש עכשיו צילום אמיתי של הבקבוק במקום ציור.
+
+Internal:
+
+- Owner's list 2026-10-29, item 9. scripts/fetch-bottles.mjs: krombacher rami(4008287762020) (Weizen 500 ml), kronenbourg rami(851621000043) with tolerance 8 (white cap and label on white). Provenance in src/design/bottle-photos.json.
+- Not done: miller (catalogue has only the can), duvel (photo 5411681014005 exists; needs an identity in src/design/themes.ts first), and james, san-miguel, schofferhofer, somersby, bazelet, wolfaus, bitburger, desperados: no SKU or barcode in any feed, so no catalogue photo to find.
+
+## 0.40.2 — 2026-10-29
+
+**שופרסל, טיב טעם ויוחננוף חוזרים** · Fix, Data
+
+- ייבוא שנקטע באמצע כבר לא גורם לייבוא הבא לדלג על רשתות. בגלל זה שופרסל, טיב טעם, יוחננוף ועוד הופיעו בלי מבצעים.
+
+Internal:
+
+- Migration 0067: start_ingestion_run marks this source's runs still 'running' after 4 hours as 'failed' (stats.abandoned) before looking for an earlier run of the same files. The 27–29.10 production imports were cancelled at 180 min; their runs stayed 'running' and the 29.10 evening run skipped 9 publishers as 'already imported' (shufersal, yochananof, tiv-taam, king-store, freshmarket, dor-alon, keshet, stop-market, politzer). Rollback: supabase/rollback/0067_abandoned_ingestion_runs.down.sql.
+- Needs applying to production (db push) and one import run afterwards; until then those chains stay empty.
+
+## 0.40.1 — 2026-10-29
+
+**בסיס הנתונים מפסיק לתפוח** · Data
+
+- מחיר שלא השתנה כבר לא נרשם מחדש בכל יום, ומה ששום מסך לא קורא נמחק אוטומטית.
+- בסיס הנתונים יורד בכמעט חצי, בלי לשנות שום דבר ממה שרואים.
+
+Internal:
+
+- Migration 0066 (written as 0052 on 2026-10-14, renumbered after main took 0054–0065; 0061–0063 belong to open PRs): record_price marks an unchanged price as seen again (observed_at forward, first_observed_at kept) instead of a new row; one sample row a week is still written for the Deal Score history (0027 reads live + superseded over 180 days, needs >= 4) and for 0054's market reference (reads the last 14 days). The append-only guard allows exactly that and, inside prune_history only, deleting REJECTED rows.
+- prune_history(kind, apply, batch), service role only: rejected price rows, occurrences not in the latest scan, branch scans > 7 days that are not the latest, superseded/rejected groups. scripts/ingest/prune-history.mjs runs it after every import (both workflows). Staging: 845 MB -> 474 MB after vacuum full; offers_feed 524, canonical 1,028, live 70,430, scores 366 unchanged.
+- Indexes: price_obs_superseded_by, price_obs_rejected, promotion_groups_dead. Rollback: supabase/rollback/0066_prune_history.down.sql (does not restore pruned rows). Production steps: docs/PRUNE-HISTORY.md.
+- The branch's old 0053 (catalogue refresh `where true` + service_role 180s) is dropped: main's 0055 (`where offer_key is not null`) and 0056 (service_role 120s) fix the same thing and are what production runs. security-sweep keeps the check that refuses any unqualified DELETE/UPDATE in a function, which main did not have.
+- Applied and pruned in PRODUCTION on 2026-10-29 before this merged (docs/PRUNE-HISTORY.md): 876 MB -> 727 MB, app numbers unchanged. This merge adds the daily prune step to both workflows, so the history stays pruned.
+
+## 0.40.0 — 2026-10-29
+
+**ארגזים — תמיד אפשר לחפש** · Feature
+
+- בסינון יש עכשיו תמיד גם "ארגזים", לא רק שישיות ובודדים.
+- אפשר גם לכתוב "ארגז" בחיפוש בדף הבית.
+- כשאין כרגע מבצע על ארגז, כתוב את זה בפירוש, עם קישור חזרה לכל המבצעים.
+
+Internal:
+
+- Owner's ask (2026-10-29). Production had 0 offers of 10+ units (692 in offers_catalog; 2 SKUs of 24, neither priced in a feed), so the ארגזים chip was always hidden by availablePacks. It is now always offered (SortBar), and NoCratesYet (Chrome) says there is none today on Home, a beer page and a chain page instead of an empty list.
+- Home's search matches kinds of pack (lib/search.ts searchPacks: ארגז/קרטון → /?pack=case, שישייה/מארז → /?pack=small_multipack), only on a 3+ letter word-prefix, so 'ש' on its way to 'שופרסל' never takes Enter. A crate is still only a crate on evidence (skus.packaging = bottle_crate); the rule did not change.
+
+## 0.39.0 — 2026-10-29
+
+**המפה בסרגל התחתון** · Feature
+
+- המפה קיבלה מקום משלה בסרגל התחתון, ליד המבצעים.
+- "אני" (הבירות שלכם, ההתראות וההגדרות) עבר לכפתור העגול בפינה העליונה של כל מסך.
+
+Internal:
+
+- Owner's call (2026-10-29): the map is a tab (Deals · Map · Beers · Stores); settings left the bar for MeLink, a 44px round link in the TopBar action slot of Home, Map, Beers and Stores. Settings are visited rarely; the map is a place people go back to.
+- A corner rather than a drawer: /settings is a page of forms, and a drawer would hide it behind one more motion. The only motion is the press (scale 0.97, 160ms ease-out, transform only; off under reduced motion with everything else).
+- The map lost its back arrow (a tab is a place, not a step away from Home) and Home lost the "על המפה" link beside the intent switch: one way in. tests/map-screen.test.ts now asserts the tab and that no page links to /map besides it.
+
+## 0.38.1 — 2026-10-26
+
+**הקישור למפה נראה גם בחושך** · Fix
+
+- במצב כהה הקישור "על המפה" בדף הבית כמעט נעלם. עכשיו הוא קריא כמו כל השאר.
+
+Internal:
+
+- The map link (#41) sits on the counter, not on a paper strip, but took .disclose's colour, var(--ink) — the ink of the paper, which stays light in dark mode. In dark mode it was dark brown on a dark counter: 1.03:1. It now takes text-on-ground, the counter's own text colour (a utility, so it wins over the component class).
+- CI on main had been red since #41 on exactly this (quality.spec axe, dark, both phone sizes), which also turned every PR opened after it red.
+
 ## 0.38.0 — 2026-10-12
 
 **הכי קרוב — באמת הכי קרוב** · Fix

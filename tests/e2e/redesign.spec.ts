@@ -183,6 +183,27 @@ test("Beer page: every pack is its own strip and a chain's 6×500 price never si
   await expect(mid).not.toContainText("₪25.00");
 });
 
+test("ארגזים is always offered: a beer with no crate says so, and 'ארגז' in the search goes there", async ({ page }) => {
+  await onboard(page);
+  // Heineken has no crate in the catalogue; the chip is there anyway, and leads to a page that says so.
+  await page.goto("/beer/heineken");
+  await openSort(page);
+  await page.getByRole("link", { name: "ארגזים" }).click();
+  await expect(page).toHaveURL(/pack=case/);
+  await expect(page.getByText("אין כרגע מבצעי ארגזים")).toBeVisible();
+  await page.getByRole("link", { name: "לכל המבצעים" }).click();
+  await expect(page).toHaveURL(/\/beer\/heineken$/);
+
+  // Typed on Home: the word is enough, and Enter takes it.
+  await page.goto("/");
+  await page.waitForLoadState("networkidle"); // hydrated, so typing reaches React
+  const box = page.getByRole("searchbox", { name: "חיפוש בירה או סופר" });
+  await box.fill("ארגז");
+  await expect(page.getByRole("link", { name: /ארגזים/ })).toBeVisible();
+  await box.press("Enter");
+  await expect(page).toHaveURL(/\/\?pack=case$/);
+});
+
 test("Beer page: the pack filter narrows to one kind of pack and stays in the URL", async ({ page }) => {
   await onboard(page);
   await page.goto("/beer/goldstar");
@@ -339,9 +360,14 @@ test("the bottom bar takes you between the four places and marks where you are",
   await bar.getByRole("link", { name: "סופרים" }).click();
   await expect(page).toHaveURL(/\/store$/);
 
-  await bar.getByRole("link", { name: "אני" }).click();
+  await bar.getByRole("link", { name: "מפה" }).click();
+  await expect(page).toHaveURL(/\/map$/);
+  await expect(bar.getByRole("link", { name: "מפה" })).toHaveAttribute("aria-current", "page");
+
+  // "אני" is not a tab: it is the corner of each main screen's heading.
+  await expect(bar.getByRole("link", { name: "אני" })).toHaveCount(0);
+  await page.getByRole("main").getByRole("link", { name: "אני" }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(bar.getByRole("link", { name: "אני" })).toHaveAttribute("aria-current", "page");
 });
 
 test("an unknown beer is a designed 404, not a crash", async ({ page }) => {
@@ -630,4 +656,25 @@ test("Home leads with a followed beer that reached your price, and only then wit
   await expect(page.getByText("הפסקנו לעקוב.")).toBeVisible();
   await page.goto("/");
   await expect(page.getByRole("region", { name: /המחיר/ })).toHaveCount(0);
+});
+
+test("a deal can be saved, and /saved shows it from the live feed (0.41.0)", async ({ page }) => {
+  await onboard(page);
+  const line = page.locator("main article").first();
+  const save = line.locator("[data-save-offer]");
+  await expect(save).toHaveText("שמירה");
+  await save.click();
+  await expect(save).toHaveAttribute("aria-pressed", "true");
+  await expect(save).toHaveText("נשמר");
+  const name = (await line.locator("a.line-tight").innerText()).split("\n")[0].trim();
+
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "לרשימת המבצעים ששמרתי" }).click();
+  await expect(page).toHaveURL(/\/saved$/);
+  await expect(page.locator("main article")).toHaveCount(1);
+  await expect(page.locator("main article").first()).toContainText(name);
+  // Still saved where it is shown, and un-saving takes it off the list on the next visit.
+  await page.locator("main article [data-save-offer]").click();
+  await page.reload();
+  await expect(page.getByText("עוד לא שמרתם מבצעים")).toBeVisible();
 });

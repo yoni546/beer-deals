@@ -87,3 +87,22 @@ export function search<T>(items: T[], query: string, texts: (item: T) => string[
     .sort((a, b) => b.rank - a.rank || a.index - b.index)
     .map((entry) => entry.item);
 }
+
+/**
+ * The kinds of pack Home filters by, as people type them. Each opens Home with that filter, so
+ * "ארגז" + Enter is the crates (and, when there are none today, a page that says so). Singles are
+ * not here: Home has none.
+ */
+export const PACK_SEARCH = [
+  { href: "/?pack=case", label: "ארגזים", words: ["ארגז", "ארגזים", "קרטון", "crate"] },
+  { href: "/?pack=small_multipack", label: "שישיות", words: ["שישייה", "שישיות", "רביעייה", "מארז"] },
+];
+
+/**
+ * The kinds of pack a query names. Only a real word — three letters or more that start one ("ארג",
+ * "שיש") — because these lead the results and take Enter: "ש" on its way to "שופרסל" must not.
+ */
+export function searchPacks(query: string): typeof PACK_SEARCH {
+  if (normalize(query).length < 3) return [];
+  return PACK_SEARCH.filter((pack) => score(query, [pack.label, ...pack.words]) >= 75);
+}

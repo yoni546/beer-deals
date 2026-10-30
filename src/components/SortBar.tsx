@@ -40,7 +40,7 @@ export function SortBar({
   /** Show the ordering chips. Off for lists that have one natural order (regular prices). */
   sorting?: boolean;
   packs?: boolean;
-  /** Pack kinds that actually have offers, so a chip never leads to an empty page. */
+  /** Pack kinds that actually have offers, so a chip never leads to an empty page (ארגזים excepted: below). */
   availablePacks?: PackFilter[];
   /** A page-specific chip that leads the filter row (the store page's "my beers"). */
   leading?: React.ReactNode;
@@ -95,7 +95,9 @@ export function SortBar({
       {packs && (
         <ChipRow label="סינון">
           {packs &&
-            PACK_FILTERS.filter((pack) => pack === "all" || pack === state.pack || !availablePacks || availablePacks.includes(pack))
+            // ארגזים is always offered, even with none today: people look for crates, and the page
+            // then says so (NoCratesYet) instead of the chip silently not existing.
+            PACK_FILTERS.filter((pack) => pack === "all" || pack === "case" || pack === state.pack || !availablePacks || availablePacks.includes(pack))
             .map((pack) => (
               <Chip key={pack} href={href({ pack })} selected={state.pack === pack}>
                 {PACK_LABEL[pack]}

@@ -81,7 +81,8 @@ component (`src/design/`):
 ## Composition
 
 - One phone-width **column** (max 30rem) centred on the counter at any size. Bottom **tab bar**
-  (Deals · Beers · Stores · Me) is the counter's edge: always present, 44 px+ targets.
+  (Deals · Map · Beers · Stores) is the counter's edge: always present, 44 px+ targets. "Me" (settings)
+  is a round corner button in each main screen's heading, not a tab: it is visited rarely (0.39.0).
 - **Tape sections** are paper strips with a perforated (zig-zag) top and bottom edge; the first
   strip may bleed off the top. Lines are separated by dotted rules; a heavier dashed rule is a
   *tear line* between beers.
