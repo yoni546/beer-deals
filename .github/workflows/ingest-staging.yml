@@ -97,6 +97,11 @@ jobs:
         if: success() && steps.configured.outputs.ok == 'true'
         run: node scripts/ingest/prune-history.mjs --target staging --apply
 
+      - name: Crate prices on liquor shops' sites (migration 0068; a shop that fails is skipped, never fails the import)
+        if: success() && steps.configured.outputs.ok == 'true'
+        continue-on-error: true
+        run: node scripts/shops/crates.mjs --target staging --apply
+
       - name: Read back what the public sees, per chain (docs/RETAILER-COVERAGE.md)
         if: steps.configured.outputs.ok == 'true'
         run: node scripts/ingest/coverage.mjs

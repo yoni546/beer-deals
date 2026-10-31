@@ -128,6 +128,11 @@ jobs:
         if: success()
         run: node scripts/ingest/prune-history.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
 
+      - name: Crate prices on liquor shops' sites (migration 0068; a shop that fails is skipped, never fails the import)
+        if: success()
+        continue-on-error: true
+        run: node scripts/shops/crates.mjs --target production --confirm-ref "$CONFIRM_REF" --apply
+
       - name: Notification baseline (initial population only)
         if: inputs.initial_population
         run: node scripts/ingest/baseline-notifications.mjs --target production --confirm-ref "$CONFIRM_REF" --apply

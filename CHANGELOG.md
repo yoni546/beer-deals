@@ -6,6 +6,23 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.42.0 — 2026-10-30
+
+**ארגזים בחנויות משקאות** · Feature, Data
+
+- הרשתות כמעט לא מוכרות ארגזים, אז עכשיו מופיעים גם המחירים באתרים של אליאסי משקאות ובית היין.
+- בכל בירה, תחת ״ארגזים״, יש חלק ״בחנויות משקאות״ עם המחיר, המחיר לבקבוק או לפחית, וקישור לדף בחנות.
+- בדף הבית, בסינון ״ארגזים״, מופיעים הארגזים מהחנויות, הבירות שלכם קודם.
+- המחיר הוא המחיר באתר החנות, לפני משלוח. הוא מתעדכן פעם ביום.
+
+Internal:
+
+- Migration 0068 shop_crate_prices: one row per crate on a shop's site (shop, beer_id, variant, title, pack, price, url, in_stock, pickup_only, seen_at), unique (shop, url). Read by anon/authenticated; written by service_role only. Checks: 10–48 units, ₪20–₪1,000, https URL. Not price_observations: no branch, no run, no Deal Score.
+- scripts/shops/crates.mjs (+ lib/crates.mjs): eliasi.co.il/beers-cases (server HTML) and winehouse.co.il Store API category 394; one request per shop per day, a failing shop is skipped. Titles go through the import's classify/parsePack/variantOf with the page as context ('בירה ' prefix) and a direct count reader (countOf) — a crate with no count on the page is skipped, never assumed 24. 2026-10-30: 25 + 18 crates of our beers.
+- Runs after the prune step in both import workflows, continue-on-error. Rows unseen for a week are deleted; the app shows rows seen in the last 3 days, in stock, cheapest per unit first.
+- UI: beer page ארגזים gets Part 'בחנויות משקאות' (ShopCrates: ink price, per-unit price, link out with rel=noopener); Home ?pack=case shows them in place of NoCratesYet, or after the crate deals. Owner chose these two shops (terms do not forbid reading); others to be asked first.
+- Needs applying to production (0068) before the first run writes; until then the reader returns [] and the writer warns and exits 0.
+
 ## 0.41.1 — 2026-10-30 (internal)
 
 **קריאה נכונה של גודל מארז מהשם** · Fix

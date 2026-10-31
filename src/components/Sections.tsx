@@ -31,8 +31,8 @@ export function CategorySection({ kind, aside, children }: { kind: PackClass; as
   );
 }
 
-/** "מבצעים" / "מחירים רגילים" inside a kind: which of the two a list is. */
-export function Part({ title, children, part }: { title: string; part: "deals" | "regular"; children: React.ReactNode }) {
+/** "מבצעים" / "מחירים רגילים" / "בחנויות משקאות" inside a kind: which of them a list is. */
+export function Part({ title, children, part }: { title: string; part: "deals" | "regular" | "shops"; children: React.ReactNode }) {
   return (
     <div data-part={part}>
       <h3 className="mb-2 text-sm font-semibold text-on-ground-2">{title}</h3>

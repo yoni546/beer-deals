@@ -678,3 +678,31 @@ test("a deal can be saved, and /saved shows it from the live feed (0.41.0)", asy
   await page.reload();
   await expect(page.getByText("עוד לא שמרתם מבצעים")).toBeVisible();
 });
+
+test("crates at liquor shops: on the beer's ארגזים and on Home's, worded as the shop's site price (0068)", async ({ page }) => {
+  // Carlsberg: no crate deal in the catalogue, so the shops are all there is.
+  await sql(
+    `insert into public.shop_crate_prices (shop, beer_id, title, pack_quantity, volume_ml, container, price_agorot, url)
+     select 'eliasi', id, 'ארגז בירה קרלסברג פחית 500 מל', 24, 500, 'can', 14990, 'https://www.eliasi.co.il/Carlsberg-Can-500ml-24pcs'
+     from public.beers where slug = 'carlsberg'`,
+  );
+  try {
+    await revalidateAppCaches();
+    await onboard(page);
+    await page.goto("/beer/carlsberg?pack=case");
+    const part = page.locator("[data-part='shops']");
+    await expect(part).toContainText("בחנויות משקאות");
+    await expect(part).toContainText("אליאסי משקאות");
+    await expect(part).toContainText("24 × 500 מ״ל · פחיות");
+    await expect(part).toContainText("₪6.25 לפחית");
+    await expect(part).toContainText("לפני משלוח");
+    await expect(part.getByRole("link", { name: /אליאסי משקאות/ })).toHaveAttribute("href", "https://www.eliasi.co.il/Carlsberg-Can-500ml-24pcs");
+
+    await page.goto("/?pack=case");
+    await expect(page.getByRole("heading", { name: "ארגזים בחנויות משקאות" })).toBeVisible();
+    await expect(page.locator("[data-shop-crates]")).toContainText("קרלסברג · אליאסי משקאות");
+  } finally {
+    await sql("delete from public.shop_crate_prices");
+    await revalidateAppCaches();
+  }
+});

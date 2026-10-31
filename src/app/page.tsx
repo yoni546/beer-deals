@@ -17,7 +17,9 @@ import { GroupStrip } from "@/components/GroupOffers";
 import { Gap } from "@/components/ui/Tape";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { latestVisibleVersion } from "@/lib/releases";
-import { getFreshness, getGroupOffers, getOfferByKey, getOffers } from "@/lib/offers";
+import { getFreshness, getGroupOffers, getOfferByKey, getOffers, getShopCrates } from "@/lib/offers";
+import { ShopCrates } from "@/components/ShopCrates";
+import type { ShopCrate as ShopCrateRow } from "@/lib/shops";
 import {
   filterByPack,
   groupByBeer,
@@ -180,6 +182,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   };
 
   const availablePacks = [...new Set(everything.map(packClass))] as PackFilter[];
+  // ארגזים: the supermarkets almost never have a crate, so the liquor shops' crates (0068) are most of what
+  // there is — in place of an empty list when no chain has a crate deal, after the deals when one does. The
+  // person's own beers first. Read only when ארגזים is chosen.
+  const shopCrates = pack === "case" ? await getShopCrates() : [];
+  const favouriteRank = (beerId: string) => (favouriteSet.has(beerId) ? favouriteIds.indexOf(beerId) : favouriteIds.length);
+  const shopCratesOrdered = [...shopCrates].sort((a, b) => favouriteRank(a.beer_id) - favouriteRank(b.beer_id));
+  const beerNames = Object.fromEntries(allBeers.map((beer) => [beer.id, beer.name_he]));
   const strips = groupByBeer(filterByPack(mine, pack), favouriteIds).map((group) => ({
     ...group,
     offers: orderForHome(group.offers, favouriteIds, sort, perLiter),
@@ -267,7 +276,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
           {/* ארגזים chosen and none today: say so, in place of the lists. */}
           {pack === "case" && !availablePacks.includes("case") ? (
-            <NoCratesYet allHref="/" />
+            shopCratesOrdered.length > 0 ? (
+              <CratesAtShops crates={shopCratesOrdered} beerNames={beerNames} note="אין כרגע מבצע על ארגז ברשתות. אלה המחירים באתרי החנויות." />
+            ) : (
+              <NoCratesYet allHref="/" />
+            )
           ) : intent === "near" ? (
             // Your beers first, each one nearest-first — the same shape as the rest of
             // the app, because "favourite #1 is the app" does not stop being true when
@@ -366,6 +379,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             )}
           </div>
           )}
+
+          {pack === "case" && availablePacks.includes("case") && shopCratesOrdered.length > 0 && (
+            <div className="mt-8">
+              <CratesAtShops crates={shopCratesOrdered} beerNames={beerNames} />
+            </div>
+          )}
         </>
       )}
 
@@ -388,5 +407,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Link>
       </div>
     </Screen>
+  );
+}
+
+/** Liquor shops' crates on Home's ארגזים (0068), under a heading of their own. */
+function CratesAtShops({ crates, beerNames, note }: { crates: ShopCrateRow[]; beerNames: Record<string, string>; note?: string }) {
+  return (
+    <section aria-labelledby="shop-crates" className="space-y-3">
+      <h2 id="shop-crates" className="text-xl leading-tight font-bold text-on-ground">
+        ארגזים בחנויות משקאות
+      </h2>
+      {note && <p className="text-sm text-on-ground-2">{note}</p>}
+      <ShopCrates crates={crates} beerNames={beerNames} />
+    </section>
   );
 }
