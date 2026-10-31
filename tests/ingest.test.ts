@@ -123,6 +123,20 @@ describe("the pack", () => {
     expect(parsePack(item("מארז בירה גולדסטאר 5", "1.00", "קילוגרם")).confidence).toBe("unresolved"); // 1 L: 4×250? 1×1000?
   });
 
+  it("reads the count a name writes before its unit word: '24 יחידות', '20 פחיות', '24 בקבוקים', and 'ארגז 12'", () => {
+    // Real row (Dor Alon): the count was read from the unit word's group, so this was one 275 ml bottle.
+    expect(parsePack(find("dor-alon", "בקס 6 יחידות"))).toMatchObject({ volume_ml: 275, pack_quantity: 6, confidence: "partial" });
+    expect(parsePack(item("בירה גולדסטאר 24 יחידות 330 מ\"ל", "7.92", "ליטר"))).toMatchObject({ volume_ml: 330, pack_quantity: 24, confidence: "partial" });
+    expect(parsePack(item("קרלסברג 20 פחיות 330 מ\"ל", "6.6", "ליטר"))).toMatchObject({ container: "can", volume_ml: 330, pack_quantity: 20, confidence: "confident" });
+    expect(parsePack(item("היינקן 24 בקבוקים 330 מ\"ל", "7.92", "ליטר"))).toMatchObject({ container: "bottle", pack_quantity: 24, confidence: "confident" });
+    expect(parsePack(item("טובורג 6 יח 500 מל", "3", "ליטר"))).toMatchObject({ volume_ml: 500, pack_quantity: 6 });
+    expect(parsePack(item("ארגז 12 בקבוקי גולדסטאר 500 מל", "6", "ליטר"))).toMatchObject({ container: "bottle", pack_quantity: 12, confidence: "confident" });
+    // A size is not a count: the "30" of "330 בקבוקי" is not read.
+    expect(parsePack(item("היינקן 330 בקבוקי")).pack_quantity).toBeNull();
+    // The word alone still never makes 24.
+    expect(parsePack(item("ארגז בירה גולדסטאר")).pack_quantity).toBeNull();
+  });
+
   it("sees returnable bottles", () => {
     expect(parsePack(item("בירה גולדסטאר ב.חוזר 500", "0.5", "ליטר")).returnable).toBe(true);
   });
