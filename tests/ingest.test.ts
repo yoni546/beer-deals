@@ -290,10 +290,40 @@ describe("publishers and their branches", () => {
     expect(PUBLISHERS.freshmarket.retailer({ store: "5", name: "היפר דודו שוק" })).toBeNull(); // another banner on the same account
   });
 
-  it("marks the chains that need a password as blocked, with the reason — never forced", () => {
-    for (const slug of ["super-yuda", "salach-dabach", "yellow"]) {
-      expect(PUBLISHERS[slug].blocked, slug).toMatch(/requires a password/);
-      expect(Object.keys(PUBLISHERS[slug]), slug).not.toContain("password");
+  /**
+   * REWRITTEN 2026-10-25, because what it asserted turned out to be false.
+   *
+   * It held that Super Yuda, Salach Dabach and Paz Yellow "require a password"
+   * and that none of them may carry one. The owner asked why there were no Super
+   * Yuda deals, and the answer was neither: its login answers 302 with or without
+   * a password, and its root listing holds ONE folder named "Yuda" and no files —
+   * which reads exactly like an empty account. Inside it are 422 files, 200 of
+   * them promotions. The chain code here also had two digits transposed, so even
+   * a correct listing would have matched nothing.
+   *
+   * The passwords are published on gov.il by law, beside every other chain's.
+   * They are terms of access, not secrets, and the test that forbade them was
+   * protecting nothing.
+   *
+   * What is still worth asserting is the honest shape: a publisher is either read
+   * or it says in words why it is not, and nothing is ever half-configured.
+   */
+  it("either reads a publisher or says why not, and never half-configures one", () => {
+    expect(PUBLISHERS["super-yuda"].blocked).toBeUndefined();
+    expect(PUBLISHERS["super-yuda"].source).toBe("feed-super-yuda");
+    expect(PUBLISHERS["super-yuda"].chainCode).toBe("7290058177776");
+
+    // The two still off are off for a product reason — no store, no feed source —
+    // and say so, rather than claiming a technical wall that is not there.
+    for (const slug of ["salach-dabach", "yellow"]) {
+      expect(PUBLISHERS[slug].blocked, slug).toMatch(/Reachable/);
+      expect(PUBLISHERS[slug].source, slug).toBe("");
+    }
+
+    // Nothing may be left halfway: a publisher we intend to read needs a source.
+    for (const [slug, publisher] of Object.entries(PUBLISHERS)) {
+      if (publisher.blocked) expect(publisher.source, slug).toBe("");
+      else expect(publisher.source, slug).toBeTruthy();
     }
   });
 

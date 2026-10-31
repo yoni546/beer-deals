@@ -119,7 +119,7 @@ const platforms = {
   },
 
   async cerberus(publisher) {
-    const code = PUBLISHERS[publisher].code;
+    const { code, password = "" } = PUBLISHERS[publisher];
     const base = "https://url.publishedprices.co.il";
     const jar = new Map();
     const keep = (res) => {
@@ -139,23 +139,55 @@ const platforms = {
       method: "POST",
       redirect: "manual",
       headers: { "user-agent": UA, cookie: cookie(), "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ username: code, password: "", csrftoken: token }),
+      body: new URLSearchParams({ username: code, password, csrftoken: token }),
     });
     keep(res);
     if (res.status !== 302) throw new Error(`login as ${code} answered ${res.status} (a valid chain code answers 302)`);
     res = await fetch(`${base}/file`, { headers: { "user-agent": UA, cookie: cookie() } });
     keep(res);
     const token2 = csrf(await res.text());
-    res = await fetch(`${base}/file/json/dir`, {
-      method: "POST",
-      headers: { "user-agent": UA, cookie: cookie(), "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ sEcho: "1", iDisplayStart: "0", iDisplayLength: "100000", cd: "/", csrftoken: token2 ?? "" }),
-    });
-    const json = await res.json();
-    // The skill: an empty list with an `error` key is NOT "no files".
-    if (json.error) throw new Error(`listing error: ${json.error}`);
-    const names = (json.aaData ?? []).map((row) => row.fname ?? row.name ?? row[0]).filter(Boolean);
-    return { files: names.map((name) => ({ name, url: `${base}/file/d/${name}`, init: { headers: { cookie: cookie() } } })) };
+    const list = async (cd) => {
+      const answer = await fetch(`${base}/file/json/dir`, {
+        method: "POST",
+        headers: { "user-agent": UA, cookie: cookie(), "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ sEcho: "1", iDisplayStart: "0", iDisplayLength: "100000", cd, csrftoken: token2 ?? "" }),
+      });
+      const json = await answer.json();
+      // The skill: an empty list with an `error` key is NOT "no files".
+      if (json.error) throw new Error(`listing error: ${json.error}`);
+      return (json.aaData ?? []).filter((row) => row && (row.fname ?? row.name ?? row[0]));
+    };
+
+    // SOME ACCOUNTS KEEP THEIR FILES ONE FOLDER DOWN. Super Yuda's root holds a
+    // single folder named "Yuda" and no files at all, which read exactly like an
+    // empty account — it was recorded as blocked on a password for weeks, and
+    // inside that folder are 422 files. So: list the root, and where it offers
+    // folders instead of files, look in them. One level only; nothing here nests
+    // deeper, and a crawler that wanders is a crawler that gets itself banned.
+    const rows = await list("/");
+    const named = (row) => row.fname ?? row.name ?? row[0];
+    const folders = rows.filter((row) => row.type === "folder").map(named);
+    const atRoot = rows.filter((row) => row.type !== "folder").map(named);
+
+    const found = atRoot.map((name) => ({ name, path: name }));
+    if (!found.length) {
+      for (const folder of folders) {
+        for (const row of await list(`/${folder}`)) {
+          if (row.type === "folder") continue;
+          found.push({ name: named(row), path: `${folder}/${named(row)}` });
+        }
+      }
+    }
+
+    return {
+      files: found.map(({ name, path }) => ({
+        name,
+        // The download path carries the folder; without it the server answers 200
+        // with an HTML page, which is not a gzip and fails much later and worse.
+        url: `${base}/file/d/${path}`,
+        init: { headers: { cookie: cookie() } },
+      })),
+    };
   },
 
   async laib(publisher) {
