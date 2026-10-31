@@ -15500,6 +15500,66 @@ insert into public.sources (slug, name, kind, trust) values
   ('feed-yellow',        'Paz Yellow price feed',    'chain_feed', 80)
 on conflict (slug) do nothing;
 
+-- ======================== 0063_six_more_beers.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0063 — six beers the chains sell and the catalogue did not carry
+--
+-- MEASURED, production, 2026-10-25. 1,158 priced rows were discarded with "a
+-- beer the app does not carry", across 1,026 different names — a long tail of
+-- craft and import, two to nine rows each. There is no quick win in it, and
+-- these six are the ones that earn their place: each appears at four or more of
+-- the chains we read, which is the same bar migration 0016 used.
+--
+--   סאן מיגל        20 rows   manufacturer "סאן מיגל"
+--   ביטבורגר        21 rows   "מבשלת ביטבורגר"
+--   ג'מס / גמס      36 rows   "אביר הבר" — two spellings of one beer
+--   וולפאס אנגלמן   24 rows   an Israeli brewery
+--   דובל            14 rows   "מבשלת דובל", "דובל מורטגט"
+--   שופרהופר        12 rows   "ראדברגר גרופ"
+--
+-- TWO OF THE OWNER'S SEVEN ARE NOT HERE, and the data is why.
+--
+--   פילזנר is a STYLE. 30 rows across TEN different manufacturers — Pilsner
+--   Urquell, "cesu alus", a Polish brewer. Matching on it would merge ten
+--   brewers into one beer, and every price under it would be a lie about which
+--   beer it is. (Pilsner Urquell itself is 2 rows: not worth its own entry.)
+--
+--   ניו אינגלנד is also a style — a New England IPA. The brewer on those rows
+--   is וולפאס אנגלמן, which is why that brewery is in the list above instead:
+--   24 rows against the style's 8, and it is a thing rather than a category.
+--
+-- The English names of the two Israeli breweries are transliterations and are
+-- flagged for the owner to correct. The slug is what everything else holds on
+-- to, so a name can be fixed without touching anything that refers to it.
+--
+-- Additive and idempotent. A beer is only visible once the importer recognises
+-- its name (scripts/ingest/lib/normalize.mjs) and has a look to draw it with
+-- (src/design/themes.ts); both land with this.
+-- ---------------------------------------------------------------------------
+
+insert into public.brands (slug, name_he, name_en) values
+  ('san-miguel',   'סאן מיגל',       'San Miguel'),
+  ('bitburger',    'ביטבורגר',       'Bitburger'),
+  ('schofferhofer','שופרהופר',       'Schöfferhofer'),
+  ('james',        'ג''מס',          'James'),
+  ('duvel',        'דובל',           'Duvel'),
+  ('wolfaus',      'וולפאס אנגלמן',  'Wolfaus Engelman')
+on conflict (slug) do nothing;
+
+insert into public.beers (slug, name_he, name_en, theme_base, theme_surface, theme_accent, theme_ink, sort_order, brand_id)
+select v.slug, v.name_he, v.name_en, v.base, v.surface, v.accent, v.ink, v.sort_order, br.id
+  from (values
+    ('san-miguel',   'סאן מיגל',      'San Miguel',       '#15090a', '#261315', '#d9453c', '#fbeeee', 35),
+    ('bitburger',    'ביטבורגר',      'Bitburger',        '#071410', '#0f241c', '#c9a64b', '#eef6f1', 36),
+    ('schofferhofer','שופרהופר',      'Schöfferhofer',    '#0e1017', '#1a1d28', '#d8b24a', '#f0f1f6', 37),
+    ('james',        'ג''מס',         'James',            '#140d07', '#24180e', '#c98b3a', '#f8f0e6', 38),
+    ('duvel',        'דובל',          'Duvel',            '#0d0f14', '#181b24', '#c8202e', '#eef0f5', 39),
+    ('wolfaus',      'וולפאס אנגלמן', 'Wolfaus Engelman', '#120a16', '#201327', '#a86fd0', '#f3ecf8', 40)
+  ) as v(slug, name_he, name_en, base, surface, accent, ink, sort_order)
+  join public.brands br on br.slug = v.slug
+on conflict (slug) do nothing;
+
 -- ======================== 0064_deals_by_town.sql ========================
 
 -- ---------------------------------------------------------------------------
@@ -16084,9 +16144,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0061'), ('0062'), ('0064'), ('0065'), ('0066'), ('0067')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0061'), ('0062'), ('0063'), ('0064'), ('0065'), ('0066'), ('0067')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 64 migrations';
+  raise notice 'ledger: recorded 65 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end

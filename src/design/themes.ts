@@ -140,6 +140,20 @@ export const BEER_IDENTITIES: BeerIdentity[] = [
     { shape: "classic", glass: amber, cap: "#1f4a8a", neck: "#1f4a8a", label: { form: "oval", base: "#1f4a8a", band: "#e98d3c", detail: "#f2f2f0" } }),
   beer("benediktiner",[78, 0.03, 0.2, 0.9],           [18, 0.12, 0.66],    "left",
     { shape: "wheat", glass: "#6b3e14", cap: "#8a6a2a", neck: "#8a6a2a", label: { form: "shield", base: "#efe6d2", band: "#8a6a2a", detail: "#7a1c24" } }),
+  // 0.12.0 (migration 0063). No photographs for these yet, so each is drawn —
+  // which is what the drawn bottle is for, and why BeerBottle falls back to it.
+  beer("san-miguel",  [3, 0.105, 0.12, 0.84],         [88, 0.15, 0.82],    "right",
+    { shape: "longneck", glass: "#4c8a52", cap: "#e03a32", neck: "#e03a32", label: { form: "shield", base: "#faf7ef", band: "#e03a32", detail: "#d8b24a" } }),
+  beer("bitburger",   [168, 0.055, 0.16, 0.87],       [96, 0.13, 0.8],     "top",
+    { shape: "longneck", glass: "#28512c", cap: "#14401f", neck: "#14401f", label: { form: "band", base: "#14401f", band: "#c9a64b", detail: "#f1efe2" } }),
+  beer("schofferhofer",[282, 0.04, 0.19, 0.88],       [52, 0.15, 0.75],    "low",
+    { shape: "wheat", glass: "#7a4a1e", cap: "#d8b24a", neck: "#1f3a6d", label: { form: "oval", base: "#f4f2ea", band: "#1f3a6d", detail: "#d8b24a" } }),
+  beer("james",       [38, 0.065, 0.13, 0.85],        [68, 0.15, 0.74],    "left",
+    { shape: "classic", glass: amber, cap: "#1a1a1a", neck: "#1a1a1a", label: { form: "band", base: "#1a1a1a", band: "#c98b3a", detail: "#f2ead8" } }),
+  beer("duvel",       [42, 0.075, 0.1, 0.87],         [352, 0.15, 0.68],   "top",
+    { shape: "belgian", glass: "#e6dfbe", liquid: "#f2cb4e", cap: "#8f1420", neck: "#141414", label: { form: "oval", base: "#fbfaf6", band: "#8f1420", detail: "#141414" } }),
+  beer("wolfaus",     [312, 0.08, 0.14, 0.85],        [318, 0.14, 0.72],   "right",
+    { shape: "classic", glass: "#3a2a14", cap: "#6d3a8a", neck: "#6d3a8a", label: { form: "band", base: "#efe8f4", band: "#6d3a8a", detail: "#c98b3a" } }),
 ];
 
 /** The neutral look: no beer ranked yet, or a beer without an identity. No bottle. */
