@@ -36,12 +36,17 @@ export function Price({
  * the left of the number instead of trailing it in a right-to-left line ("36%-").
  * Callers only render it when the database supplied a verified value_pct.
  */
-export function Saving({ pct, className = "" }: { pct: number; className?: string }) {
+export function Saving({ pct, upTo = false, className = "" }: { pct: number; upTo?: boolean; className?: string }) {
+  // `upTo`: the best of several deals, not every one of them ("עד −58%").
   return (
     <span className={className}>
-      <span className="sr-only">חיסכון של {pct} אחוז</span>
-      <span aria-hidden className="num">
-        −{pct}%
+      <span className="sr-only">
+        חיסכון של {upTo ? "עד " : ""}
+        {pct} אחוז
+      </span>
+      <span aria-hidden>
+        {upTo && "עד "}
+        <span className="num">−{pct}%</span>
       </span>
     </span>
   );

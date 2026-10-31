@@ -8,6 +8,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { LocationEditor } from "@/components/LocationEditor";
 import { PushToggle } from "@/components/PushToggle";
 import { Tape } from "@/components/ui/Tape";
+import { BookmarkIcon, ChevronLeftIcon } from "@/components/ui/icons";
 import { ShareApp } from "@/components/ShareApp";
 import { WhatsNewLink } from "@/components/WhatsNewLink";
 import { publicEnv } from "@/lib/env";
@@ -55,6 +56,16 @@ export default async function SettingsPage() {
       <div className="space-y-8">
         <Section id="s-beers" title="הבירות שלי">
           <FavouritesEditor beers={beers} currentName={viewer.profile?.first_name ?? ""} currentFavourites={viewer.favorites} />
+        </Section>
+
+        <Section id="s-saved" title="המבצעים ששמרתי">
+          <Tape>
+            <Link href="/saved" prefetch={false} className="flex min-h-12 items-center gap-3 px-4 text-base font-semibold text-ink">
+              <BookmarkIcon size={20} />
+              <span className="flex-1">לרשימת המבצעים ששמרתי</span>
+              <ChevronLeftIcon size={18} />
+            </Link>
+          </Tape>
         </Section>
 
         <Section id="s-credit" title="הקרדיט שלי" note="השם הזה מוצג על מבצעים שאתם מוצאים. השם ב״אהלן״ נשאר פרטי.">

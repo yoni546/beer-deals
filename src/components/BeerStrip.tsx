@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { OfferLine, type LineLead } from "@/components/OfferLine";
 import { BeerBottle } from "@/components/ui/Bottle";
-import { ChevronLeftIcon } from "@/components/ui/icons";
+import { ChevronDownIcon, ChevronLeftIcon } from "@/components/ui/icons";
 import { Tape } from "@/components/ui/Tape";
 import type { Offer } from "@/lib/db/types";
 import type { NearbyBranch } from "@/lib/distance";
@@ -9,7 +9,9 @@ import type { NearbyBranch } from "@/lib/distance";
 /**
  * A strip of paper for one heading (a beer, a pack, a chain) and its lines, ruled
  * with dotted lines between them. `limit` keeps a busy beer from taking over Home:
- * the rest is one tap away, and the count says how many.
+ * the rest is one tap away, and the count says how many. Without `moreHref` the
+ * rest opens right here (native <details>): a strip that is not about one beer or
+ * one chain has no page of its own to send you to.
  */
 export function Strip({
   title,
@@ -48,6 +50,18 @@ export function Strip({
 }) {
   const shown = limit ? offers.slice(0, limit) : offers;
   const hidden = offers.length - shown.length;
+  const line = (offer: Offer) => (
+    <OfferLine
+      key={offer.offer_key}
+      offer={offer}
+      lead={lead}
+      showStore={showStore}
+      perLiter={perLiter}
+      distanceKm={distances?.[offer.offer_key]}
+      nearestBranch={branches?.[offer.offer_key]}
+    />
+  );
+  const count = `${hidden} ${hidden === 1 ? "מבצע" : "מבצעים"}`;
   const Heading = headingLevel;
 
   return (
@@ -66,26 +80,23 @@ export function Strip({
         {aside && <span className="shrink-0 text-sm text-ink-2">{aside}</span>}
       </div>
 
-      <div className="divide-y divide-paper-line">
-        {shown.map((offer) => (
-          <OfferLine
-            key={offer.offer_key}
-            offer={offer}
-            lead={lead}
-            showStore={showStore}
-            perLiter={perLiter}
-            distanceKm={distances?.[offer.offer_key]}
-            nearestBranch={branches?.[offer.offer_key]}
-          />
-        ))}
-      </div>
+      <div className="divide-y divide-paper-line">{shown.map(line)}</div>
 
-      {hidden > 0 && moreHref && (
-        <Link href={moreHref} prefetch={false} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
-          עוד {hidden} {hidden === 1 ? "מבצע" : "מבצעים"} · {title}
-          <ChevronLeftIcon size={18} />
-        </Link>
-      )}
+      {hidden > 0 &&
+        (moreHref ? (
+          <Link href={moreHref} prefetch={false} className="tear flex min-h-12 items-center justify-between px-4 text-sm font-semibold text-ink">
+            עוד {count} · {title}
+            <ChevronLeftIcon size={18} />
+          </Link>
+        ) : (
+          <details className="group/more" data-strip-more>
+            <summary className="tear flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-ink group-open/more:hidden [&::-webkit-details-marker]:hidden">
+              הציגו עוד {count}
+              <ChevronDownIcon size={18} />
+            </summary>
+            <div className="divide-y divide-paper-line border-t border-paper-line">{offers.slice(shown.length).map(line)}</div>
+          </details>
+        ))}
     </Tape>
   );
 }

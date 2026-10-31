@@ -104,9 +104,9 @@ describe("a photo on record replaces the drawn bottle for that beer", () => {
  * green. Adding a photo means removing a line here.
  */
 const PHOTOLESS = [
-  "bazelet", "desperados", "estrella", "krombacher", "kronenbourg", "miller",
+  "bazelet", "desperados", "estrella", "miller",
   // 0.12.0 (migration 0063): six beers added from the discard pile, each sold at
-  // four or more chains. They are drawn for now — a photograph needs a retailer
+  // four or more chains. They are drawn for now -- a photograph needs a retailer
   // pack shot with provenance recorded, which is a separate errand from carrying
   // the beer at all. Removing a line here is how one gets a photograph.
   "bitburger", "duvel", "james", "san-miguel", "schofferhofer", "wolfaus",
