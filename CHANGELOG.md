@@ -6,6 +6,17 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.42.1 — 2026-10-31 (internal)
+
+**עדכון שבועי אוטומטי לשלוש הרשתות החסומות** · internal
+
+- ויקטורי, מחסני השוק וחצי חינם מתעדכנות עכשיו פעם בשבוע לבד, מהמחשב בבית, ולא רק כשמריצים ידנית.
+
+Internal:
+
+- scripts/weekly-blocked-chains.ps1 + a Windows scheduled task (Sundays 09:00, start-when-available, one-hour limit, logs to logs/weekly-blocked-chains/). The three chains refuse non-Israeli addresses, so GitHub's nightly run skips them; nothing deletes their offers (close_missing_promotions only touches branches that were read) -- they expire on their own end dates and nothing refreshes them. docs/WEEKLY-IMPORT.md.
+- supabase/RUN_THIS_IN_SUPABASE.sql is generated and is no longer tracked: every PR that added a migration rewrote it, so every two such PRs collided in it -- four were stopped that way on 2026-10-30/31, none over a real disagreement. CI runs `npm run sql:build` in place of `sql:check`, and tests/migrations.test.ts now asserts the generator's output contains every migration in order instead of comparing a copy on disk.
+
 ## 0.42.0 — 2026-10-30
 
 **ארגזים בחנויות משקאות** · Feature, Data

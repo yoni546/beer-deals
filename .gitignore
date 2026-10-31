@@ -40,3 +40,14 @@ backups/
 # committed; the workflow uploads them as a private artifact instead.
 dump/
 backups/
+
+# The whole schema in one file. GENERATED from supabase/migrations by
+# `npm run sql:build`, which CI runs on every job, so the file is always
+# present and always current -- it just is not stored here. Tracked, it was
+# touched by every PR that added a migration and so collided with every other
+# such PR: four were stopped by it in two days (2026-10-30/31), none over a
+# real disagreement. Nothing is lost: run `npm run sql:build` after a clone.
+/supabase/RUN_THIS_IN_SUPABASE.sql
+
+# Output of the weekly local import (scripts/weekly-blocked-chains.ps1). Re-creatable.
+logs/

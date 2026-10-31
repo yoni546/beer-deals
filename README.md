@@ -81,7 +81,7 @@ npm run verify          # typecheck + lint + tests + production build
 npm test                # security, migrations, release rule, components (no credentials)
 npm run e2e             # Playwright on a local fake Supabase, at 390x844 and 430x932
 npm run changelog       # regenerate CHANGELOG.md from src/content/releases.json
-npm run sql:build       # regenerate supabase/RUN_THIS_IN_SUPABASE.sql from the migrations
+npm run sql:build       # write supabase/RUN_THIS_IN_SUPABASE.sql (generated, not in git)
 npm run icons           # regenerate the PWA icons
 npm run vapid           # generate a Web Push key pair (once, ever)
 ```

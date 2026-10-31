@@ -71,8 +71,7 @@ always shares the production address, https://beer-deals.vercel.app.
   the production Supabase project. Use the local fake for automated tests and the staging
   project (`docs/STAGING.md`) for anything manual.
 - Schema changes: add a new numbered file in `supabase/migrations/` (never edit an applied
-  one), run `npm run sql:build` to refresh `supabase/RUN_THIS_IN_SUPABASE.sql`, add tests
-  in `tests/`. Applying migrations to a hosted project is done by the owner via the
+  one), add tests in `tests/`. Applying migrations to a hosted project is done by the owner via the
   Supabase SQL editor or CLI; list any migration that still needs applying in the PR.
 - Windows checkouts have CRLF line endings; that is normal. Don't "fix" whole files.
 
