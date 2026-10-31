@@ -15426,6 +15426,80 @@ insert into public.stores (slug, name_he) values
   ('bana',       'בנא משקאות')
 on conflict (slug) do nothing;
 
+-- ======================== 0061_super_yudas_feed.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0061 — Super Yuda has a feed after all
+--
+-- The chain has been listed as blocked since 0.8.0, on the note that its
+-- Cerberus account "requires a password; the public empty-password login is
+-- refused". Both halves of that were wrong, and the owner asking why there were
+-- no Super Yuda deals is what made anybody look.
+--
+--   1. The login was never refused. It answers 302 with or without the password.
+--      What came back was ONE entry at the root — a FOLDER named "Yuda" — and a
+--      listing with no files in it reads exactly like an empty account.
+--      Inside that folder: 422 files, 200 of them promotions, the newest from
+--      that morning (verified 2026-10-25).
+--
+--   2. The chain code here had two digits transposed: 7290058148776 for
+--      7290058177776. So even a correct listing would have matched nothing, and
+--      the first fault hid the second.
+--
+-- The password is the one the chain publishes by law on gov.il, alongside every
+-- other chain's. It is not a secret, it is a published term of access, and it
+-- lives in the publisher config with the username that was already there.
+--
+-- This migration is only the source row the importer writes against — trust 80,
+-- the same as every other chain feed, because it is the same kind of evidence.
+--
+-- Additive and idempotent.
+-- ---------------------------------------------------------------------------
+
+insert into public.sources (slug, name, kind, trust) values
+  ('feed-super-yuda', 'Super Yuda price feed', 'chain_feed', 80)
+on conflict (slug) do nothing;
+
+-- ======================== 0062_salach_dabach_and_yellow.sql ========================
+
+-- ---------------------------------------------------------------------------
+-- 0062 — Salach Dabach and Paz Yellow
+--
+-- Both have been in the publisher list since 0.8.0 marked blocked, on the note
+-- that their accounts "require a password; the public empty-password login is
+-- refused". The password half was true and the conclusion was not: the chains
+-- publish those passwords on gov.il, as the law requires, beside every other
+-- chain's. Nobody had read that page.
+--
+-- VERIFIED 2026-10-25, with the published credentials:
+--
+--   סלח דבאח   57 files   3 Stores lists, 30 promotions
+--   פז ילו    980 files   3 Stores lists, 488 promotions
+--
+-- The owner asked for them "without branches — every deal at every branch".
+-- They do not need that, and it would be worse: both publish a Stores file
+-- every morning, the newest from the day before this was written, so their
+-- deals get the same per-branch evidence as every other chain. A deal that
+-- really is chainwide will be read as chainwide by promotion_scope (0017)
+-- because the branches say so, rather than because we assumed it.
+--
+-- Two stores and two feeds. Nothing else: the importer already knows how to
+-- read this platform, and the chain codes in the publisher config match the
+-- files exactly.
+--
+-- Additive and idempotent.
+-- ---------------------------------------------------------------------------
+
+insert into public.stores (slug, name_he) values
+  ('salach-dabach', 'סלח דבאח'),
+  ('yellow',        'ילו')
+on conflict (slug) do nothing;
+
+insert into public.sources (slug, name, kind, trust) values
+  ('feed-salach-dabach', 'Salach Dabach price feed', 'chain_feed', 80),
+  ('feed-yellow',        'Paz Yellow price feed',    'chain_feed', 80)
+on conflict (slug) do nothing;
+
 -- ======================== 0063_six_more_beers.sql ========================
 
 -- ---------------------------------------------------------------------------
@@ -16070,9 +16144,9 @@ begin
   create schema if not exists supabase_migrations;
   create table if not exists supabase_migrations.schema_migrations (version text primary key);
   insert into supabase_migrations.schema_migrations (version)
-  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0063'), ('0064'), ('0065'), ('0066'), ('0067')
+  values ('0001'), ('0002'), ('0003'), ('0004'), ('0005'), ('0006'), ('0007'), ('0008'), ('0009'), ('0010'), ('0011'), ('0012'), ('0013'), ('0014'), ('0015'), ('0016'), ('0017'), ('0018'), ('0019'), ('0020'), ('0021'), ('0022'), ('0023'), ('0024'), ('0025'), ('0026'), ('0027'), ('0028'), ('0029'), ('0030'), ('0031'), ('0032'), ('0033'), ('0034'), ('0035'), ('0036'), ('0037'), ('0038'), ('0039'), ('0040'), ('0041'), ('0042'), ('0043'), ('0044'), ('0045'), ('0046'), ('0047'), ('0048'), ('0049'), ('0050'), ('0051'), ('0054'), ('0055'), ('0056'), ('0057'), ('0058'), ('0059'), ('0060'), ('0061'), ('0062'), ('0063'), ('0064'), ('0065'), ('0066'), ('0067')
   on conflict (version) do nothing;
-  raise notice 'ledger: recorded 63 migrations';
+  raise notice 'ledger: recorded 65 migrations';
 exception when others then
   raise notice 'ledger NOT recorded (%): the schema applied, but a later CLI push may offer to re-run it', sqlerrm;
 end
