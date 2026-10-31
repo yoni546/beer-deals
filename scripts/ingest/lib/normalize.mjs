@@ -62,6 +62,17 @@ export const BRANDS = [
   { slug: "estrella", names: ["אסטרייה", "אסטרייאה", "אסטרייה דאם", "estrella"], alone: false },
   { slug: "blue-moon", names: ["בלו מון", "בלומון", "blue moon"], alone: false },
   { slug: "benediktiner", names: ["בנדיקטינר", "בנדקטינר", "benediktiner"], alone: true },
+  // 0.12.0 (migration 0063): the six from the discard pile that each appear at four
+  // or more chains. NOT פילזנר or ניו אינגלנד — both are styles, and the second one's
+  // brewer is wolfaus, which is here instead. See the migration for the counts.
+  { slug: "san-miguel", names: ["סאן מיגל", "סן מיגל", "san miguel"], alone: true },
+  { slug: "bitburger", names: ["ביטבורגר", "ביטבורגער", "bitburger"], alone: true },
+  { slug: "schofferhofer", names: ["שופרהופר", "שופרהופער", "שופרהופפר", "schofferhofer", "schöfferhofer"], alone: true },
+  // Two spellings of one beer, both from אביר הבר. "גמס" without the geresh is the
+  // commoner of the two in the files, which is not what anyone would guess.
+  { slug: "james", names: ["ג'מס", "גמס", "ג׳מס"], alone: false },
+  { slug: "duvel", names: ["דובל", "duvel"], alone: false },
+  { slug: "wolfaus", names: ["וולפאס אנגלמן", "וולפאס", "וולפס אנגלמן", "wolfaus"], alone: true },
 ];
 
 /** Manufacturer names that mean "this is a beer" when the product name is not explicit. */
@@ -274,8 +285,9 @@ export function parsePack(item) {
     if (packs) count = Number(packs[1]) * (packs[2] === "שישיות" ? 6 : 4);
   }
   if (!count) {
-    const pack = name.match(/(מארז|מגש|ארגז)\s*(\d{1,2})(?!\d)/) ?? name.match(/(\d{1,2})\s*(יח|יחידות|פחיות|בקבוקים|בקבוקי|פחיות)(?=\s|$)/);
-    if (pack) count = Number(pack[2] ?? pack[1]);
+    // The number is group "n" in both forms; a count is never the tail of a size ("330 בקבוקי" is not 30).
+    const pack = name.match(/(מארז|מגש|ארגז)\s*(?<n>\d{1,2})(?!\d)/) ?? name.match(/(?<![\d.])(?<n>\d{1,2})\s*(יח|יחידות|פחיות|בקבוקים|בקבוקי)(?=\s|$)/);
+    if (pack) count = Number(pack.groups.n);
   }
   if (!count) for (const [re, n] of WORD_COUNTS) if (re.test(name)) count = n;
   // Names are cut at ~20 characters at several chains ("…שיש", "…6* 3"): a truncated pack word.

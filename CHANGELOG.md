@@ -23,6 +23,18 @@ Internal:
 - UI: beer page ארגזים gets Part 'בחנויות משקאות' (ShopCrates: ink price, per-unit price, link out with rel=noopener); Home ?pack=case shows them in place of NoCratesYet, or after the crate deals. Owner chose these two shops (terms do not forbid reading); others to be asked first.
 - Needs applying to production (0068) before the first run writes; until then the reader returns [] and the writer warns and exits 0.
 
+## 0.41.1 — 2026-10-30 (internal)
+
+**קריאה נכונה של גודל מארז מהשם** · Fix
+
+- מוצר ששמו אומר "24 יחידות", "20 פחיות" או "6 בקבוקים" נקרא עכשיו כמארז בגודל הזה. במחירים של היום זה לא משנה אף מבצע: המוצרים האלה כבר הותאמו נכון בדרך אחרת.
+
+Internal:
+
+- scripts/ingest/lib/normalize.mjs parsePack(): the "<n> יחידות|יח|פחיות|בקבוקים|בקבוקי" fallback read Number(pack[2]) — the unit word — so the count was NaN and fell through (e.g. Dor Alon "בירה בקס 6 יחידות 1.", Quantity 275 per 100 ml, was 1×275). Both forms now name the number group (?<n>…); the unit-word form also needs no digit or dot before the number, so the "30" of "330 בקבוקי" is never a count. A pack word alone still never implies 24.
+- Measured: fixtures 1 of 429 beer rows changes (that Becks row: single 1×275 partial → multipack 6×275 partial). Offline plan (buildPlan on .ingest-cache scan 2026-10-20, main vs this branch): identical totals (1089 branches, 196 SKUs, 45,470 regular, 18,785 promotions, 8,446 unresolved), 0 of 2,801 source products change status, the same SKU set; the 8 scan names that use only this form were already matched to the right SKU. No database written.
+- scripts/shops/lib/crates.mjs countOf() (PR #50) can now fall back to parsePack; left as is here.
+
 ## 0.41.0 — 2026-10-29
 
 **שמירת מבצעים, ומעברים שרואים** · Feature, Fix
