@@ -25,6 +25,16 @@
 
 $ErrorActionPreference = "Stop"
 
+# node writes its per-chain lines and its "review it" warnings to stderr, and the
+# chain names are Hebrew. Without this the log reads as mojibake, and -- worse --
+# PowerShell wraps each stderr line of a native program in an error record, which
+# under ErrorActionPreference = Stop ends the pipeline and kills a healthy import.
+# Seen on the first scheduled run: 39 barcode warnings are normal output, and one
+# of them stopped the write mid-way. So the console is told to speak UTF-8, and
+# the two calls below drop to Continue -- their exit code decides, not their noise.
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
+
 $repo = Split-Path -Parent $PSScriptRoot
 $publishers = "victory,mahsanei,hatzi-hinam"
 $ref = "itpyyexhmvosxcbcagvy"   # the production project; run.mjs refuses to write unless this matches its env file
@@ -47,15 +57,22 @@ $node = "C:\Program Files\nodejs\node.exe"
 if (-not (Test-Path $node)) { $node = (Get-Command node -ErrorAction Stop).Source }
 Write-Log "node $node"
 
+function Invoke-Step([string]$what, [string[]]$nodeArgs) {
+  Write-Log "$what : starting"
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $node @nodeArgs 2>&1 | ForEach-Object { Write-Log ($_ | Out-String).TrimEnd() }
+  }
+  finally {
+    $ErrorActionPreference = $previous
+  }
+  if ($LASTEXITCODE -ne 0) { throw "$what exited $LASTEXITCODE" }
+}
+
 try {
-  Write-Log "scan: starting"
-  & $node "scripts\ingest\scan.mjs" --publishers $publishers 2>&1 | ForEach-Object { Write-Log $_ }
-  if ($LASTEXITCODE -ne 0) { throw "scan exited $LASTEXITCODE" }
-
-  Write-Log "write: starting"
-  & $node "scripts\ingest\run.mjs" --target production --confirm-ref $ref --publishers $publishers 2>&1 | ForEach-Object { Write-Log $_ }
-  if ($LASTEXITCODE -ne 0) { throw "write exited $LASTEXITCODE" }
-
+  Invoke-Step "scan" @("scripts\ingest\scan.mjs", "--publishers", $publishers)
+  Invoke-Step "write" @("scripts\ingest\run.mjs", "--target", "production", "--confirm-ref", $ref, "--publishers", $publishers)
   Write-Log "done"
 }
 catch {

@@ -3,6 +3,29 @@
 Short, dated notes on things that cost real time. Each says what was seen, how it was
 narrowed down, and what the code does about it now.
 
+## 2026-10-31 — A scheduled task nobody has triggered is a guess
+
+**Seen.** The weekly local import of the three geo-blocked chains (docs/WEEKLY-IMPORT.md)
+was registered in the Windows Task Scheduler and reported `Ready`. Triggering it by hand
+found two faults in a row, neither of which the registration showed.
+
+**One: it will not run on battery.** The task sat in `Queued` and never started.
+`schtasks /query /v` says why — "Stop On Battery Mode, No Start On Batteries", which is
+Windows' default for a new task. The machine is a laptop, so that is the normal state on a
+Sunday morning, and the task would simply never have run. Fixed with
+`-AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`.
+
+**Two: PowerShell counts a warning as a failure.** The script piped the import's output
+with `2>&1` under `$ErrorActionPreference = "Stop"`. PowerShell 5.1 wraps each stderr line
+of a native program in an error record, so the first of the 39 routine "barcode … already
+belongs to another SKU — left as it is, review it" warnings ended the pipeline and killed a
+healthy write half-way through, leaving an ingestion run `running` for ever. (0067 closes
+such a run after four hours, and what it wrote stays valid, so nothing was lost.) The two
+calls now drop to `Continue` and the exit code alone decides. `[Console]::OutputEncoding`
+is set to UTF-8 in the same place, or the Hebrew chain names arrive as mojibake.
+
+**The rule.** Register nothing without firing it once and reading its log. Both faults
+were invisible from the registration and both were total.
 ## 2026-10-26 — The slowness is the Tokyo hop, and prefetch cannot hide it
 
 **Seen.** The owner: "between pages it takes ages to load, the deals page and the beers page

@@ -36,6 +36,9 @@ Settings that matter, and why:
   took just under seven minutes; an hour means a hung fetch cannot sit there
   until Sunday.
 - **Do not start a new instance** if one is somehow still running.
+- **Allowed to start, and to keep running, on battery.** Not the default: a new task
+  refuses both, and the first trigger of this one sat in `Queued` for that reason. The
+  machine is a laptop, so that is its normal Sunday state.
 - **Runs as the logged-in user, without stored credentials.** The task needs
   `.env.production.local`, which lives in the checkout and is git-ignored. It
   therefore runs only while the owner is logged in — which is the same
