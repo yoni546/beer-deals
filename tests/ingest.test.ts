@@ -313,11 +313,14 @@ describe("publishers and their branches", () => {
     expect(PUBLISHERS["super-yuda"].source).toBe("feed-super-yuda");
     expect(PUBLISHERS["super-yuda"].chainCode).toBe("7290058177776");
 
-    // The two still off are off for a product reason — no store, no feed source —
-    // and say so, rather than claiming a technical wall that is not there.
+    // 0062: both are on now. They were never behind a technical wall either —
+    // their passwords are published on gov.il like everyone else's, and each
+    // chain files a Stores list every morning, so their deals carry the same
+    // per-branch evidence as the rest rather than being assumed chainwide.
     for (const slug of ["salach-dabach", "yellow"]) {
-      expect(PUBLISHERS[slug].blocked, slug).toMatch(/Reachable/);
-      expect(PUBLISHERS[slug].source, slug).toBe("");
+      expect(PUBLISHERS[slug].blocked, slug).toBeUndefined();
+      expect(PUBLISHERS[slug].source, slug).toBeTruthy();
+      expect(PUBLISHERS[slug].password, slug).toBeTruthy();
     }
 
     // Nothing may be left halfway: a publisher we intend to read needs a source.

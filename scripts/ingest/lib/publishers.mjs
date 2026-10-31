@@ -76,22 +76,20 @@ export const PUBLISHERS = {
     retailer: () => "super-yuda",
   },
   "salach-dabach": {
-    source: "",
+    source: "feed-salach-dabach",
     chainCode: "7290526500006",
     platform: "cerberus",
     code: "SalachD",
     retailer: () => "salach-dabach",
     password: "12345",
-    blocked: "Reachable — the published password works and the account lists 57 files (verified 2026-10-25). Still off because this chain has no store row and no feed source yet, which is the owner's call, not a technical one.",
   },
   yellow: {
-    source: "",
+    source: "feed-yellow",
     chainCode: "7290644700005",
     platform: "cerberus",
     code: "Paz_bo",
     retailer: () => "yellow",
     password: "paz468",
-    blocked: "Reachable — the published password works and the account lists 980 files (verified 2026-10-25). Still off because this chain has no store row and no feed source yet, which is the owner's call, not a technical one.",
   },
 };
 
