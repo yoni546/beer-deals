@@ -53,8 +53,8 @@ sign-ins failing.
 
 Each one is safe to re-run except `0001`, which creates types and will complain
 that they already exist. On a **fresh** project you can instead paste the single
-generated file `supabase/RUN_THIS_IN_SUPABASE.sql` (every migration in order;
-rebuilt with `npm run sql:build`). On an **existing** project, apply only the
+generated file `supabase/RUN_THIS_IN_SUPABASE.sql` (every migration in order).
+That file is not in git — run `npm run sql:build` to write it, then paste it. On an **existing** project, apply only the
 migrations you have not run yet — the pull request that adds one says which.
 
 > These are applied by pasting rather than by `supabase db push` on purpose:

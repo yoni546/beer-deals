@@ -1,12 +1,31 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyMigration, asUser, createUser, freshDatabase } from "./helpers/db";
-import { COMBINED_SQL_PATH, renderCombinedSql } from "../scripts/build-combined-sql.mjs";
+import { joinSetLines, renderCombinedSql } from "../scripts/build-combined-sql.mjs";
 
 describe("supabase/RUN_THIS_IN_SUPABASE.sql", () => {
-  it("is exactly the migrations joined in order (regenerate with `npm run sql:build`)", () => {
-    const committed = readFileSync(COMBINED_SQL_PATH, "utf8").replace(/\r\n/g, "\n");
-    expect(committed).toBe(renderCombinedSql());
+  // The file itself is generated and is no longer kept in git -- tracked, it was
+  // touched by every pull request that added a migration, and so collided with
+  // every other such pull request: four were stopped by it in two days, none
+  // over a real disagreement. So what is checked here is what the generator
+  // renders, not a copy of it on disk: every migration present, in order.
+  it("is every migration joined in order", () => {
+    const dir = join(__dirname, "..", "supabase", "migrations");
+    const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+    expect(files.length).toBeGreaterThan(60);
+
+    const combined = renderCombinedSql();
+    let at = -1;
+    for (const file of files) {
+      // joinSetLines, because the generated paste file rewrites one line shape
+      // (see the generator); the migrations themselves keep their formatting.
+      const body = joinSetLines(readFileSync(join(dir, file), "utf8").split("\r\n").join("\n")).trim();
+      const found = combined.indexOf(body);
+      expect(found, `${file} is missing from the combined file`).toBeGreaterThan(-1);
+      expect(found, `${file} is out of order in the combined file`).toBeGreaterThan(at);
+      at = found;
+    }
   });
 
   it("can build the whole schema from scratch", async () => {

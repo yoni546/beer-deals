@@ -39,7 +39,9 @@ jobs:
       # the server/client boundary check and the component tests.
       - run: npm test
       - run: npm run changelog:check
-      - run: npm run sql:check
+      # The combined file is generated, not stored (see .gitignore). Building it
+      # here still proves every migration concatenates.
+      - run: npm run sql:build
       - name: Production build
         run: npm run build
         env:

@@ -64,8 +64,8 @@ npx supabase link --project-ref <staging ref>     # asks for the database passwo
 npx supabase db push --dry-run             # shows what will run
 npx supabase db push                       # applies 0001 … 0013 in order
 ```
-**B · paste**: SQL editor → New query → paste `supabase/RUN_THIS_IN_SUPABASE.sql` → Run (fresh
-project only; regenerate with `npm run sql:build`).
+**B · paste**: `npm run sql:build` (the file is generated, not stored in git), then SQL editor →
+New query → paste `supabase/RUN_THIS_IN_SUPABASE.sql` → Run (fresh project only).
 
 **Only if a database was built from the early draft of `0011`** (it added a manual theme picker's
 columns before that picker was removed — favourite #1 alone decides the look now). Check first:
