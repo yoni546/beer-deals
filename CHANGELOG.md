@@ -8,7 +8,7 @@ MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 
 ## 0.42.1 — 2026-10-31 (internal)
 
-**עדכון שבועי אוטומטי לשלוש הרשתות החסומות** · internal
+**עדכון שבועי אוטומטי לשלוש הרשתות החסומות** · Data
 
 - ויקטורי, מחסני השוק וחצי חינם מתעדכנות עכשיו פעם בשבוע לבד, מהמחשב בבית, ולא רק כשמריצים ידנית.
 
