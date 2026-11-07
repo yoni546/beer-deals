@@ -6,6 +6,18 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.42.2 — 2026-11-07 (internal)
+
+**עדכון המחירים היומי חוזר לעבוד** · Fix, Data
+
+- רישום המחירים במסד הנתונים מהיר יותר, כך שהעדכון היומי של המחירים מסתיים שוב בזמן.
+
+Internal:
+
+- Migration 0069 (apply to staging and production; outside 05:00–11:00 UTC, the index build blocks writes to price_observations while it runs): price_obs_live_branch (sku_id, store_id, kind, coalesce(branch_id, zero uuid), identity_key) WHERE status = live, and price_obs_live_sku_recent (sku_id, kind, observed_at) WHERE status = live. record_prices (0013) and record_price (0066) are re-created with the four "branch_id is not distinct from …" comparisons written as coalesce(…) = coalesce(…), which the index serves; nothing else in them changed. Rollback: supabase/rollback/0069_price_writes_use_an_index.down.sql.
+- Why: no index on price_observations had the branch, and IS NOT DISTINCT FROM cannot use one, so each of the four per-price lookups read every row of that pack at that chain (all branches, all history kept) and filtered it. Every scheduled production import from 2026-10-27 was cancelled at the 180-minute limit inside the write; on 2026-11-06, 28 batches of 100 hit the statement timeout. Local measurement with 200 branches × 23 versions: 1.33 → 0.59 ms per price; the old cost grows with the history, the new one does not.
+- tests/price-writes-index.test.ts: behaviour unchanged (branch vs chain-wide rows, seen-again, sudden_change hold per branch), the lookup plan uses price_obs_live_branch, and the rollback restores the old definitions.
+
 ## 0.42.1 — 2026-10-31 (internal)
 
 **עדכון שבועי אוטומטי לשלוש הרשתות החסומות** · Data
