@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { SAVED_COOKIE } from "@/lib/saved";
 import { z } from "zod";
 import { FEEDS_TAG } from "@/lib/feeds";
 import { report } from "@/lib/log";
@@ -184,4 +187,22 @@ export async function saveDisplayName(_previous: ActionResult, formData: FormDat
   // their own deals, which is exactly the moment the feature is supposed to land.
   revalidateTag(FEEDS_TAG);
   return { ok: true, message: raw ? "נשמר." : "השם הוסר." };
+}
+
+/**
+ * Delete this person's account and everything about them (0070; both app stores require it). The
+ * database does the deleting; here the session is ended and the device forgets the saved deals, so
+ * nothing on the phone still points at an account that no longer exists. They land on the welcome
+ * screen, which makes a fresh anonymous account if they carry on.
+ */
+export async function deleteMyAccount(): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) {
+    report("account.delete_failed", { code: error.code, reason: error.message });
+    return { ok: false, error: error.message.includes("administrator") ? "חשבון של מנהל נמחק דרך לוח הניהול." : describeDbError(error) };
+  }
+  await supabase.auth.signOut();
+  (await cookies()).delete(SAVED_COOKIE);
+  redirect("/welcome");
 }

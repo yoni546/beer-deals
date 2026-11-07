@@ -21,6 +21,7 @@ describe("/api/version — what is deployed, for the deployment checks", () => {
 
   it("is outside the middleware, so asking never creates an anonymous visitor", () => {
     const middleware = readFileSync(join(__dirname, "..", "src/middleware.ts"), "utf8");
-    expect(middleware).toContain("|api/version).*)");
+    // Followed by the next exclusion or the end of the group (0.43.0 added /privacy and /.well-known/ after it).
+    expect(middleware).toMatch(/\|api\/version[|)]/);
   });
 });

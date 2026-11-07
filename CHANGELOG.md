@@ -6,6 +6,20 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.43.0 — 2026-11-07
+
+**מדיניות פרטיות ומחיקת חשבון** · Feature
+
+- יש עכשיו דף מדיניות פרטיות שמסביר מה נשמר עליכם ומי עוד רואה מידע.
+- בהגדרות, תחת ״הפרטיות שלי״, אפשר למחוק את החשבון ואת כל מה שנשמר עליו.
+
+Internal:
+
+- First step of the app-store release (Google Play and App Store both require an in-app account deletion and a privacy policy URL).
+- Migration 0070 delete_my_account(): SECURITY DEFINER, no argument, deletes auth.users where id = auth.uid(); everything personal cascades (profile, favourites, watchlist, contributors, display_name_changes, push, deliveries, feedback, submitter block); deals.created_by is set null, so submitted deals and their photos stay unattributed. Admins are refused. Rollback: supabase/rollback/0070_delete_my_account.down.sql.
+- /privacy: static, no session, excluded from the middleware matcher together with /.well-known/ (for assetlinks.json and apple-app-site-association next). Contact beerdeals.app@gmail.com (src/lib/privacy.ts). tests/privacy.test.ts pins the page's claims to the code (no analytics packages, 4-decimal location, cookie holds keys only).
+- Needs applying to production: 0070.
+
 ## 0.42.2 — 2026-11-07 (internal)
 
 **עדכון המחירים היומי חוזר לעבוד** · Fix, Data

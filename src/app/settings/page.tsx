@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Screen, TopBar } from "@/components/Chrome";
 import { CouldNotLoad } from "@/components/CouldNotLoad";
 import { CreditEditor } from "@/components/CreditEditor";
+import { DeleteAccount } from "@/components/DeleteAccount";
 import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { LocationEditor } from "@/components/LocationEditor";
@@ -122,6 +123,15 @@ export default async function SettingsPage() {
               </span>
             </Tape>
             <ShareApp />
+          </div>
+        </Section>
+
+        <Section id="s-privacy" title="הפרטיות שלי" note="מה נשמר עליכם, ואיך מוחקים את הכול.">
+          <div className="space-y-3">
+            <Link href="/privacy" prefetch={false} className="flex min-h-11 items-center justify-center text-sm text-on-ground underline underline-offset-4">
+              מדיניות הפרטיות
+            </Link>
+            {!viewer.isAdmin && <DeleteAccount />}
           </div>
         </Section>
 
