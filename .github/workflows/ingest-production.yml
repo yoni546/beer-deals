@@ -57,7 +57,9 @@ jobs:
     name: Scan branches, write to production
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 180
+    # 5½ h (GitHub's hosted runners allow 6). 180 was the limit until 2026-11-07: with 1,072 branches the write
+    # alone takes longer than that, and a run cut off is repeated whole the next day, so from 27.10 no run finished.
+    timeout-minutes: 330
     env:
       # Typed by hand on a manual run; the recorded production project on a scheduled one.
       CONFIRM_REF: ${{ github.event_name == 'schedule' && 'itpyyexhmvosxcbcagvy' || inputs.confirm_ref }}
