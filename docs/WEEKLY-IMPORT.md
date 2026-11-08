@@ -27,19 +27,48 @@ node scripts/ingest/scan.mjs --publishers victory,mahsanei,hatzi-hinam
 node scripts/ingest/run.mjs  --target production --confirm-ref <ref> --publishers victory,mahsanei,hatzi-hinam
 ```
 
+## Two triggers, and the guard that makes the second one safe
+
+The task fires **every Sunday at 09:00 and again ten minutes after every
+logon**, and the script decides which of those is a real import.
+
+A weekly trigger alone does not survive a laptop. On 8 November the 09:00
+occurrence never ran — the machine was off — and Windows moved straight on to
+the 15th rather than catching up, so a whole week of these three chains would
+have gone unrefreshed. Task history is off on this machine, so why "start when
+available" did not catch up cannot be read back; the answer was to stop relying
+on it being right.
+
+So the script carries its own clock. Before it does anything it looks for the
+newest log that ends in `done`, and if that run finished less than
+`-MaxAgeDays` ago (default **6**) it writes `skipped` and exits 0. Six days,
+not seven, so the weekly import is never the one skipped — only the extra
+attempts the logon trigger makes around it. `-Force` imports regardless.
+
+Now the machine can be off on any given Sunday and the next logon picks it up,
+while a machine that is rebooted twice a day still imports once a week.
+
 Settings that matter, and why:
 
-- **Start when available.** A weekly task on a desktop PC will be missed. This
-  makes Windows run it the next time the machine is on rather than waiting a
-  week.
-- **Only when a network is available**, and a **one-hour limit**. The hand run
-  took just under seven minutes; an hour means a hung fetch cannot sit there
+- **Start when available**, still, as a third chance.
+- **Only when a network is available**, and a **one-hour limit**. A real run
+  takes four to seven minutes; an hour means a hung fetch cannot sit there
   until Sunday.
 - **Do not start a new instance** if one is somehow still running.
+- **Allowed to start, and to keep running, on battery.** Not the default: a new
+  task refuses both, and the very first trigger of this one sat in `Queued` for
+  that reason. The machine is a laptop, so that is its normal state.
 - **Runs as the logged-in user, without stored credentials.** The task needs
   `.env.production.local`, which lives in the checkout and is git-ignored. It
   therefore runs only while the owner is logged in — which is the same
   condition as the machine being on.
+
+Task history is **disabled** on this machine, which is Windows' default and
+which cost a diagnosis on 8 November. Turning it on needs an administrator:
+
+```powershell
+wevtutil set-log Microsoft-Windows-TaskScheduler/Operational /enabled:true
+```
 
 ## Reading what it did
 
@@ -50,16 +79,25 @@ twelve kept). A good run ends with a JSON line whose `errors` is `0`:
 {"seconds":228,"branchesWritten":150,"regular":{"accepted":7544,...},"errors":0}
 ```
 
-A failed run ends with a line beginning `FAILED:` and the task's History tab
-shows a non-zero exit code.
+A skipped run ends with `skipped` and is not a failure. A failed run ends with
+a line beginning `FAILED:`, and the task's Last Run Result is non-zero.
 
 ## Running it by hand
 
-Task Scheduler → Task Scheduler Library → right-click the task → **Run**. Or:
+Task Scheduler → Task Scheduler Library → right-click the task → **Run**. That
+obeys the six-day guard, so soon after a good run it will only say `skipped`.
+To import anyway:
 
 ```powershell
-Start-ScheduledTask -TaskName "Beer Deals - weekly import of the three blocked chains"
+& "C:\Users\yoni1\Desktop\beer-deals\scripts\weekly-blocked-chains.ps1" -Force
 ```
+
+**A killed write blocks the next four hours.** `start_ingestion_run` answers
+"already imported" for a run of the same files that is still `running`, and
+0067 only marks such a run failed once it is four hours old. So after a run
+that died part-way, an immediate retry writes nothing and says it was already
+done. Wait out the four hours, or roll the dead runs back (below) first. Seen
+on 8 November, when the write was killed by the stderr fault this change fixes.
 
 ## Undoing an import
 
