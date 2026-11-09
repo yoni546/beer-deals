@@ -706,3 +706,26 @@ test("crates at liquor shops: on the beer's ארגזים and on Home's, worded a
     await revalidateAppCaches();
   }
 });
+
+test("the privacy policy opens with no account, and a person can delete theirs from settings (0070)", async ({ page, browser }) => {
+  // A stranger from the store listing: no onboarding, straight to the page.
+  const stranger = await browser.newPage();
+  await stranger.goto("/privacy");
+  await expect(stranger.getByRole("heading", { name: "מדיניות פרטיות" })).toBeVisible();
+  await expect(stranger.getByRole("link", { name: "beerdeals.app@gmail.com" })).toBeVisible();
+  await stranger.close();
+
+  await onboard(page, "מחיקה");
+  await page.goto("/settings");
+  await expect(page.getByRole("link", { name: "מדיניות הפרטיות" })).toBeVisible();
+  await page.getByRole("button", { name: "מחיקת החשבון שלי" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("אי אפשר לשחזר");
+  await page.getByRole("button", { name: "ביטול" }).click();
+  await page.getByRole("button", { name: "מחיקת החשבון שלי" }).click();
+  await page.getByRole("button", { name: "כן, למחוק הכול" }).click();
+  await expect(page).toHaveURL(/\/welcome/);
+
+  // The name is gone with the account: Home asks again from the start.
+  await page.goto("/settings");
+  await expect(page).toHaveURL(/\/welcome/);
+});
