@@ -1,6 +1,12 @@
-name: Daily price ingestion (STAGING)
+name: Price ingestion (STAGING)
 
-# Once a day (0.9.0): scan every branch of every publisher (scan.mjs, incremental, read-only) → write the
+# MANUAL ONLY since 2026-11-09 (owner's decision). Staging is a rehearsal space for risky changes to data —
+# a migration that rewrites or deletes rows, a new pruning rule — not a daily copy of production: every test,
+# e2e included, runs on a local fake database (tests/e2e/), and releases go to production after CI alone. Its
+# daily run had failed 23 of its last 30 days with nobody reading it, and kept a free project awake for nothing.
+# To rehearse: unpause the staging project in Supabase, run this by hand, then let it pause again.
+#
+# When run (0.9.0): scan every branch of every publisher (scan.mjs, incremental, read-only) → write the
 # scan to the STAGING database (inventory, prices, occurrences, scope) → read it back per chain
 # (coverage.mjs) → only if the quality gate passed, ring the staging notification worker.
 #
@@ -16,12 +22,7 @@ name: Daily price ingestion (STAGING)
 #
 # Idempotent: a file already imported is skipped (start_ingestion_run). Recoverable: any run can be undone
 # with  select rollback_ingestion_run('<run id>', 'reason');  (docs/INGESTION-READINESS.md §1).
-# GitHub only runs scheduled workflows from the default branch: this starts the day it is merged.
-
 on:
-  schedule:
-    # 04:23 UTC = 07:23 in Israel (summer) / 06:23 (winter): after the chains' early-morning full files.
-    - cron: "23 4 * * *"
   workflow_dispatch:
 
 permissions:
