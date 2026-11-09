@@ -1,5 +1,11 @@
 # Staging environment
 
+> **Since 2026-11-09: a rehearsal space, not a daily environment (owner's decision).** The daily staging
+> import is manual only (`ingest-staging.yml`); the project is left to pause on Supabase's free plan. Use it
+> before a change that rewrites or deletes data in bulk: unpause it in the Supabase dashboard, run the
+> workflow (or `run.mjs --target staging`) to bring its data up to date, rehearse, then leave it. Everyday
+> work does not need it: every test, e2e included, runs on a local fake database (`tests/e2e/`).
+
 A second, disposable copy of the whole stack — its own Supabase project, its own
 Vercel deployment, its own keys — where anything can be tried, seeded and broken
 without touching real users. Everything in the repository that can be prepared for
@@ -19,7 +25,7 @@ an account with a browser, so this file is the exact runbook.
 | Keys | only in the git-ignored `.env.staging.local` on the machine that created it (URL, anon, service role, DB password, its own VAPID pair and CRON_SECRET), and as GitHub secrets `STAGING_SUPABASE_URL` / `_ANON_KEY` / `_SERVICE_ROLE_KEY` |
 | Real-data checks | with the app on :3300 against staging: `E2E_STAGING=1 E2E_BASE_URL=http://localhost:3300 PW_CHANNEL=chrome npx playwright test` (390×844 and 430×932, `tests/e2e/staging-real-data.spec.ts`), and `node scripts/ingest/coverage.mjs --ui http://localhost:3300` → `docs/RETAILER-COVERAGE.md` |
 | App against it | `set -a; . ./.env.staging.local; set +a; NEXT_DIST_DIR=.next-staging npx next build && NEXT_DIST_DIR=.next-staging npx next start -p 3300` (then revert `tsconfig.json` / `next-env.d.ts`, which the build rewrites) |
-| Ingestion | `node scripts/ingest/fetch-sample.mjs && node scripts/ingest/parse.mjs && node scripts/ingest/run.mjs --target staging && node scripts/ingest/verify-staging.mjs`; daily: `.github/workflows/ingest-staging.yml` (from `main`) |
+| Ingestion | `node scripts/ingest/fetch-sample.mjs && node scripts/ingest/parse.mjs && node scripts/ingest/run.mjs --target staging && node scripts/ingest/verify-staging.mjs`; or by hand: `.github/workflows/ingest-staging.yml` (manual only since 2026-11-09) |
 | Not done | a **Vercel staging/preview deployment** (needs the Vercel account — §4), so the staging notification worker has no URL to ring yet |
 
 > **The minimum you must still do by hand:** §4 (Vercel preview → staging keys). Sections 1–3 are done.

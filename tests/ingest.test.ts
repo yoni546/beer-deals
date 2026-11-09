@@ -405,7 +405,13 @@ describe("the writer's target", () => {
   });
 });
 
-describe("the daily ingestion workflow", () => {
+describe("the staging ingestion workflow", () => {
+  it("runs only by hand: staging is for rehearsals, not a daily copy (2026-11-09)", () => {
+    const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-staging.yml"), "utf8");
+    expect(yml).toMatch(/on:\s*\n\s*workflow_dispatch:/);
+    expect(yml).not.toMatch(/schedule:|- cron:/);
+  });
+
   it("targets staging only, reads only staging secrets, and announces nothing after a failed import", () => {
     const yml = readFileSync(join(__dirname, "..", ".github/workflows/ingest-staging.yml"), "utf8");
     expect(yml).toContain("run.mjs --target staging");
