@@ -1,0 +1,10 @@
+{
+  "$comment": "The Android app's identity (scripts/android/build-twa.mjs). packageId is permanent once the app is on Google Play. The SHA-256 fingerprints are public (they are what assetlinks.json publishes), never the key itself.",
+  "packageId": "app.beerdeals",
+  "host": "beer-deals.vercel.app",
+  "name": "מבצעי בירה",
+  "launcherName": "מבצעי בירה",
+  "versionName": "1.0.0",
+  "signingKeyAlias": "upload",
+  "certSha256": []
+}
