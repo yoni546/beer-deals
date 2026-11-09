@@ -38,6 +38,22 @@ describe("a person deletes their account", () => {
     expect((await w.db.query("select 1 from auth.users where id = $1", [other])).rows).toHaveLength(1);
   });
 
+  it("stays fast: every column that points at a person is indexed (0071)", async () => {
+    // 0070 timed out in production on its first use: deleting a user visits every referencing row, and
+    // price_observations.created_by (810 MB) had no index. A new unindexed link would bring that back.
+    const w = await world();
+    const { rows } = await w.db.query<{ link: string }>(
+      `select c.conrelid::regclass::text || '.' || a.attname as link
+         from pg_constraint c
+         join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+        where c.contype = 'f' and c.confrelid = 'auth.users'::regclass
+          and c.conrelid::regclass::text like 'public.%'
+          and not exists (select 1 from pg_index i where i.indrelid = c.conrelid and i.indkey[0] = a.attnum)
+        order by 1`,
+    );
+    expect(rows.map((r) => r.link)).toEqual([]);
+  });
+
   it("refuses a caller who is not signed in, and an administrator", async () => {
     const w = await world();
     await expect(asUser(w.db, null, () => w.db.query("select public.delete_my_account()"), "anon")).rejects.toThrow();
