@@ -17,7 +17,7 @@ an account with a browser, so this file is the exact runbook.
 | | |
 | --- | --- |
 | Project | `beer-deals-staging`, ref **`qpjwnxptitnmtsznjvkw`**, created with the Supabase CLI |
-| Account / organisation | the Supabase account this machine's CLI is logged into (organisation "GanzaxPhotography") — **not** the account that owns production (`itpyyexhmvosxcbcagvy`) |
+| Account / organisation | the Supabase account this machine's CLI is logged into (organisation "GanzaxPhotography") — **not** the account that owns production (`qxumavffsnreyqcuxlof`, "beer and beer"; until 2026-11-09 `itpyyexhmvosxcbcagvy`) |
 | Region | **`ap-northeast-1` (Tokyo)** — the same region production's database address points to, so staging measures what production does. (The Frankfurt move below remains the durable fix for Israeli users; see INFRASTRUCTURE.md.) |
 | Schema | migrations **0001–0018** applied (`supabase db push`) |
 | Auth | anonymous sign-ins on (`supabase config push`, site URL `http://127.0.0.1:3100` — no emails are sent) |

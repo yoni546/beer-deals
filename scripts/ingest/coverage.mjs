@@ -30,7 +30,7 @@ const flag = (name) => {
 const envFile = join(ROOT, ".env.staging.local");
 if (!existsSync(envFile)) throw new Error(".env.staging.local not found (docs/STAGING.md)");
 const env = Object.fromEntries(readFileSync(envFile, "utf8").split(/\r?\n/).filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
-if (env.APP_ENV !== "staging" || /itpyyexhmvosxcbcagvy/.test(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("not a staging environment");
+if (env.APP_ENV !== "staging" || /qxumavffsnreyqcuxlof|itpyyexhmvosxcbcagvy/.test(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("not a staging environment");
 
 const cache = join(ROOT, ".ingest-cache");
 const { units, scan } = loadScan(cache, flag("scan") || undefined);

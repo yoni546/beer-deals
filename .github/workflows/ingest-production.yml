@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 330
     env:
       # Typed by hand on a manual run; the recorded production project on a scheduled one.
-      CONFIRM_REF: ${{ github.event_name == 'schedule' && 'itpyyexhmvosxcbcagvy' || inputs.confirm_ref }}
+      CONFIRM_REF: ${{ github.event_name == 'schedule' && 'qxumavffsnreyqcuxlof' || inputs.confirm_ref }}
     steps:
       - name: Check the production secrets and the typed project ref
         env:

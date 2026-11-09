@@ -18,6 +18,8 @@ Rules that keep them apart:
 - The service-role key and VAPID private key exist only in Vercel (per environment) and in
   the owner's password manager. They are never written to a file in this repository.
 
+> **2026-11-09:** production moved to the Supabase project "beer and beer" (`qxumavffsnreyqcuxlof`, Frankfurt `eu-central-1`). The measurements below are of the previous project (`itpyyexhmvosxcbcagvy`, Tokyo) and are kept as history.
+
 ## Where the database and the functions run (evidence, not assumption)
 
 Every page is rendered on demand and makes several sequential database calls (session
