@@ -1,0 +1,237 @@
+name: Clone PRODUCTION into a new project (manual, one-off)
+
+# Copies the whole production database into an EMPTY Supabase project in another
+# region, and then counts every table on both sides and refuses to call it a
+# success unless the numbers match.
+#
+# WHY IT RUNS HERE. `supabase db dump` shells out to pg_dump in a container, so
+# it needs Docker; a hosted runner has it, a Windows laptop does not. It also
+# means neither connection string ever reaches a laptop, a chat window or a
+# file on the Desktop: both live as repository secrets and are masked in logs.
+#
+# WHAT IT TOUCHES. Production is READ ONLY — pg_dump issues no writes. The
+# target is written to, and must be empty: the run stops if the target already
+# has a `public.deals` table, unless `i_know_the_target_has_data` is typed.
+#
+# NEEDS TWO SECRETS (Settings -> Secrets and variables -> Actions):
+#   PRODUCTION_DB_URL   already set for the backup workflow.
+#   TARGET_DB_URL       the NEW project's Postgres URI, from
+#                       Supabase -> the new project -> Project Settings ->
+#                       Database -> Connection string -> URI, with
+#                       [YOUR-PASSWORD] replaced by the password you chose.
+#                       Use the SESSION POOLER on port 5432; the 6543
+#                       transaction pooler cannot run a restore.
+#
+# WHAT IT DOES NOT DO. It does not point the app at the new project, and it
+# does not delete anything. Switching over is three environment variables in
+# Vercel, by hand, after the counts in this run's summary have been read.
+#
+# WHAT CANNOT BE CARRIED OVER. Browser sessions. A session cookie is named
+# after the project ref, so on the new ref every signed-in anonymous visitor is
+# a new one, and the 59 people who have chosen beers will choose them again.
+# Their rows survive this copy; only the link from their browser is cut.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "The PRODUCTION ref to copy FROM (Project Settings -> General -> Reference ID)."
+        required: true
+        type: string
+      target_ref:
+        description: "The NEW, EMPTY project's ref to copy INTO. Must not be production or staging."
+        required: true
+        type: string
+      i_know_the_target_has_data:
+        description: "Only tick this to overwrite a target that already has tables."
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clone-production
+  cancel-in-progress: false
+
+env:
+  STAGING_REF: qpjwnxptitnmtsznjvkw
+
+jobs:
+  clone:
+    name: Dump production, restore into the new project, compare
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every way of addressing the wrong database is ruled out before a byte
+      # moves. Only decisions are printed, never a connection string.
+      - name: Prove the source and the target are what was typed
+        env:
+          SOURCE_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          TARGET_URL: ${{ secrets.TARGET_DB_URL }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          TARGET_REF: ${{ inputs.target_ref }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          looks_like_a_ref() {
+            case "$1" in
+              [a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z][a-z]) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          [ -n "${SOURCE_URL:-}" ] || fail "PRODUCTION_DB_URL is not set."
+          [ -n "${TARGET_URL:-}" ] || fail "TARGET_DB_URL is not set. See the header of this workflow."
+
+          looks_like_a_ref "$SOURCE_REF" || fail "source_ref is not a Supabase project ref (20 lowercase letters)."
+          looks_like_a_ref "$TARGET_REF" || fail "target_ref is not a Supabase project ref (20 lowercase letters)."
+
+          [ "$SOURCE_REF" != "$TARGET_REF" ] || fail "Source and target are the same project."
+          [ "$TARGET_REF" != "$STAGING_REF" ] || fail "The target is STAGING. Refusing."
+          [ "$SOURCE_REF" != "$STAGING_REF" ] || fail "The source is STAGING. This copies production."
+
+          case "$SOURCE_URL" in *"$SOURCE_REF"*) ;; *) fail "PRODUCTION_DB_URL does not point at source_ref. Refusing." ;; esac
+          case "$TARGET_URL" in *"$TARGET_REF"*) ;; *) fail "TARGET_DB_URL does not point at target_ref. Refusing." ;; esac
+          case "$TARGET_URL" in *"$SOURCE_REF"*) fail "TARGET_DB_URL points at the SOURCE. Refusing." ;; esac
+          case "$TARGET_URL" in *"$STAGING_REF"*) fail "TARGET_DB_URL points at STAGING. Refusing." ;; esac
+
+          # A restore cannot run over the transaction pooler.
+          case "$TARGET_URL" in *":6543"*) fail "TARGET_DB_URL uses port 6543 (transaction pooler). Use the session pooler on 5432." ;; esac
+
+          echo "OK - copying $SOURCE_REF into $TARGET_REF."
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Refuse a target that already holds data
+        env:
+          TARGET_URL: ${{ secrets.TARGET_DB_URL }}
+          FORCE: ${{ inputs.i_know_the_target_has_data }}
+        run: |
+          set -euo pipefail
+          existing=$(psql "$TARGET_URL" -tAc "select to_regclass('public.deals') is not null" 2>/dev/null || echo "unreachable")
+          if [ "$existing" = "unreachable" ]; then
+            echo "::error::Could not reach the target. Check TARGET_DB_URL (session pooler, port 5432, real password)."
+            exit 1
+          fi
+          if [ "$existing" = "t" ] && [ "$FORCE" != "true" ]; then
+            echo "::error::The target already has public.deals. This workflow only fills an EMPTY project."
+            exit 1
+          fi
+          echo "Target reachable; public.deals present = $existing"
+
+      - name: Dump production (read only)
+        env:
+          SOURCE_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p dump
+          # The order below is the order of the restore, and auth data comes
+          # before public data: profiles reference auth.users, so public rows
+          # cannot land first.
+          supabase db dump --db-url "$SOURCE_URL" --role-only                -f dump/1-roles.sql
+          supabase db dump --db-url "$SOURCE_URL"                            -f dump/2-schema.sql
+          supabase db dump --db-url "$SOURCE_URL" --data-only --schema auth  -f dump/3-auth-data.sql
+          supabase db dump --db-url "$SOURCE_URL" --data-only                -f dump/4-public-data.sql
+
+      - name: Verify the dumps are real before writing anything
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          for f in dump/*.sql; do
+            size=$(stat -c%s "$f")
+            [ "$size" -gt 0 ] || fail "$f is empty."
+            echo "$f - $size bytes"
+          done
+          grep -q "CREATE TABLE" dump/2-schema.sql       || fail "2-schema.sql has no CREATE TABLE."
+          grep -q "public.deals" dump/2-schema.sql       || fail "2-schema.sql does not mention public.deals - wrong database?"
+          grep -qE "^(COPY|INSERT INTO)" dump/4-public-data.sql || fail "4-public-data.sql has no rows."
+          grep -q "auth.users"  dump/3-auth-data.sql     || fail "3-auth-data.sql does not mention auth.users."
+
+      - name: Restore into the new project
+        env:
+          TARGET_URL: ${{ secrets.TARGET_DB_URL }}
+        run: |
+          set -euo pipefail
+          # ON_ERROR_STOP so the first real failure ends the run instead of
+          # leaving a half-filled database that looks finished.
+          for f in dump/1-roles.sql dump/2-schema.sql dump/3-auth-data.sql dump/4-public-data.sql; do
+            echo "::group::restoring $(basename "$f")"
+            psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done
+
+      # The only check worth having: the same question asked of both databases.
+      - name: Count every table on both sides and compare
+        env:
+          SOURCE_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          TARGET_URL: ${{ secrets.TARGET_DB_URL }}
+        run: |
+          set -euo pipefail
+          counts() {
+            psql "$1" -tAF'|' -c "
+              select c.relname, (xpath('/row/c/text()',
+                     query_to_xml(format('select count(*) as c from public.%I', c.relname), false, true, '')))[1]::text::bigint
+                from pg_class c
+                join pg_namespace n on n.oid = c.relnamespace
+               where n.nspname = 'public' and c.relkind = 'r'
+               order by c.relname;"
+          }
+          counts "$SOURCE_URL" > source.txt
+          counts "$TARGET_URL" > target.txt
+
+          # auth.users decides whether anybody's profile still has an owner.
+          su=$(psql "$SOURCE_URL" -tAc "select count(*) from auth.users")
+          tu=$(psql "$TARGET_URL" -tAc "select count(*) from auth.users")
+
+          {
+            echo "### Table by table"
+            echo ""
+            echo "| table | production | new project | |"
+            echo "| --- | ---: | ---: | :-- |"
+            echo "| *auth.users* | $su | $tu | $( [ "$su" = "$tu" ] && echo 'ok' || echo '**DIFFERENT**' ) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          bad=0
+          while IFS='|' read -r table n; do
+            m=$(grep -m1 "^$table|" target.txt | cut -d'|' -f2 || true)
+            if [ "$n" = "${m:-}" ]; then
+              mark="ok"
+            else
+              mark="**DIFFERENT**"; bad=$((bad + 1))
+            fi
+            echo "| \`$table\` | $n | ${m:-missing} | $mark |" >> "$GITHUB_STEP_SUMMARY"
+          done < source.txt
+
+          [ "$su" = "$tu" ] || bad=$((bad + 1))
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$bad" -gt 0 ]; then
+            echo "$bad table(s) do not match. The new project is NOT a faithful copy - do not switch the app over." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::$bad table(s) differ between production and the new project."
+            exit 1
+          fi
+          echo "Every table matches, auth.users included. The copy is faithful." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: What to do next
+        run: |
+          {
+            echo ""
+            echo "### Next"
+            echo ""
+            echo "1. Read the table above. Every row must say ok."
+            echo "2. In Vercel, Production environment, change \`NEXT_PUBLIC_SUPABASE_URL\`,"
+            echo "   \`NEXT_PUBLIC_SUPABASE_ANON_KEY\` and \`SUPABASE_SERVICE_ROLE_KEY\` to the new project's."
+            echo "3. Remove the \`hnd1\` region pin from \`vercel.json\` so the functions run beside the new database."
+            echo "4. Leave the old project running for a week. Putting those three variables back is the whole rollback."
+            echo "5. The import workflows read their own secrets - \`PRODUCTION_DB_URL\`,"
+            echo "   \`PRODUCTION_SUPABASE_URL\` and \`PRODUCTION_SUPABASE_SERVICE_ROLE_KEY\` all have to move too."
+          } >> "$GITHUB_STEP_SUMMARY"
