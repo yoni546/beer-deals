@@ -87,6 +87,19 @@ from seconds to a few hundred milliseconds. (Moving the function next to a Tokyo
 makes the *first byte* travel Tokyo→Israel once, instead of the function crossing an ocean
 several times.)
 
+### 2026-11-10: the functions follow the database to Frankfurt
+
+Production moved to `qxumavffsnreyqcuxlof` in `eu-central-1`. `vercel.json` now pins
+**`fra1`**, by the table above.
+
+The pin had to change in the same breath as the move, not after it. Left on `hnd1` it
+would have been the worst of both: a reader in Israel reaching a function in Tokyo that
+then queries a database in Frankfurt — the ocean crossed twice per request instead of once.
+Measured on 9 November, while both were still in Tokyo, every dynamic page took 1.2-2.5 s
+to first byte against 0.22 s for a static file that never leaves Frankfurt.
+
+Deleting the `regions` key would not have done it either: without one Vercel falls back to
+`iad1` (Virginia), which is further from Frankfurt than Israel is.
 ### 2026-09-29 (later): what changed, and the "before" numbers
 
 * **`vercel.json` now pins `"regions": ["hnd1"]`** (Tokyo). It takes effect on the next deployment of this branch
