@@ -89,6 +89,12 @@ from seconds to a few hundred milliseconds. (Moving the function next to a Tokyo
 makes the *first byte* travel Tokyo→Israel once, instead of the function crossing an ocean
 several times.)
 
+### 2026-11-10: database moved to Frankfurt, functions follow
+
+Production moved to `qxumavffsnreyqcuxlof` (`eu-central-1`, Frankfurt), so `vercel.json` now pins
+`"regions": ["fra1"]`. Leaving it on `hnd1` would have sent every request Israel → Tokyo → Frankfurt
+and back. The `hnd1` history below is kept as history.
+
 ### 2026-09-29 (later): what changed, and the "before" numbers
 
 * **`vercel.json` now pins `"regions": ["hnd1"]`** (Tokyo). It takes effect on the next deployment of this branch
