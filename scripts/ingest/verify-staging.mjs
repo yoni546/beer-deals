@@ -14,7 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const file = join(ROOT, ".env.staging.local");
 if (!existsSync(file)) throw new Error(".env.staging.local not found");
 const env = Object.fromEntries(readFileSync(file, "utf8").split(/\r?\n/).filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
-if (env.APP_ENV !== "staging" || /itpyyexhmvosxcbcagvy/.test(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("not a staging environment");
+if (env.APP_ENV !== "staging" || /qxumavffsnreyqcuxlof|itpyyexhmvosxcbcagvy/.test(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error("not a staging environment");
 
 const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 const svc = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });

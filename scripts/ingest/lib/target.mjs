@@ -18,7 +18,8 @@ import { join } from "node:path";
 /** The staging project (docs/STAGING.md). Never a production target. */
 export const STAGING_REF = "qpjwnxptitnmtsznjvkw";
 /** The production project as the repository's docs record it (docs/for-collaborators.md). Never a staging target. */
-export const KNOWN_PRODUCTION_REFS = ["itpyyexhmvosxcbcagvy"];
+/** "beer and beer" (qxumavffsnreyqcuxlof) is production from 2026-11-09; "beer tnd beer" (itpyyexhmvosxcbcagvy) was until then and is kept here so it can never become a staging target. */
+export const KNOWN_PRODUCTION_REFS = ["qxumavffsnreyqcuxlof", "itpyyexhmvosxcbcagvy"];
 
 export const ENV_FILES = { staging: ".env.staging.local", production: ".env.production.local" };
 

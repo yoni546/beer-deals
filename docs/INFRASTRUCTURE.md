@@ -18,6 +18,8 @@ Rules that keep them apart:
 - The service-role key and VAPID private key exist only in Vercel (per environment) and in
   the owner's password manager. They are never written to a file in this repository.
 
+> **2026-11-09:** production moved to the Supabase project "beer and beer" (`qxumavffsnreyqcuxlof`, Frankfurt `eu-central-1`). The measurements below are of the previous project (`itpyyexhmvosxcbcagvy`, Tokyo) and are kept as history.
+
 ## Where the database and the functions run (evidence, not assumption)
 
 Every page is rendered on demand and makes several sequential database calls (session
@@ -86,6 +88,12 @@ byte per page. Expect the function to sit next to the database and server time t
 from seconds to a few hundred milliseconds. (Moving the function next to a Tokyo database
 makes the *first byte* travel Tokyo→Israel once, instead of the function crossing an ocean
 several times.)
+
+### 2026-11-10: database moved to Frankfurt, functions follow
+
+Production moved to `qxumavffsnreyqcuxlof` (`eu-central-1`, Frankfurt), so `vercel.json` now pins
+`"regions": ["fra1"]`. Leaving it on `hnd1` would have sent every request Israel → Tokyo → Frankfurt
+and back. The `hnd1` history below is kept as history.
 
 ### 2026-09-29 (later): what changed, and the "before" numbers
 

@@ -27,7 +27,7 @@ $ErrorActionPreference = "Stop"
 
 $repo = Split-Path -Parent $PSScriptRoot
 $publishers = "victory,mahsanei,hatzi-hinam"
-$ref = "itpyyexhmvosxcbcagvy"   # the production project; run.mjs refuses to write unless this matches its env file
+$ref = "qxumavffsnreyqcuxlof"   # the production project; run.mjs refuses to write unless this matches its env file
 
 $logDir = Join-Path $repo "logs\weekly-blocked-chains"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }

@@ -13,6 +13,7 @@ describe("ingestion target", () => {
     expect(checkTarget({ target: "staging", env: env(STAGING_REF, "staging") })).toEqual({ target: "staging", ref: STAGING_REF });
     expect(() => checkTarget({ target: "staging", env: env(STAGING_REF, "production") })).toThrow(/APP_ENV must be "staging"/);
     expect(() => checkTarget({ target: "staging", env: env("itpyyexhmvosxcbcagvy", "staging") })).toThrow(/PRODUCTION project/);
+    expect(() => checkTarget({ target: "staging", env: env("qxumavffsnreyqcuxlof", "staging") })).toThrow(/PRODUCTION project/);
   });
 
   it("accepts production only with APP_ENV=production and the operator's matching --confirm-ref", () => {
