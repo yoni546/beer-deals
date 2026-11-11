@@ -10,7 +10,7 @@
  */
 
 /** The production Supabase project (public: it is in the site's own URLs and docs). */
-export const PRODUCTION_SUPABASE_REF = "itpyyexhmvosxcbcagvy";
+export const PRODUCTION_SUPABASE_REF = "qxumavffsnreyqcuxlof";
 
 export type EnvironmentName = "production" | "staging" | "preview" | "development" | "test";
 

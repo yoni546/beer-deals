@@ -16,8 +16,8 @@ This file is **not** in git, deliberately — it is the one file that must never
 be. Create it in the project root and paste this in:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL="https://itpyyexhmvosxcbcagvy.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_V191xWujPuNhdjSbzRot7g_V95eaF9k"
+NEXT_PUBLIC_SUPABASE_URL="https://qxumavffsnreyqcuxlof.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_NjHVGq-LEnsrqG8AKL9u-g_mb-XE6eZ"
 NEXT_PUBLIC_SITE_URL="http://localhost:3100"
 ```
 

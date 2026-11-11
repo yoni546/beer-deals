@@ -6,6 +6,31 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.43.1 — 2026-11-09
+
+**מחיקת חשבון עובדת** · Fix
+
+- מחיקת החשבון בהגדרות נתקעה ולא הסתיימה. עכשיו היא נגמרת תוך רגע.
+
+Internal:
+
+- Migration 0071: production's first real delete_my_account() (0070) failed with 'canceling statement due to statement timeout'. Deleting an auth user visits every referencing row; price_observations.created_by (810 MB) had no index, so each deletion read the whole ledger. Partial index price_obs_created_by (where created_by is not null: feed rows have none, so it is tiny), plus indexes on the small unindexed links (deals.approved_by, offer_feedback.reported_by, deal_reports.resolved_by, admins.added_by, submission_blocks.blocked_by).
+- tests/delete-my-account.test.ts now fails if any public column referencing auth.users lacks an index. Building the price index reads the table once and blocks writes meanwhile: apply outside 05:00–11:00 UTC. Rollback: supabase/rollback/0071_index_every_link_to_a_person.down.sql.
+
+## 0.43.0 — 2026-11-07
+
+**מדיניות פרטיות ומחיקת חשבון** · Feature
+
+- יש עכשיו דף מדיניות פרטיות שמסביר מה נשמר עליכם ומי עוד רואה מידע.
+- בהגדרות, תחת ״הפרטיות שלי״, אפשר למחוק את החשבון ואת כל מה שנשמר עליו.
+
+Internal:
+
+- First step of the app-store release (Google Play and App Store both require an in-app account deletion and a privacy policy URL).
+- Migration 0070 delete_my_account(): SECURITY DEFINER, no argument, deletes auth.users where id = auth.uid(); everything personal cascades (profile, favourites, watchlist, contributors, display_name_changes, push, deliveries, feedback, submitter block); deals.created_by is set null, so submitted deals and their photos stay unattributed. Admins are refused. Rollback: supabase/rollback/0070_delete_my_account.down.sql.
+- /privacy: static, no session, excluded from the middleware matcher together with /.well-known/ (for assetlinks.json and apple-app-site-association next). Contact beerdeals.app@gmail.com (src/lib/privacy.ts). tests/privacy.test.ts pins the page's claims to the code (no analytics packages, 4-decimal location, cookie holds keys only).
+- Needs applying to production: 0070.
+
 ## 0.42.2 — 2026-11-07 (internal)
 
 **עדכון המחירים היומי חוזר לעבוד** · Fix, Data

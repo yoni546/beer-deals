@@ -101,8 +101,10 @@ export const config = {
      * outside the page's credential context. The notification worker's and the cache
      * doorbell's endpoints have their own bearer-token check and must not mint an anonymous
      * user for every scheduler call. The bottle photos are public static files; running the
-     * session machinery for each one only added latency to the LCP image.
+     * session machinery for each one only added latency to the LCP image. /privacy is opened from the app
+     * stores by reviewers and strangers, and must not mint an account for every reader; /.well-known/ is
+     * read by Android and iOS to verify the apps (assetlinks.json, apple-app-site-association).
      */
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|bottles/|onboarding/|screenshots/|api/notifications/|api/cache/|api/version).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|bottles/|onboarding/|screenshots/|api/notifications/|api/cache/|api/version|privacy|\.well-known/).*)",
   ],
 };

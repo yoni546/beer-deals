@@ -51,3 +51,4 @@ backups/
 
 # Output of the weekly local import (scripts/weekly-blocked-chains.ps1). Re-creatable.
 logs/
+android/build/

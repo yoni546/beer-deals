@@ -1,0 +1,61 @@
+name: Android app (Google Play bundle)
+
+# Builds the signed Android App Bundle for Google Play from the live site (scripts/android/build-twa.mjs).
+# Manual only: run it when a new app version is to be uploaded. The bundle is the same file anyone can
+# download from Google Play once it is published, so keeping it as an artifact exposes nothing; the upload
+# key is only ever in the ANDROID_KEYSTORE_BASE64 secret and the runner's temp folder.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the signing secrets exist
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KSP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for v in KS KSP KP; do
+            if [ -z "${!v}" ]; then echo "::error::missing secret (see docs/APP-STORES.md, 'the upload key')"; exit 1; fi
+          done
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the TWA builder (not an app dependency)
+        run: npm install --no-save @bubblewrap/core@1.27.0
+
+      - name: Build and sign
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          node scripts/android/build-twa.mjs --version-code "${{ github.run_number }}"
+
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.keystore"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-app-bundle
+          path: android/build/*.aab
+          retention-days: 14
