@@ -3,6 +3,60 @@
 Short, dated notes on things that cost real time. Each says what was seen, how it was
 narrowed down, and what the code does about it now.
 
+## 2026-11-08 — A fix that is not merged is not a fix
+
+**Seen.** The weekly local import of the three geo-blocked chains died again on 8 November,
+on the identical line it had died on when the task was first registered: the first of the 39
+routine "barcode … already belongs to another SKU" warnings, which PowerShell 5.1 wraps in an
+error record and `$ErrorActionPreference = "Stop"` then treats as fatal.
+
+**Why it came back.** It never went away. The fix was a second commit pushed to the branch
+after #52 had already been merged, so it sat unmerged for a week while `main` carried the
+broken script. The first scheduled run, on 1 November, happened to carry no warning and
+succeeded, which made it look fixed. Nothing checks that a branch is empty after its pull
+request merges; the habit has to.
+
+**And a second fault underneath it.** The 8 November 09:00 occurrence never ran at all —
+the machine was off, and Windows moved on to the 15th instead of catching up, so a whole
+week would have been skipped. Task history is off by default on this machine, so there is
+no record of why "start when available" did not fire. The answer was to stop depending on
+it: the task now also fires ten minutes after every logon, and the script keeps its own
+clock — it reads the newest log that ends in `done` and skips if that was less than six days
+ago. Six, not seven, so the weekly run is never the one skipped.
+
+**And a trap found while recovering.** A write killed part-way leaves its ingestion runs
+`running`, and `start_ingestion_run` answers "already imported" to any later run of the same
+files whose run is still `running`. 0067 only marks such a run failed after four hours. So
+the obvious reaction — fix the script, run it again — writes nothing and reports success.
+Either wait out the four hours or roll the dead runs back first. Written down in
+docs/WEEKLY-IMPORT.md; the underlying rule is a migration, and has not been changed.
+
+**The rule.** After a pull request merges, check the branch has nothing left on it.
+And a scheduled task that fires once a week on a laptop needs a second way in.
+## 2026-10-31 — A scheduled task nobody has triggered is a guess
+
+**Seen.** The weekly local import of the three geo-blocked chains (docs/WEEKLY-IMPORT.md)
+was registered in the Windows Task Scheduler and reported `Ready`. Triggering it by hand
+found two faults in a row, neither of which the registration showed.
+
+**One: it will not run on battery.** The task sat in `Queued` and never started.
+`schtasks /query /v` says why — "Stop On Battery Mode, No Start On Batteries", which is
+Windows' default for a new task. The machine is a laptop, so that is the normal state on a
+Sunday morning, and the task would simply never have run. Fixed with
+`-AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`.
+
+**Two: PowerShell counts a warning as a failure.** The script piped the import's output
+with `2>&1` under `$ErrorActionPreference = "Stop"`. PowerShell 5.1 wraps each stderr line
+of a native program in an error record, so the first of the 39 routine "barcode … already
+belongs to another SKU — left as it is, review it" warnings ended the pipeline and killed a
+healthy write half-way through, leaving an ingestion run `running` for ever. (0067 closes
+such a run after four hours, and what it wrote stays valid, so nothing was lost.) The two
+calls now drop to `Continue` and the exit code alone decides. `[Console]::OutputEncoding`
+is set to UTF-8 in the same place, or the Hebrew chain names arrive as mojibake.
+
+**The rule.** Register nothing without firing it once and reading its log. Both faults
+were invisible from the registration and both were total.
+
 ## 2026-10-26 — The slowness is the Tokyo hop, and prefetch cannot hide it
 
 **Seen.** The owner: "between pages it takes ages to load, the deals page and the beers page

@@ -119,7 +119,10 @@ const upsertBranch = (retailer, b, patchRow) => {
 };
 async function writeBranch(key, retailer, b, patchRow) {
   const store_id = stores.get(retailer);
-  if (!store_id) throw new Error(`unknown retailer ${retailer}`);
+  // A retailer the publishers know and this database does not means the target is behind the
+  // migrations: every store row is created by one. Staging failed on `salach-dabach` every night
+  // from 5 to 8 November 2026 saying only "unknown retailer", which reads like a parser fault.
+  if (!store_id) throw new Error(`unknown retailer ${retailer} — no row in public.stores. Store rows come from the migrations, so this target is behind: apply the ones it has not run (see docs/setup.md).`);
   if (branchIds.has(key)) {
     if (Object.keys(patchRow).length) await must("branch update", () => db.from("branches").update(patchRow).eq("id", branchIds.get(key)));
     return branchIds.get(key);
