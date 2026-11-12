@@ -1,0 +1,46 @@
+-- ---------------------------------------------------------------------------
+-- 0072 · The Deal Score refresh reads an index, not the whole price ledger
+--
+-- MEASURED, production, 2026-11-11, on the first import after the move to
+-- Frankfurt: `deal scores: FAILED canceling statement due to statement timeout
+-- (120.2s)`. Reproduced three times by calling refresh_offer_scores() directly:
+-- 120.3s, 120.7s, 121.1s. The ceiling is service_role's 120s (0056).
+--
+-- WHAT IT IS READING. The function's `history` CTE is the whole of the work:
+--
+--     from public.price_observations p
+--    where p.observed_at >= now() - interval '180 days'
+--      and p.status in ('live', 'superseded')
+--    group by p.sku_id
+--
+-- Counted on production the same evening: 81,395 rows are `live` and 741,475
+-- are `superseded`, and 822,870 of the 842,019 fall inside the 180 days. Every
+-- index this table has that mentions `status` is `where status = 'live'`
+-- (0014, 0069), so nine tenths of what this reads has no index at all. The
+-- planner's only option is to read the table and sort it, and a median
+-- (percentile_cont) per pack makes that sort unavoidable.
+--
+-- NOT STATISTICS. `analyze public.price_observations` and then `analyze` were
+-- run before this was written, and the next call still took 121.1s. A copied
+-- database does arrive without statistics, which was the first suspicion and
+-- the cheaper fix; it was not this.
+--
+-- NOT THE MOVE EITHER, except in timing. The same function took 20-35s on the
+-- Tokyo project, which is under 120 but not by much, with the ledger growing
+-- daily. The move did not break this; it spent the last of the margin.
+--
+-- WHAT THIS ADDS. One partial index covering the three columns that CTE reads,
+-- in the order it reads them: the pack it groups by, the date it filters on,
+-- and the price it takes the minimum and the median of. Postgres can then walk
+-- it in sku_id order and aggregate each pack as it goes -- no heap, no sort.
+--
+-- COST. About 820,000 entries, roughly 40 MB. Building it reads the table once
+-- and BLOCKS WRITES to it meanwhile, so apply it outside 05:00-11:00 UTC, when
+-- the daily import writes. Reads are not blocked at any point.
+--
+-- Rollback: supabase/rollback/0072_scores_read_an_index_not_the_ledger.down.sql.
+-- ---------------------------------------------------------------------------
+
+create index if not exists price_obs_scores
+  on public.price_observations (sku_id, observed_at, price_agorot)
+  where status in ('live', 'superseded');
