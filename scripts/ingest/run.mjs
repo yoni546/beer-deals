@@ -393,6 +393,14 @@ for (const r of runs.values()) {
 // log nobody reads and a date on a screen that stopped moving. A number beside
 // each one says whether its 120-second ceiling (0056) is still enough, while
 // there is room to notice that it is not.
+// MEASURED, production, 2026-11-11: `deal scores: FAILED canceling statement due to
+// statement timeout (120.2s)` — and the workflow went green, because the gate below
+// counted refused records and never looked here. The one line saying so was in the
+// middle of a twenty-minute log. A refresh that fails leaves the app serving
+// yesterday's derived numbers until the next run, which is exactly the kind of
+// failure that has to announce itself.
+const staleRefreshes = [];
+
 for (const [label, fn, key] of [
   // Which branches have which promotion (0059) — the map reads this, and it is
   // first because it is derived from the occurrences this run has just written.
@@ -406,6 +414,9 @@ for (const [label, fn, key] of [
   const seconds = Math.round((Date.now() - started) / 100) / 10;
   written[key] = error ? { failed: error.message, seconds } : { rows: data ?? null, seconds };
   console.log(`${label}: ${error ? `FAILED ${error.message}` : `ok, ${data ?? ""}`} (${seconds}s)`);
+  // Named here rather than worked out again at the gate, so that adding a refresh
+  // above cannot leave it outside the gate by accident.
+  if (error) staleRefreshes.push(label);
 }
 
 // The app holds the catalogue and the feeds for five minutes under one cache tag, and
@@ -439,15 +450,24 @@ written.seconds = Math.round((Date.now() - t0) / 1000);
 written.branchesWritten = toSend.length;
 written.branchesSkippedAsImported = plan.units.length - toSend.length;
 writeFileSync(join(OUT, scan ? `${scan.scanId}-${target}-write.json` : `${target}-write.json`), JSON.stringify(written, null, 2));
-console.log(JSON.stringify({ seconds: written.seconds, branchesWritten: toSend.length, regular: written.regular, promotions: written.promotions, groups: written.groups, closed: written.closed, errors: written.errors.length }));
+// The line a person actually reads. `refreshesFailed` is in it even when empty, so that its
+// absence is never mistaken for everything having worked.
+console.log(JSON.stringify({ seconds: written.seconds, branchesWritten: toSend.length, regular: written.regular, promotions: written.promotions, groups: written.groups, closed: written.closed, errors: written.errors.length, refreshesFailed: staleRefreshes }));
 if (written.errors.length) console.log(written.errors.slice(0, 10));
 console.log(`wrote ${reportPath}`);
 
-// Quality gate: a record the database refused means the plan and the schema disagree. The run stays
-// (it can be inspected, or undone with rollback_ingestion_run), but the caller must not go on to
-// announce anything: exit non-zero so the scheduled workflow skips the notification step.
+// Quality gate: a record the database refused means the plan and the schema disagree, and a refresh
+// that failed means the tables the app actually reads were not rebuilt from what this run wrote. The
+// run stays either way (it can be inspected, or undone with rollback_ingestion_run), but the caller
+// must not go on to announce anything: exit non-zero so the scheduled workflow skips the
+// notification step, and so the run is RED rather than green with one line of bad news in it.
+//
+// The cache doorbell above is deliberately not here. It fails for five minutes at worst and then
+// fixes itself; these do not fix themselves until tomorrow's run.
 const rejected = written.regular.rejected + written.promotions.rejected;
-if (written.errors.length > 0 || rejected > 0) {
-  console.error(`QUALITY GATE FAILED: ${rejected} records rejected, ${written.errors.length} errors. Nothing will be announced.`);
+if (written.errors.length > 0 || rejected > 0 || staleRefreshes.length > 0) {
+  const parts = [`${rejected} records rejected`, `${written.errors.length} errors`];
+  if (staleRefreshes.length) parts.push(`${staleRefreshes.length} refresh(es) failed: ${staleRefreshes.join(", ")}`);
+  console.error(`QUALITY GATE FAILED: ${parts.join(", ")}. Nothing will be announced.`);
   process.exit(2);
 }

@@ -435,6 +435,22 @@ describe("the staging ingestion workflow", () => {
     // Any failure closes the runs this write started as failed, then stops with a non-zero exit.
     expect(run).toMatch(/async function abort[\s\S]*?finish_ingestion_run[\s\S]*?p_status: "failed"[\s\S]*?throw new Error\(message\)/);
   });
+
+  it("fails the run when a refresh failed, so a stale catalogue cannot pass as a green import", () => {
+    const run = readFileSync(join(__dirname, "..", "scripts/ingest/run.mjs"), "utf8");
+    // MEASURED, production, 2026-11-11: refresh_offer_scores hit its 120s ceiling, printed FAILED,
+    // and the workflow went green -- the gate counted refused records and never looked at the
+    // refreshes. A refresh that fails leaves the app reading yesterday's derived tables.
+    expect(run).toContain("const staleRefreshes = []");
+    // Every refresh in the loop reports itself, rather than the gate re-deriving the list.
+    expect(run).toMatch(/if \(error\) staleRefreshes\.push\(label\);/);
+    // ...and the gate reads it.
+    expect(run).toMatch(/if \(written\.errors\.length > 0 \|\| rejected > 0 \|\| staleRefreshes\.length > 0\) \{/);
+    // The summary line carries it even when empty, so its absence is never read as success.
+    expect(run).toMatch(/refreshesFailed: staleRefreshes/);
+    // The cache doorbell stays out of the gate: it fails for five minutes, not until tomorrow.
+    expect(run).not.toMatch(/staleRefreshes\.push\("cache/);
+  });
 });
 
 describe("the notification worker workflow", () => {
