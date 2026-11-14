@@ -5,9 +5,35 @@ import { publicEnv } from "@/lib/env";
 /** How close to expiry a token must be before we spend a round trip refreshing it. */
 const REFRESH_WITHIN_SECONDS = 120;
 
-/** Does the browser claim to have a session at all? (@supabase/ssr may split it across chunks.) */
+/**
+ * The project this build talks to, as it appears in its own cookie names.
+ *
+ * `null` only if the URL is not a Supabase one, which `publicEnv` would already have
+ * refused to start on; the caller falls back to the old, broader test rather than
+ * guessing, because being wrong in that direction costs a person their account.
+ */
+const PROJECT_REF = /^https:\/\/([a-z0-9]+)\.supabase\./.exec(publicEnv.supabaseUrl)?.[1] ?? null;
+
+/**
+ * Does the browser claim to have a session **with this project**?
+ * (@supabase/ssr may split it across chunks: sb-<ref>-auth-token.0, .1 …)
+ *
+ * MEASURED, production, 2026-11-14, three days after the move to Frankfurt: every
+ * returning visitor was stuck on "לא הצלחנו להתחבר", permanently, while a browser
+ * that had never opened the app worked. Their browsers still held
+ * `sb-itpyyexhmvosxcbcagvy-auth-token` — the OLD project's cookie. This test matched
+ * it on the `sb-`/`auth-token` shape alone, so the branch below read "a cookie we
+ * cannot decode" and passed the request through without minting an identity, exactly
+ * as it is meant to for a half-written chunk. But a cookie addressed to another
+ * project is not this project's unreadable session: it can never become readable, so
+ * passing through means that visitor never gets a session again.
+ *
+ * Scoped to this project's ref, the old cookie is simply someone else's and the
+ * visitor is treated as new, which after a project move is what they are.
+ */
 function hasAuthCookie(request: NextRequest): boolean {
-  return request.cookies.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
+  const prefix = PROJECT_REF ? `sb-${PROJECT_REF}-` : "sb-";
+  return request.cookies.getAll().some(({ name }) => name.startsWith(prefix) && name.includes("auth-token"));
 }
 
 /**
