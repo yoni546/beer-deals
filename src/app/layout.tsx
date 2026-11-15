@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Rubik } from "next/font/google";
 import "./globals.css";
 import { getViewer } from "@/lib/session";
+import { currentAppearance } from "@/lib/appearance.server";
 import { publicEnv } from "@/lib/env";
 import { chromeColors, getThemeForBeer, themeStyleSheet } from "@/design/themes";
 import { BottleBackdrop } from "@/components/ui/Bottle";
@@ -72,7 +73,7 @@ const REVEAL_SCRIPT = `addEventListener("pagereveal",function(e){var t=e.viewTra
 const appVersion = packageJson.version;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const preset = await currentTheme();
+  const [preset, appearance] = await Promise.all([currentTheme(), currentAppearance()]);
   const chrome = chromeColors(preset);
 
   return (
@@ -80,10 +81,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         {/* Generated from our own theme data (src/design/themes.ts): fixed hex values,
             no user-supplied text ever reaches this stylesheet. */}
-        <style id="theme" dangerouslySetInnerHTML={{ __html: themeStyleSheet(preset) }} />
+        <style id="theme" dangerouslySetInnerHTML={{ __html: themeStyleSheet(preset, appearance) }} />
         <script dangerouslySetInnerHTML={{ __html: REVEAL_SCRIPT }} />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content={chrome.light} />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content={chrome.dark} />
+        {/* The status bar follows the same choice. Two tags only while the phone decides;
+            one fixed colour once a person has said which mode they want, or the bar would
+            keep answering to a setting the rest of the screen no longer obeys. */}
+        {appearance === "system" ? (
+          <>
+            <meta name="theme-color" media="(prefers-color-scheme: light)" content={chrome.light} />
+            <meta name="theme-color" media="(prefers-color-scheme: dark)" content={chrome.dark} />
+          </>
+        ) : (
+          <meta name="theme-color" content={chrome[appearance]} />
+        )}
       </head>
       <body className="antialiased" data-theme={preset.beerId}>
         <LaunchScreen />

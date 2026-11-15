@@ -60,10 +60,19 @@ describe("favourite #1 is the app — the locked product rule", () => {
     for (const forbidden of ["resolveTheme", "ALL_THEMES", "isThemeSlug", "swatches", "themeFor"]) {
       expect(exported, `${forbidden} is a manual-theme API`).not.toContain(forbidden);
     }
-    expect(themeStyleSheet.length).toBe(1); // no appearance parameter either
+    // themeStyleSheet now takes the light/dark choice as a second argument (asserted below by what it
+    // writes, not by arity: the parameter has a default, and Function.length stops at the first one).
+    // What it still does NOT take is a beer, which is the part of this rule that has not changed.
+    expect(themeStyleSheet(getThemeForBeer("goldstar"), "dark")).not.toBe(themeStyleSheet(getThemeForBeer("goldstar")));
   });
 
-  it("has no code, action or schema anywhere for a theme override or an in-app light/dark choice", () => {
+  // CHANGED 2026-11-14, deliberately. This test used to forbid an in-app light/dark choice as well,
+  // because DESIGN.md said the phone decides and a picker built once had been removed. The owner
+  // asked for the choice back, so the rule changed in DESIGN.md and here together rather than being
+  // quietly worked around. What it still forbids is the part that was never in question: choosing a
+  // BEER's look by hand. Colour comes from favourite #1, and this picks which of that beer's two
+  // generated modes is shown -- nothing more.
+  it("has no code, action or schema anywhere for choosing a beer's look by hand", () => {
     const offenders: string[] = [];
     const scan = (dir: string) => {
       for (const name of readdirSync(dir)) {
@@ -71,7 +80,7 @@ describe("favourite #1 is the app — the locked product rule", () => {
         if (statSync(path).isDirectory()) scan(path);
         else if (/\.(tsx?|sql)$/.test(name)) {
           const text = readFileSync(path, "utf8");
-          if (/theme_override|themeOverride|saveAppearance|ThemePicker|data-mode|profiles?\.appearance/.test(text)) offenders.push(relative(ROOT, path));
+          if (/theme_override|themeOverride|ThemePicker|profiles?\.appearance/.test(text)) offenders.push(relative(ROOT, path));
         }
       }
     };
@@ -83,6 +92,33 @@ describe("favourite #1 is the app — the locked product rule", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("keeps the light/dark choice out of the database entirely", () => {
+    // It is a cookie, so it works before onboarding and can differ between a phone at night and a
+    // laptop at noon. A profile column would have made it an account-wide fact, which it is not.
+    const appearance = readFileSync(join(ROOT, "src", "lib", "appearance.ts"), "utf8");
+    expect(appearance).toContain("APPEARANCE_COOKIE");
+    const action = readFileSync(join(ROOT, "src", "lib", "actions", "appearance.ts"), "utf8");
+    expect(action).not.toMatch(/supabase|from\("profiles"\)|rpc\(/);
+  });
+
+  it("writes one mode and no media query once a person has chosen, and both while they have not", () => {
+    const preset = getThemeForBeer("goldstar");
+    const system = themeStyleSheet(preset, "system");
+    expect(system).toContain("prefers-color-scheme:dark");
+
+    for (const mode of ["light", "dark"] as const) {
+      const sheet = themeStyleSheet(preset, mode);
+      // No media query at all: nothing the device says can override a stated choice.
+      expect(sheet, mode).not.toContain("prefers-color-scheme");
+      expect(sheet, mode).toContain(`color-scheme:${mode}`);
+      expect(sheet, mode).toContain(`url(#bottle-tone-${mode})`);
+      // ...and it is that mode's own colours, not the other's.
+      expect(sheet, mode).toContain(preset.modes[mode].surface);
+    }
+    expect(themeStyleSheet(preset, "light")).not.toBe(themeStyleSheet(preset, "dark"));
+    // Called with nothing, it behaves exactly as it did before this existed.
+    expect(themeStyleSheet(preset)).toBe(system);
+  });
   it("falls back to the neutral house look — with no bottle — for a beer without an identity", () => {
     for (const slug of ["somersby", "a-beer-added-later", null, undefined, ""]) {
       const preset = getThemeForBeer(slug);
