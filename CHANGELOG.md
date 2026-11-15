@@ -6,6 +6,21 @@ Versioning: PATCH = fix / copy / data, MINOR = new user-visible capability,
 MAJOR = data-model or navigation rebuild. Every meaningful change ships an entry
 (see CLAUDE.md).
 
+## 0.44.0 — 2026-11-14
+
+**בהיר או כהה, לבחירתכם** · Feature
+
+- בהגדרות, תחת ״מראה״, אפשר לבחור: לפי הטלפון, בהיר, או כהה.
+- עד היום הטלפון החליט ולא הייתה דרך לעקוף אותו. עכשיו יש.
+- הצבעים עצמם ממשיכים להגיע מהבירה הראשית שלכם — הבחירה היא רק בין בהיר לכהה.
+
+Internal:
+
+- AppearanceChoice (three radios in SubmitDealForm's pattern: a real input behind its label, so it is one tab stop with arrow keys and announces as a group) writes a cookie through a server action; themeStyleSheet(preset, appearance) then writes ONE mode and no media query once a choice exists, and both modes behind prefers-color-scheme until then. theme-color follows: a pair while the phone decides, one fixed colour after.
+- A cookie, not a profile column: the server must know before it writes the stylesheet or the first paint flashes the wrong mode, and the same account can want different answers on a phone at night and a laptop at noon. It also works before onboarding. src/lib/appearance.ts holds the constants (no next/headers -- the Client Component imports the labels from it); appearance.server.ts reads the cookie.
+- DESIGN.md's rule changed in writing rather than being worked around: 'there is no in-app switch' and the anti-pattern line became 'choosing a BEER's look by hand', and tests/design.test.ts was updated with the same reasoning. What is still forbidden is unchanged: colour comes from favourite #1, and no theme override reaches code or schema.
+- tests/e2e/appearance.spec.ts asserts it on the served HTML of a real navigation -- the bytes that decide the first paint -- not on the DOM after hydration, which would pass even if the mode were restored by a script.
+
 ## 0.43.1 — 2026-11-09
 
 **מחיקת חשבון עובדת** · Fix

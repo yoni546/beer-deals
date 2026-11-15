@@ -8,6 +8,7 @@ import { FavouritesEditor } from "@/components/FavouritesEditor";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { LocationEditor } from "@/components/LocationEditor";
 import { PushToggle } from "@/components/PushToggle";
+import { AppearanceChoice } from "@/components/AppearanceChoice";
 import { Tape } from "@/components/ui/Tape";
 import { BookmarkIcon, ChevronLeftIcon } from "@/components/ui/icons";
 import { ShareApp } from "@/components/ShareApp";
@@ -19,6 +20,7 @@ import { WatchlistEditor } from "@/components/WatchlistEditor";
 import { getBeers, getBeersById, getMyWatchlist } from "@/lib/queries";
 import { latestRelease, latestVisibleVersion } from "@/lib/releases";
 import { getViewer } from "@/lib/session";
+import { currentAppearance } from "@/lib/appearance.server";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +41,8 @@ export default async function SettingsPage() {
   // Where they stand, and what it does (0038). Null until they choose a name: there
   // is no row before that, and inventing one would be a label nobody asked for.
   const standing = await myStanding(viewer.userId);
+  // A cookie, not a column: the choice belongs to the device in someone's hand.
+  const appearance = await currentAppearance();
   if (viewer.degraded && !viewer.isOnboarded) {
     return (
       <Screen>
@@ -111,6 +115,10 @@ export default async function SettingsPage() {
             enabled={viewer.profile?.notifications_enabled ?? false}
             primaryBeerName={viewer.primaryBeer?.name_he ?? null}
           />
+        </Section>
+
+        <Section id="s-look" title="מראה" note="הצבעים תמיד מגיעים מהבירה הראשית שלכם. כאן בוחרים רק בהיר או כהה.">
+          <AppearanceChoice current={appearance} />
         </Section>
 
         <Section id="s-app" title="האפליקציה">

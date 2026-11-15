@@ -61,8 +61,14 @@ component (`src/design/`):
 - **Guaranteed contrast.** The generator moves lightness until each text role passes: text on
   paper ≥ 4.5:1, price ink on paper ≥ 5:1, text on the counter ≥ 4.5:1, deal chip ≥ 4.5:1, focus
   ring ≥ 3:1 on both. A theme that cannot pass does not build (`tests/design.test.ts`).
-- **Light and dark** are both generated from the same primitives; the phone's setting chooses.
-  There is no in-app switch.
+- **Light and dark** are both generated from the same primitives. The phone's setting chooses
+  until a person says otherwise: Settings → **מראה** offers `לפי הטלפון · בהיר · כהה`
+  (`AppearanceChoice`). The answer is a cookie, read on the server, so the first paint is
+  already right — a mode restored from `localStorage` would flash the wrong one. It is not a
+  profile column: the same account can reasonably want different answers on a phone at night
+  and a laptop at noon, and a cookie works before onboarding, which is where someone squinting
+  at a bright screen goes looking. **The choice is light-or-dark only** — the colours still
+  come from favourite #1 and from nothing else.
 - **Distinct on purpose.** No two beers may sit closer than a set OKLab distance on counter, accent
   and label (`tests/design.test.ts`).
 - **Identity, not trade dress.** A beer's colours are its own (Goldstar's black and gold, Heineken's
@@ -232,8 +238,8 @@ itself stays the big figure; per litre is secondary.
 
 ## Things not to do
 
-A theme picker or any other way to choose a look by hand; a raw white-background product photo, or any
+Choosing a *beer's* look by hand (light or dark is the one thing a person may pick, above); a raw white-background product photo, or any
 photo whose background could not be removed; a redrawn or "improved" label;
 rounded card stacks; gradient or glass surfaces; a beer emoji as a logo; brown-and-gold as a default;
-colour as the only signal; text under 12 px; a dark mode chosen by habit; tracked caps eyebrows; a new
+colour as the only signal; text under 12 px; a dark mode that is not generated from the same primitives; tracked caps eyebrows; a new
 colour that is not a token.

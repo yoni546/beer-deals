@@ -377,13 +377,28 @@ const cssVars = (preset: ThemePreset, m: Mode): string => {
   return Object.entries(entries).map(([k, v]) => `${k}:${v};`).join("");
 };
 
+/** One mode, fixed: no media query, so nothing the device says can change it. */
+const fixedMode = (preset: ThemePreset, m: Mode) =>
+  `:root{${cssVars(preset, m)}color-scheme:${m}}` +
+  `.bottle-art{filter:url(#bottle-tone-${m})}.bottle-side{filter:url(#bottle-tone-soft-${m})}`;
+
 /**
- * The stylesheet for the active beer: light values by default, dark values when the device asks
- * for dark. Generated per request for the ONE active beer, so no visitor downloads 21 palettes.
- * It also points the bottle at the tone filter for the current mode (the filters are rendered by
- * <BottleBackdrop>).
+ * The stylesheet for the active beer. Generated per request for the ONE active beer, so no
+ * visitor downloads 21 palettes. It also points the bottle at the tone filter for the mode
+ * being shown (the filters are rendered by <BottleBackdrop>).
+ *
+ * `appearance` is the person's choice (src/lib/appearance.ts). On "system" this is what it
+ * always was: light values, and dark ones behind `prefers-color-scheme`. On "light" or
+ * "dark" the server writes that mode's values and no media query at all.
+ *
+ * Writing one mode rather than overriding the other under an attribute is deliberate. The
+ * override form needs `:root:not([data-mode="light"])` inside the media query and a second
+ * `:root[data-mode="dark"]` block after it, and every later rule has to keep clear of that
+ * specificity. The server already knows the answer before the first byte, so it can simply
+ * say it once.
  */
-export function themeStyleSheet(preset: ThemePreset): string {
+export function themeStyleSheet(preset: ThemePreset, appearance: "system" | "light" | "dark" = "system"): string {
+  if (appearance !== "system") return fixedMode(preset, appearance);
   return (
     `:root{${cssVars(preset, "light")}color-scheme:light}` +
     `.bottle-art{filter:url(#bottle-tone-light)}.bottle-side{filter:url(#bottle-tone-soft-light)}` +
