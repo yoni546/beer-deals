@@ -15,6 +15,19 @@
 const CACHE = "beer-deals-v1";
 const OFFLINE_URL = "/offline.html";
 
+/**
+ * How long a navigation may wait for the network before the offline page is shown.
+ *
+ * Ten seconds is deliberately generous -- the slowest real page measured against
+ * production was about one second, so this is ten times the worst honest case and
+ * will not cut off anybody who is merely on a bad connection. It exists only to put
+ * a ceiling on a request that has stopped answering altogether.
+ */
+const NAVIGATION_TIMEOUT_MS = 10_000;
+
+/** A value no Response can be, so the race's winner is never ambiguous. */
+const TIMED_OUT = Symbol("timed out");
+
 const ICONS = ["/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -59,11 +72,37 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    // Always live. Fall back to the offline page only when the network fails.
+    // Always live. Fall back to the offline page when the network fails -- OR when it
+    // stops answering, which is not the same thing and used to be indistinguishable
+    // from the app being broken.
+    //
+    // REPORTED 2026-11-22: "more than a second, sometimes half a minute." A fetch over
+    // a mobile network that has dropped does not fail quickly; it hangs until the OS
+    // gives up, which can be tens of seconds, and this handler waited for exactly as
+    // long as that took while the person looked at nothing. Nothing in the app said so,
+    // because as far as the app was concerned the navigation had not finished yet.
+    //
+    // NAVIGATION_TIMEOUT is a ceiling on that wait, not a performance budget: a slow
+    // connection that answers in eight seconds still gets its page. Past it, saying
+    // "no connection" with something to tap is better than a blank screen that might
+    // come back.
     event.respondWith(
       (async () => {
+        const abort = new AbortController();
+        const giveUp = new Promise((resolve) => {
+          setTimeout(() => {
+            abort.abort();
+            resolve(TIMED_OUT);
+          }, NAVIGATION_TIMEOUT_MS);
+        });
         try {
-          return (await event.preloadResponse) || (await fetch(request));
+          const preloaded = await Promise.race([event.preloadResponse, giveUp]);
+          if (preloaded === TIMED_OUT) throw new Error("navigation preload timed out");
+          // `fetch` is given the abort signal so the hung request is actually dropped
+          // rather than left running behind a response the person will never see.
+          const response = preloaded || (await Promise.race([fetch(request, { signal: abort.signal }), giveUp]));
+          if (response === TIMED_OUT) throw new Error("navigation timed out");
+          return response;
         } catch {
           // caches.match resolves to undefined when the offline page is not there,
           // and respondWith(undefined) rejects — so never hand it straight back.
