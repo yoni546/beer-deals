@@ -3,6 +3,37 @@
 Short, dated notes on things that cost real time. Each says what was seen, how it was
 narrowed down, and what the code does about it now.
 
+## 2026-11-22 — "Still very slow" meant the worst case, not the average
+
+**Seen.** After the move to Frankfurt cut time-to-first-byte from 1.2-2.5 s to 0.2-0.4 s, the owner
+said the app was still very slow: "more than a second, sometimes half a minute."
+
+**Every measurement said he was wrong, and he was not.** Twelve loads each of four pages, from a
+machine in Israel: /beer 0.29-0.53 s, /store 0.29-0.33, /map 0.27-0.46. Nothing near a second,
+nothing near thirty. The measurements were of the median, and he was describing the tail.
+
+**The tail was in the service worker.** Its navigation handler was `await fetch(request)` with no
+timeout. A fetch over a mobile network that has dropped does not fail quickly -- it hangs until the
+OS gives up, which can be tens of seconds -- and the handler waited exactly that long while the
+person looked at nothing. Nothing in the app said anything, because as far as the app was concerned
+the navigation had not finished. The fix is a ten-second ceiling, after which the offline page is
+shown and the hung request is aborted; ten seconds is ten times the slowest honest page, so nobody
+merely on a bad connection is cut off. tests/service-worker.test.ts drives it on fake timers, and
+without the fix that test does not fail -- it HANGS, for the full sixty-second test timeout, which
+is the bug stated exactly.
+
+**A thing tried and removed on the way.** `experimental.staleTimes.dynamic = 30`, to stop a tap back
+to the tab you just left from paying the server again (measured at 424 ms on CI hardware against a
+local database). It made no measurable difference -- 424 ms before, 479 ms after -- so it was taken
+out again rather than shipped as a plausible-sounding setting nobody had proved. The round trip on
+return is real and still unsolved; it is just not solved by that flag.
+
+**Also measured, not yet addressed.** Home costs 0.65-1.27 s against 0.3 s for every other page. It
+awaits the watchlist before its parallel batch rather than inside it, and the whole offers feed is
+926 KB and 0.81 s to read while group offers is another 0.95 s.
+
+**The rule.** When somebody says it is slow and the numbers say it is fast, the numbers are
+answering a different question. Measure the worst case, not the middle.
 ## 2026-11-08 — A fix that is not merged is not a fix
 
 **Seen.** The weekly local import of the three geo-blocked chains died again on 8 November,

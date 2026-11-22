@@ -40,7 +40,18 @@ function boot() {
     await Promise.all(waits);
     return notification;
   };
-  return { push, tap, shown, windows, openWindow };
+  /** Drive the fetch handler as a navigation, the way the browser does. */
+  const navigate = (url: string) => {
+    let responded: Promise<Response> | undefined;
+    listeners.get("fetch")!({
+      request: { method: "GET", url, mode: "navigate" },
+      preloadResponse: Promise.resolve(undefined),
+      respondWith: (p: Promise<Response>) => void (responded = p),
+    });
+    return responded!;
+  };
+
+  return { push, tap, shown, windows, openWindow, navigate };
 }
 
 describe("push", () => {
@@ -127,5 +138,71 @@ describe("tapping a notification", () => {
     windows.push(foreground);
     await tap("//evil.example/phish");
     expect(foreground.navigate).toHaveBeenCalledWith(`${ORIGIN}/`);
+  });
+});
+
+describe("a navigation that stops answering", () => {
+  /**
+   * REPORTED 2026-11-22, by the owner, about the installed app: "more than a second,
+   * sometimes half a minute". A fetch over a mobile network that has dropped does not fail
+   * quickly -- it hangs until the OS gives up -- and this handler used to wait for exactly
+   * as long as that took, showing nothing, because as far as the app was concerned the
+   * navigation simply had not finished.
+   */
+  it("gives up after ten seconds and shows the offline page, instead of waiting for ever", async () => {
+    vi.useFakeTimers();
+    try {
+      // A network that never answers and never fails: the case that hung.
+      const hung = vi.fn(() => new Promise<Response>(() => {}));
+      vi.stubGlobal("fetch", hung);
+      const { navigate } = boot();
+
+      const navigation = navigate(`${ORIGIN}/beer`);
+      let settled = false;
+      void navigation.then(() => { settled = true; });
+
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(settled, "still waiting at nine seconds").toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      const response = await navigation;
+      expect(response.status).toBe(503);
+      expect(await response.text()).toContain("אין חיבור");
+
+      // The hung request is dropped rather than left running behind a response nobody sees.
+      expect(hung.mock.calls[0][1].signal.aborted).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not cut off a slow connection that is still answering", async () => {
+    vi.useFakeTimers();
+    try {
+      // Eight seconds is slow and real; it must still get its page.
+      vi.stubGlobal("fetch", () => new Promise<Response>((resolve) => setTimeout(() => resolve(new Response("<html>the page</html>", { status: 200 })), 8_000)));
+      const { navigate } = boot();
+      const navigation = navigate(`${ORIGIN}/beer`);
+      await vi.advanceTimersByTimeAsync(8_500);
+      const response = await navigation;
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("the page");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("still serves a normal navigation from the network, uncached", async () => {
+    vi.stubGlobal("fetch", async () => new Response("<html>live</html>", { status: 200 }));
+    try {
+      const { navigate } = boot();
+      const response = await navigate(`${ORIGIN}/`);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("live");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
